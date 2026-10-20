@@ -25,6 +25,9 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_WAZUH_PROXY_KEY | Secreto interno de autorización del proxy | El navegador no decide identidad/rol por cabeceras. |
 | SOC_GEOIP_DATABASE / SOC_ASN_DATABASE | Rutas a bases MMDB | Geografía/reputación de red son contexto aproximado, no atribución personal. |
 | SOC_REPORT_EMAIL_BACKEND | Backend de correo Django | No sustituye MailSettings ni bloquea el envío directo SendGrid. |
+| SOC_PORTAL_DB_ENGINE | `sqlite` (por defecto) o `postgresql` | Cambiarlo no traslada datos: seguir [base de datos](database.md). Otro valor detiene el arranque. |
+| SOC_PORTAL_DB_NAME / _USER / _PASSWORD / _HOST / _PORT / _SSLMODE | Conexión PostgreSQL | Solo con `postgresql`. Contraseña en el archivo protegido; `_SSLMODE` por defecto `prefer` (usar `require` o superior fuera del host local). |
+| SOC_PORTAL_DB_TEST_NAME | Ruta de base SQLite de archivo para pruebas | Solo para los ensayos de concurrencia; nunca la base real. |
 | SOC_NATIVE_ENGINE_GATE | `1` solo para ensayo optativo | Nunca activarlo en servicios de producción. |
 
 La [referencia generada](reference/environment.md) enlaza cada variable a sus lectores reales. Existen rutas fijas y configuración en base de datos que **no** se cambian con estas variables; ver código antes de trasladar la instalación.
@@ -38,7 +41,7 @@ Credenciales de conectores, selección cloud/sede, CA por dispositivo, SSH con h
 | Ruta | Propósito |
 |---|---|
 | `/srv/soc-portal` | Código instalado, root propietario; `data/` para el proceso web. |
-| `/srv/soc-portal/data/portal.sqlite3` | Base del portal, distinta del indexador y DB interna Wazuh. |
+| `/srv/soc-portal/data/portal.sqlite3` | Base del portal con SQLite (por defecto), distinta del indexador y DB interna Wazuh. |
 | `/opt/soc-portal-venv` | Runtime Python. |
 | `/etc/soc-portal` | Entorno, reader, certificados/configuración de aplicación. |
 | `/etc/soc-portal/recovery.key` | Clave envolvente de copias; preservar separadamente del archivo que cifra. |

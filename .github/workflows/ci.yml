@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   pruebas:
-    name: Pruebas y comprobaciones
+    name: Pruebas y comprobaciones (SQLite)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -39,6 +39,12 @@ jobs:
           mkdir -p data
           python manage.py test --verbosity 1
 
+      - name: Concurrencia con SQLite de archivo
+        env:
+          SOC_PORTAL_MFA_REQUIRED: "0"
+          SOC_PORTAL_DB_TEST_NAME: data/concurrency-test.sqlite3
+        run: python manage.py test --verbosity 1 core.test_durable_operations.FileDatabaseConcurrencyTests core.test_database_concurrency
+
       - name: Migraciones sin generar
         run: python manage.py makemigrations --check --dry-run
 
@@ -50,3 +56,40 @@ jobs:
 
       - name: Scripts de despliegue (shellcheck)
         run: shellcheck -S warning deploy/*.sh deploy/wazuh/*.sh
+
+  postgresql:
+    name: Pruebas con PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: socportal
+          POSTGRES_PASSWORD: solo-ci
+          POSTGRES_DB: socportal
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U socportal" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SOC_PORTAL_DEBUG: "1"
+      SOC_PORTAL_MFA_REQUIRED: "0"
+      SOC_PORTAL_DB_ENGINE: postgresql
+      SOC_PORTAL_DB_HOST: 127.0.0.1
+      SOC_PORTAL_DB_PASSWORD: solo-ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: python -m pip install --disable-pip-version-check -r requirements.txt -r requirements-postgresql.txt
+
+      - name: Batería de pruebas (incluye escritores concurrentes)
+        run: python manage.py test --verbosity 1
+
+      - name: Migraciones sin generar
+        run: python manage.py makemigrations --check --dry-run

@@ -13,6 +13,14 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_NATIVE_ENGINE_GATE` | [core/test_native_pipeline.py](../../core/test_native_pipeline.py) |
 | `SOC_PORTAL_ALLOWED_HOSTS` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_CSRF_ORIGINS` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_DB_ENGINE` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_DB_HOST` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_DB_NAME` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_DB_PASSWORD` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_DB_PORT` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_DB_SSLMODE` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_DB_TEST_NAME` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_DB_USER` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_DEBUG` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_EXTRA_SYSLOG_IPS` | [core/provisioning.py](../../core/provisioning.py) |
 | `SOC_PORTAL_MAIL_KEY` | [core/mail_delivery.py](../../core/mail_delivery.py) |

@@ -32,7 +32,7 @@ Las pruebas del laboratorio usaron base de pruebas e índices temporales separad
 
 ## Próximo trabajo recomendado
 
-**Bloque 4: base y despliegue preparados para crecimiento.** El código usa SQLite y rutas específicas de la VM; PostgreSQL, configuración multiambiente, entrega reproducible y CI aún requieren trabajo.
+**Bloque 4: base y despliegue preparados para crecimiento.** El código usa SQLite y rutas específicas de la VM. En curso: CI con GitHub Actions (SQLite y PostgreSQL) y base configurable con batería completa y ensayo de escritores concurrentes sobre PostgreSQL ([base de datos](database.md)); eso corrigió también un bloqueo `database is locked` de SQLite en auditoría. Pendientes: traslado de datos verificado, copia/restauración PostgreSQL, configuración multiambiente y entrega reproducible.
 
 Secuencia propuesta para quien continúe:
 

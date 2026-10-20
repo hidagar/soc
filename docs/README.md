@@ -7,7 +7,7 @@ Guía técnica del código incluido en este repositorio. Estado de referencia: *
 | Perfil | Lectura recomendada |
 |---|---|
 | IA o nuevo desarrollador | [AGENTS.md](../AGENTS.md) → [traspaso](handoff.md) → [arquitectura](architecture.md) → [desarrollo](development.md) |
-| Backend | [modelo de datos](domain-model.md), [ingesta](ingestion.md), [seguridad](security.md), [pruebas](testing.md) |
+| Backend | [modelo de datos](domain-model.md), [base de datos](database.md), [ingesta](ingestion.md), [seguridad](security.md), [pruebas](testing.md) |
 | Integraciones | [conectores](integrations.md), [configuración](configuration.md), [operación](operations.md) |
 | Frontend e informes | [interfaz y marca](frontend.md), [informes y correo](reports-and-mail.md) |
 | Operación / NOC | [operación](operations.md), [diagnóstico](troubleshooting.md), [despliegue](deployment.md), [recuperación](recovery.md) |

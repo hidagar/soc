@@ -11,7 +11,8 @@ def repair_hillstone(evidence,source):
     # Reserve SQLite's writer before reading; avoid a read-to-write lock upgrade
     # while the independent mail/receiver workers are writing concurrently.
     SecurityEvidence.objects.filter(pk=evidence.pk).update(wazuh_published_at=F('wazuh_published_at'))
-    row=SecurityEvidence.objects.select_for_update().select_related('device__site__client','asset').get(pk=evidence.pk)
+    # of=('self',): PostgreSQL no admite FOR UPDATE sobre el lado nulo del LEFT JOIN de asset.
+    row=SecurityEvidence.objects.select_for_update(of=('self',)).select_related('device__site__client','asset').get(pk=evidence.pk)
     owner=source_map()[0].get(ip(source.get('location')))
     if (not owner or owner.pk!=row.device_id or row.client_scope_id!=owner.site.client_id
             or str(source.get('id') or '')!=row.wazuh_id
