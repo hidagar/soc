@@ -8,6 +8,8 @@ Aplicación Django de gestión para equipos SOC y clientes: clientes/sedes/firew
 
 La versión importada estaba en `codex/soc-platform-2026-10-20` (commit de importación `5162974`). `main` conservaba entonces únicamente el commit inicial. Comprobar el estado de ramas actual; no trabajar desde una base vacía por asumir otro flujo.
 
+`deploy/update.sh` (rama `claude/deploy-update-script`) actualiza una instalación existente desde el checkout con copia, migración, comprobación y reversión. Solo se ha probado en una instalación simulada; registrar aquí la primera ejecución real.
+
 ## Estado comprobado de la entrega anterior
 
 | Área | Situación a la fecha indicada |
