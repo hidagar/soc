@@ -14,7 +14,15 @@ Hay integración continua de comprobaciones (`.github/workflows/ci.yml`), pero n
 
 ## Instalación base
 
-El script root cambia el host: adaptarlo y leerlo completo, no usarlo como receta universal de actualización. Genera clave inicial si falta; recuperarla por canal privado y cambiarla, sin copiar a Git.
+El script root cambia el host: leerlo completo y no usarlo para actualizar (para eso, `update.sh`). Genera clave inicial si falta; recuperarla por canal privado y cambiarla, sin copiar a Git.
+
+```sh
+sudo SOC_INSTALL_ADDRESS=10.0.0.5 SOC_INSTALL_PORT=8443 deploy/install.sh /ruta/del/checkout
+```
+
+`SOC_INSTALL_ADDRESS` y `SOC_INSTALL_PORT` (por defecto `172.20.10.20` y `8443`, la VM original) fijan la escucha de Nginx, el certificado autofirmado, `ALLOWED_HOSTS` y `CSRF_ORIGINS`; `SOC_INSTALL_PYTHON_PACKAGE` el paquete de venv (`python3.14-venv`). Si el origen es un checkout Git limpio instala exactamente su commit y lo registra en `.deployed-commit`, como `update.sh`; con una carpeta copiada mantiene el comportamiento anterior.
+
+Ensayado en un contenedor limpio (Ubuntu, Python 3.13, systemd simulado, sin Wazuh): instalación en 22 s, login y estáticos por HTTPS a través de Nginx, administrador inicial válido y `update.sh` operativo sobre la instalación nueva. No instala Wazuh, el indexador, el motor HTTPS, el proxy SSO ni las unidades de trabajos si falta `/var/ossec`; tampoco restaura datos.
 
 `deploy/wazuh/install_https_engine.sh` requiere entorno protegido, Wazuh/indexador locales y mTLS root. Servicios privados parados antes de sustituir el perfil. No instala todo Wazuh.
 
