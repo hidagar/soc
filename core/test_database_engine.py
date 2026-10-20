@@ -46,9 +46,11 @@ class SqliteOnlyComponentsTests(TestCase):
         from . import recovery
         run = BackupRun.objects.create(status='queued')
         with mock.patch.object(recovery.connection, 'vendor', 'postgresql'), \
-                mock.patch.object(recovery, 'native_snapshot') as snapshot:
+                mock.patch.object(recovery, 'native_snapshot') as snapshot, \
+                mock.patch.object(recovery, 'ROOT') as root:
             recovery.make_backup(run)
         snapshot.assert_not_called()
+        root.mkdir.assert_not_called()
         run.refresh_from_db()
         self.assertEqual(run.status, 'failed')
         self.assertIn('PostgreSQL', run.error)
