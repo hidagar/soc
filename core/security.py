@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import hmac
+import ipaddress
 import json
 import secrets
 import struct
@@ -11,7 +12,6 @@ from urllib.parse import quote
 from cryptography.fernet import Fernet
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
@@ -75,6 +75,32 @@ def throttled(request, purpose, username=None, limit=8):
 
 def failed_attempt(request, purpose, username=None):
     AuthAttempt.objects.create(identifier=attempt_key(request, purpose, username))
+
+def client_ip(request):
+    """IP del navegador, o None si no se puede atribuir con seguridad.
+
+    Detrás del Nginx local REMOTE_ADDR es el proxy: solo entonces se acepta su
+    X-Real-IP (que el proxy sustituye). Sin esa cabecera devolver el proxy haría
+    que un único límite bloqueara el acceso de todos los usuarios.
+    """
+    remote = request.META.get('REMOTE_ADDR', '')
+    value = request.META.get('HTTP_X_REAL_IP', '') if remote in settings.SOC_TRUSTED_PROXIES else remote
+    try:
+        address = ipaddress.ip_address(value.strip())
+    except ValueError:
+        return None
+    return None if str(address) in settings.SOC_TRUSTED_PROXIES else str(address)
+
+def login_throttled(request):
+    ip = client_ip(request)
+    return (throttled(request, 'password', request.POST.get('username', ''))
+            or bool(ip and throttled(request, 'password-ip', ip, limit=settings.SOC_LOGIN_IP_LIMIT)))
+
+def failed_login(request):
+    failed_attempt(request, 'password', request.POST.get('username', ''))
+    ip = client_ip(request)
+    if ip:
+        failed_attempt(request, 'password-ip', ip)
 
 def audit(action, obj=None, details=None, user=None):
     user = user or actor_scope.get()
@@ -152,7 +178,7 @@ class SocSecurityMiddleware:
         # A pre-existing session is not evidence that this login POST succeeded.
         request.soc_password_login_user = None
         if request.method == 'POST' and request.path in ('/login/', '/admin/login/'):
-            if throttled(request, 'password', request.POST.get('username','')):
+            if login_throttled(request):
                 return HttpResponse('Demasiados intentos. Espera 15 minutos.', status=429)
         access = None
         ids = None
@@ -183,8 +209,9 @@ class SocSecurityMiddleware:
             response = self.get_response(request)
             if request.method == 'POST' and request.path in ('/login/','/admin/login/'):
                 if request.soc_password_login_user is None:
-                    failed_attempt(request, 'password', request.POST.get('username',''))
+                    failed_login(request)
                 else:
+                    # Solo se limpia la identidad intentada: los fallos de la IP siguen contando.
                     AuthAttempt.objects.filter(identifier=attempt_key(request,'password',request.POST.get('username',''))).delete()
                     audit('password_login', user=request.soc_password_login_user)
             elif request.user.is_authenticated and request.method not in ('GET','HEAD','OPTIONS') and response.status_code < 400:

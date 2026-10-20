@@ -4,6 +4,8 @@
 
 Django gestiona contraseña y sesión; `EmailBackend` busca correo normalizado de forma única. Solo dos cuentas históricas explícitas conservan login por nombre cuando no tienen correo. No ampliar esa excepción a cuentas nuevas. Los administradores crean cuentas sin contraseña utilizable y el destinatario la establece mediante invitación de 48 horas. El GET de un escáner de correo no consume el enlace.
 
+Los fallos de contraseña se limitan por identidad intentada (8 en 15 minutos) y por IP del navegador (`SOC_PORTAL_LOGIN_IP_LIMIT`, 30 por defecto, con cualquier usuario), de modo que probar una contraseña contra muchas cuentas también se frena. Un acceso correcto solo limpia el contador de su identidad. La IP se toma de `X-Real-IP` únicamente cuando la petición llega de un proxy de `SOC_PORTAL_TRUSTED_PROXIES` (Nginx local); sin esa cabecera no se aplica el límite por IP, porque aplicarlo a la dirección del proxy bloquearía a todos los usuarios. Nginx debe sustituir la cabecera (`proxy_set_header X-Real-IP $remote_addr;`, como en `install.sh`). El límite por identidad permite que un tercero retrase el acceso de una cuenta concreta durante 15 minutos.
+
 MFA usa TOTP y recuperación de un solo uso, con contador/CAS contra repetición. `SocSecurityMiddleware` vincula usuario, versión de perfil y sesión; `mfa_fresh()` limita operaciones sensibles. Las pruebas pueden deshabilitar MFA para un escenario, no la configuración del servicio real.
 
 ## Autorización

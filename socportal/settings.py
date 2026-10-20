@@ -78,6 +78,9 @@ SOC_WAZUH_PROXY_KEY = os.environ.get('SOC_WAZUH_PROXY_KEY', '')
 # Receptor Syslog UDP de Wazuh en la VM. Los valores por defecto son los de la instalación actual.
 SOC_RECEIVER_IP = os.environ.get('SOC_PORTAL_RECEIVER_IP', '172.20.10.20')
 SOC_RECEIVER_PORT = int(os.environ.get('SOC_PORTAL_RECEIVER_PORT', '5514'))
+# Proxies cuyo X-Real-IP identifica al navegador, y fallos de login por IP en 15 minutos.
+SOC_TRUSTED_PROXIES = [p.strip() for p in os.environ.get('SOC_PORTAL_TRUSTED_PROXIES', '127.0.0.1,::1').split(',') if p.strip()]
+SOC_LOGIN_IP_LIMIT = int(os.environ.get('SOC_PORTAL_LOGIN_IP_LIMIT', '30'))
 SESSION_COOKIE_AGE = 7200
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_HTTPONLY = True

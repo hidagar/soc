@@ -23,6 +23,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_DB_USER` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_DEBUG` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_EXTRA_SYSLOG_IPS` | [core/provisioning.py](../../core/provisioning.py) |
+| `SOC_PORTAL_LOGIN_IP_LIMIT` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_MAIL_KEY` | [core/mail_delivery.py](../../core/mail_delivery.py) |
 | `SOC_PORTAL_MFA_REQUIRED` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_OPNSENSE_KEY` | [core/opnsense_api.py](../../core/opnsense_api.py) |
@@ -32,6 +33,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_SECRET_KEY` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_SQLITE_PATH` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_SSH_KEY` | [core/ssh_connection.py](../../core/ssh_connection.py) |
+| `SOC_PORTAL_TRUSTED_PROXIES` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_UNIFI_KEY` | [core/unifi_cloud.py](../../core/unifi_cloud.py) |
 | `SOC_PUBLIC_ORIGIN` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_REPORT_EMAIL_BACKEND` | [socportal/settings.py](../../socportal/settings.py) |

@@ -23,6 +23,8 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_PORTAL_EXTRA_SYSLOG_IPS | IPs adicionales separadas por comas | Opciones de transición, no reconocimiento automático de clientes. |
 | SOC_INDEXER_READER_FILE | Ruta JSON privada | `username` y `password` del reader, fuera de Git. |
 | SOC_INDEXER_CA | Ruta a CA privada del indexador | Se exige validación del servidor. |
+| SOC_PORTAL_TRUSTED_PROXIES | IPs de proxies separadas por comas | Por defecto `127.0.0.1,::1`. Solo desde ellas se acepta `X-Real-IP` para el límite de login por IP. |
+| SOC_PORTAL_LOGIN_IP_LIMIT | Entero | Fallos de contraseña por IP en 15 minutos (30 por defecto). |
 | SOC_WAZUH_PROXY_KEY | Secreto interno de autorización del proxy | El navegador no decide identidad/rol por cabeceras. |
 | SOC_GEOIP_DATABASE / SOC_ASN_DATABASE | Rutas a bases MMDB | Geografía/reputación de red son contexto aproximado, no atribución personal. |
 | SOC_REPORT_EMAIL_BACKEND | Backend de correo Django | No sustituye MailSettings ni bloquea el envío directo SendGrid. |
