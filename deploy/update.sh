@@ -35,6 +35,13 @@ as_portal() {
   ( set -a; . "$ENV_FILE"; set +a; cd "$APP"; runuser -u socportal -- /bin/sh -c "$*" )
 }
 
+collect_static() {
+  # staticfiles es derivado y pertenece a socportal (install.sh); archivos copiados
+  # a mano como root impedirían a collectstatic sustituirlos.
+  chown -R socportal:socportal "$APP/staticfiles"
+  as_portal "$VENV/bin/python manage.py collectstatic --noinput --verbosity 0"
+}
+
 stop_writers() {
   # Guarda qué timers estaban activos para volver a dejar exactamente esos.
   systemctl list-units --type=timer --state=active --no-legend --plain 'soc-*' \
@@ -161,7 +168,7 @@ if [[ "$MODE" == rollback ]]; then
   install -o socportal -g socportal -m 0600 "$ROLLBACK_DIR/portal.sqlite3" "$DB"
   cp -a "$ROLLBACK_DIR/.deployed-commit" "$APP/" 2>/dev/null || rm -f "$APP/.deployed-commit"
   "$VENV/bin/python" -m pip install --disable-pip-version-check -q --requirement "$APP/requirements.txt"
-  as_portal "$VENV/bin/python manage.py collectstatic --noinput --verbosity 0"
+  collect_static
   # Usa los timers activos antes de la actualización que se revierte.
   cp "$ROLLBACK_DIR/timers-active.txt" "$BACKUP_DIR/timers-active.txt"
   start_writers "$BACKUP_DIR"
@@ -236,7 +243,7 @@ if [[ $REQS_CHANGED == 1 ]]; then
 fi
 log "Aplicando migraciones"
 as_portal "$VENV/bin/python manage.py migrate --noinput" | tee -a "$LOG"
-as_portal "$VENV/bin/python manage.py collectstatic --noinput --verbosity 0"
+collect_static
 as_portal "$VENV/bin/python manage.py check -v 0"
 echo "$COMMIT" > "$APP/.deployed-commit"
 
