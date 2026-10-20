@@ -12,7 +12,9 @@ A 20/10/2026, `main` y `codex/soc-platform-2026-10-20` apuntan al mismo commit (
 
 La batería completa tenía 2 fallos en `core/test_grandstream_gcc.py`: las pruebas esperaban la ruta de menú anterior del GCC (`System Settings → System Diagnosis → Syslog`) y el formato `puerto / UDP`, mientras que la plantilla `grandstream_gcc_instructions.html` ya indicaba `Networking → Maintenance → System Diagnostics → Syslog` y `destino:puerto` con `Protocol: UDP`. Se actualizaron las pruebas a la plantilla; la ruta de menú sigue pendiente de confirmar en un GCC real.
 
-`deploy/update.sh` actualiza una instalación existente desde el checkout con copia, migración, comprobación y reversión. Solo se ha probado en una instalación simulada; registrar aquí la primera ejecución real.
+`deploy/update.sh` actualiza una instalación existente desde el checkout con copia, migración, comprobación y reversión. Primera ejecución real el 20/10/2026 (commit `56dc235`, sin migraciones nuevas): login HTTP 200 y los 10 timers `soc-*` habilitados reactivados. Los intentos previos revelaron diferencias de la VM respecto a `install.sh`, ya contempladas en el script: `/etc/soc-portal/portal.env` solo legible por root y archivos de root en `staticfiles/`. Un intento interrumpido dejó el portal y los timers parados durante unos minutos.
+
+Antes de ese despliegue, el código instalado coincidía con `main` salvo diferencias de fin de línea y cuatro archivos más antiguos en la VM (plantilla de instrucciones GCC, `deploy/relay/LEEME.md` y dos pruebas); no había cambios de la VM ausentes en Git. El checkout del servidor está en `/home/ibred/soc`. Las unidades instaladas en `/etc/systemd/system` difieren de `deploy/` en 12 archivos (pendiente de revisar si es solo formato o hay ajustes locales).
 
 ## Estado comprobado de la entrega anterior
 
