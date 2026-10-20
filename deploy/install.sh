@@ -12,8 +12,17 @@ if [[ ! -f "$upload_dir/manage.py" || ! -f "$upload_dir/requirements.txt" ]]; th
   exit 1
 fi
 
+# Valores de la instalación; por defecto, los de la VM original. Ver docs/deployment.md.
+PORTAL_ADDRESS="${SOC_INSTALL_ADDRESS:-172.20.10.20}"
+PORTAL_PORT="${SOC_INSTALL_PORT:-8443}"
+PYTHON_PACKAGE="${SOC_INSTALL_PYTHON_PACKAGE:-python3.14-venv}"
+python3 -c 'import ipaddress,sys; ipaddress.ip_address(sys.argv[1])' "$PORTAL_ADDRESS" 2>/dev/null \
+  || { echo "SOC_INSTALL_ADDRESS must be an IP address" >&2; exit 1; }
+[[ "$PORTAL_PORT" =~ ^[0-9]+$ ]] && (( PORTAL_PORT >= 1 && PORTAL_PORT <= 65535 )) \
+  || { echo "SOC_INSTALL_PORT must be a TCP port" >&2; exit 1; }
+
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y python3.14-venv nginx
+DEBIAN_FRONTEND=noninteractive apt-get install -y "$PYTHON_PACKAGE" nginx
 
 if ! id socportal >/dev/null 2>&1; then
   useradd --system --home /nonexistent --shell /usr/sbin/nologin socportal
@@ -23,7 +32,16 @@ install -d -m 0755 /srv/soc-portal /srv/soc-portal/staticfiles
 install -d -m 0700 /srv/soc-portal/data
 chown socportal:socportal /srv/soc-portal/data /srv/soc-portal/staticfiles
 chmod 0700 /srv/soc-portal/data
-cp -a "$upload_dir/manage.py" "$upload_dir/requirements.txt" "$upload_dir/core" "$upload_dir/socportal" "$upload_dir/templates" "$upload_dir/static" "$upload_dir/deploy" /srv/soc-portal/
+code_items=(manage.py requirements.txt core socportal templates static deploy)
+if git -c safe.directory="$upload_dir" -C "$upload_dir" rev-parse --git-dir >/dev/null 2>&1; then
+  # Checkout Git: instalar exactamente el commit y registrarlo, como deploy/update.sh.
+  [[ -z "$(git -c safe.directory="$upload_dir" -C "$upload_dir" status --porcelain --untracked-files=no)" ]] \
+    || { echo "The Git checkout has uncommitted changes" >&2; exit 1; }
+  git -c safe.directory="$upload_dir" -C "$upload_dir" archive HEAD "${code_items[@]}" | tar -x -C /srv/soc-portal
+  git -c safe.directory="$upload_dir" -C "$upload_dir" rev-parse HEAD > /srv/soc-portal/.deployed-commit
+else
+  cp -a "${code_items[@]/#/$upload_dir/}" /srv/soc-portal/
+fi
 chown -R root:root /srv/soc-portal/manage.py /srv/soc-portal/requirements.txt /srv/soc-portal/core /srv/soc-portal/socportal /srv/soc-portal/templates /srv/soc-portal/static /srv/soc-portal/deploy
 find /srv/soc-portal -type d -not -path '/srv/soc-portal/data*' -not -path '/srv/soc-portal/staticfiles*' -exec chmod 0755 {} +
 
@@ -37,8 +55,8 @@ if [[ ! -f /etc/soc-portal/portal.env ]]; then
   portal_secret="$(openssl rand -hex 48)"
   cat > /etc/soc-portal/portal.env <<EOF
 SOC_PORTAL_SECRET_KEY=$portal_secret
-SOC_PORTAL_ALLOWED_HOSTS=172.20.10.20
-SOC_PORTAL_CSRF_ORIGINS=https://172.20.10.20:8443
+SOC_PORTAL_ALLOWED_HOSTS=$PORTAL_ADDRESS
+SOC_PORTAL_CSRF_ORIGINS=https://$PORTAL_ADDRESS:$PORTAL_PORT
 EOF
   chown root:socportal /etc/soc-portal/portal.env
   chmod 0640 /etc/soc-portal/portal.env
@@ -60,7 +78,7 @@ chmod 0640 /etc/soc-portal/portal.env
 if [[ ! -f /etc/soc-portal/tls.key ]]; then
   openssl req -x509 -newkey rsa:3072 -sha256 -days 365 -nodes \
     -keyout /etc/soc-portal/tls.key -out /etc/soc-portal/tls.crt \
-    -subj '/CN=172.20.10.20' -addext 'subjectAltName=IP:172.20.10.20' >/dev/null 2>&1
+    -subj "/CN=$PORTAL_ADDRESS" -addext "subjectAltName=IP:$PORTAL_ADDRESS" >/dev/null 2>&1
   chmod 0600 /etc/soc-portal/tls.key
   chmod 0644 /etc/soc-portal/tls.crt
 fi
@@ -107,8 +125,8 @@ fi
 
 cat > /etc/nginx/sites-available/soc-portal <<'EOF'
 server {
-    listen 172.20.10.20:8443 ssl;
-    server_name 172.20.10.20;
+    listen __PORTAL_LISTEN__ ssl;
+    server_name __PORTAL_ADDRESS__;
     ssl_certificate /etc/soc-portal/tls.crt;
     ssl_certificate_key /etc/soc-portal/tls.key;
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -130,6 +148,9 @@ server {
     }
 }
 EOF
+listen="$PORTAL_ADDRESS:$PORTAL_PORT"
+[[ "$PORTAL_ADDRESS" == *:* ]] && listen="[$PORTAL_ADDRESS]:$PORTAL_PORT"
+sed -i "s/__PORTAL_LISTEN__/$listen/; s/__PORTAL_ADDRESS__/$PORTAL_ADDRESS/" /etc/nginx/sites-available/soc-portal
 ln -sfn /etc/nginx/sites-available/soc-portal /etc/nginx/sites-enabled/soc-portal
 rm -f /etc/nginx/sites-enabled/default
 
@@ -156,4 +177,4 @@ if [[ -f /var/ossec/etc/ossec.conf ]]; then
   systemctl enable --now soc-urgent-alerts.timer
   systemctl enable --now soc-monitor.timer
 fi
-echo "Portal ready at https://172.20.10.20:8443/"
+echo "Portal ready at https://$PORTAL_ADDRESS:$PORTAL_PORT/"
