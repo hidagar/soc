@@ -12,7 +12,6 @@ set -Eeuo pipefail
 APP=/srv/soc-portal
 VENV=/opt/soc-portal-venv
 ENV_FILE=/etc/soc-portal/portal.env
-DB="$APP/data/portal.sqlite3"
 BACKUPS=/var/backups/soc-portal
 LOG=/var/log/soc-portal-deploy.log
 CODE_ITEMS=(manage.py requirements.txt core socportal templates static deploy)
@@ -77,11 +76,46 @@ start_writers() {
   fi
 }
 
+env_value() {
+  # Último valor de una variable del entorno protegido, sin cargar el resto en este shell.
+  grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- || true
+}
+
+as_pg() {
+  # Credenciales de la base solo en el subshell del comando PostgreSQL.
+  # shellcheck source=/dev/null
+  ( set -a; . "$ENV_FILE"; set +a
+    export PGHOST="${SOC_PORTAL_DB_HOST:-}" PGPORT="${SOC_PORTAL_DB_PORT:-}" PGUSER="${SOC_PORTAL_DB_USER:-socportal}" \
+      PGDATABASE="${SOC_PORTAL_DB_NAME:-socportal}" PGPASSWORD="${SOC_PORTAL_DB_PASSWORD:-}" \
+      PGSSLMODE="${SOC_PORTAL_DB_SSLMODE:-prefer}"
+    "$@" )
+}
+
+restore_pg() {
+  # Una transacción: borrar todas las tablas (también las que creó una versión posterior y no
+  # están en la copia, que impedirían volver a migrar) y cargar la copia. Si algo falla, nada cambia.
+  { cat <<'SQL'
+DO $$ DECLARE t record; BEGIN
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(t.tablename) || ' CASCADE';
+  END LOOP;
+END $$;
+SQL
+    pg_restore --no-owner --file=- "$1"
+  } | as_pg psql --quiet --no-psqlrc --set=ON_ERROR_STOP=1 --single-transaction > /dev/null
+}
+
 backup() {
   local dir=$1
   log "Copia de seguridad en $dir"
-  # API backup de SQLite: copia consistente aunque exista journal/WAL.
-  "$VENV/bin/python" - "$DB" "$dir/portal.sqlite3" <<'EOF'
+  echo "$ENGINE" > "$dir/engine"
+  if [[ "$ENGINE" == postgresql ]]; then
+    # Instantánea consistente de pg_dump; pg_restore --list comprueba que el archivo es legible.
+    as_pg pg_dump --format=custom --no-owner --file="$dir/portal.pgdump"
+    pg_restore --list "$dir/portal.pgdump" > /dev/null
+  else
+    # API backup de SQLite: copia consistente aunque exista journal/WAL.
+    "$VENV/bin/python" - "$DB" "$dir/portal.sqlite3" <<'EOF'
 import sqlite3, sys
 from contextlib import closing
 with closing(sqlite3.connect(f'file:{sys.argv[1]}?mode=ro', uri=True)) as src, closing(sqlite3.connect(sys.argv[2])) as dst:
@@ -89,6 +123,7 @@ with closing(sqlite3.connect(f'file:{sys.argv[1]}?mode=ro', uri=True)) as src, c
     if dst.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
         raise SystemExit('La copia de la base no supera integrity_check')
 EOF
+  fi
   tar -C "$APP" -czf "$dir/code.tar.gz" "${CODE_ITEMS[@]}"
   cp -a "$APP/.deployed-commit" "$dir/" 2>/dev/null || true
   chmod -R go-rwx "$dir"
@@ -134,9 +169,13 @@ trap 'on_error $LINENO' ERR
 [[ "$(id -u)" -eq 0 ]] || { echo "Ejecutar como root (sudo)." >&2; exit 1; }
 [[ -d "$APP" && -x "$VENV/bin/python" && -f "$ENV_FILE" ]] || { echo "No se encuentra una instalación en $APP." >&2; exit 1; }
 touch "$LOG"; chmod 0600 "$LOG"
-if grep -qs '^SOC_PORTAL_DB_ENGINE=postgresql' "$ENV_FILE"; then
-  echo "La instalación usa PostgreSQL: este script aún solo copia y restaura SQLite. Seguir docs/deployment.md." >&2; exit 1
-fi
+ENGINE=$(env_value SOC_PORTAL_DB_ENGINE); ENGINE=${ENGINE:-sqlite}
+case "$ENGINE" in
+  sqlite) DB=$(env_value SOC_PORTAL_SQLITE_PATH); DB=${DB:-$APP/data/portal.sqlite3} ;;
+  postgresql) command -v pg_dump > /dev/null && command -v pg_restore > /dev/null \
+                || { echo "Faltan pg_dump/pg_restore (paquete postgresql-client)." >&2; exit 1; } ;;
+  *) echo "SOC_PORTAL_DB_ENGINE no válido en $ENV_FILE." >&2; exit 1 ;;
+esac
 
 MODE=deploy
 while (( $# )); do
@@ -154,7 +193,9 @@ exec 9>/run/soc-portal-update.lock
 flock -n 9 || die "Ya hay otra actualización en curso."
 
 if [[ "$MODE" == rollback ]]; then
-  [[ -f "$ROLLBACK_DIR/code.tar.gz" && -f "$ROLLBACK_DIR/portal.sqlite3" ]] || die "Copia no válida: $ROLLBACK_DIR"
+  [[ -f "$ROLLBACK_DIR/code.tar.gz" ]] || die "Copia no válida: $ROLLBACK_DIR"
+  if [[ "$ENGINE" == postgresql ]]; then DUMP="$ROLLBACK_DIR/portal.pgdump"; else DUMP="$ROLLBACK_DIR/portal.sqlite3"; fi
+  [[ -f "$DUMP" ]] || die "La copia no contiene la base de $ENGINE (¿se hizo con otro motor?): $ROLLBACK_DIR"
   log "REVERSIÓN a la copia $ROLLBACK_DIR (commit $(cat "$ROLLBACK_DIR/.deployed-commit" 2>/dev/null || echo desconocido))"
   echo "Se perderán los datos del portal escritos después de esa copia."
   confirm "¿Restaurar código y base de datos?"
@@ -164,11 +205,16 @@ if [[ "$MODE" == rollback ]]; then
   backup "$BACKUP_DIR"
   restore=$(mktemp -d /var/tmp/soc-rollback.XXXXXX)
   tar -C "$restore" -xzf "$ROLLBACK_DIR/code.tar.gz"
+  # Base antes que código: si la restauración falla, código y base siguen siendo los actuales.
+  if [[ "$ENGINE" == postgresql ]]; then
+    restore_pg "$DUMP"
+  else
+    for suffix in -wal -shm -journal; do
+      [[ -e "$DB$suffix" ]] && mv "$DB$suffix" "$BACKUP_DIR/portal.sqlite3$suffix.descartado"
+    done
+    install -o socportal -g socportal -m 0600 "$DUMP" "$DB"
+  fi
   replace_code "$restore"; rm -rf "$restore"
-  for suffix in -wal -shm -journal; do
-    [[ -e "$DB$suffix" ]] && mv "$DB$suffix" "$BACKUP_DIR/portal.sqlite3$suffix.descartado"
-  done
-  install -o socportal -g socportal -m 0600 "$ROLLBACK_DIR/portal.sqlite3" "$DB"
   cp -a "$ROLLBACK_DIR/.deployed-commit" "$APP/" 2>/dev/null || rm -f "$APP/.deployed-commit"
   "$VENV/bin/python" -m pip install --disable-pip-version-check -q --requirement "$APP/requirements.txt"
   collect_static
