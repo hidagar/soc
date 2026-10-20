@@ -8,6 +8,10 @@ Aplicación Django de gestión para equipos SOC y clientes: clientes/sedes/firew
 
 La versión importada estaba en `codex/soc-platform-2026-10-20` (commit de importación `5162974`). `main` conservaba entonces únicamente el commit inicial. Comprobar el estado de ramas actual; no trabajar desde una base vacía por asumir otro flujo.
 
+A 20/10/2026, `main` y `codex/soc-platform-2026-10-20` apuntan al mismo commit (`ea038d9`), que incluye la aplicación y la documentación. `main` es la rama base para nuevas ramas de trabajo.
+
+La batería completa tenía 2 fallos en `core/test_grandstream_gcc.py`: las pruebas esperaban la ruta de menú anterior del GCC (`System Settings → System Diagnosis → Syslog`) y el formato `puerto / UDP`, mientras que la plantilla `grandstream_gcc_instructions.html` ya indicaba `Networking → Maintenance → System Diagnostics → Syslog` y `destino:puerto` con `Protocol: UDP`. Se actualizaron las pruebas a la plantilla; la ruta de menú sigue pendiente de confirmar en un GCC real.
+
 ## Estado comprobado de la entrega anterior
 
 | Área | Situación a la fecha indicada |
