@@ -18,6 +18,8 @@ from .models import (Client, Device, DeviceObservation, CustomerPublication, Sec
 from .security import audit
 from .trends import period_metrics
 
+OPEN_TASK_STATUSES=('pending','rework','submitted')
+
 class PublicationForm(forms.ModelForm):
     class Meta:
         model=CustomerPublication
@@ -82,7 +84,9 @@ def customer_home(request):
     client=customer_client(request)
     from .investigation import customer_security_summary
     return render(request,'customer_home.html',{'client':client,'security_summary':customer_security_summary(client) if client.customer_live_map_enabled else None,
-        'tasks':CustomerTask.objects.filter(incident__client=client,visible=True)[:100],
+        # Todas las pendientes, sin límite; las cerradas aparte para que no las desplacen.
+        'tasks':CustomerTask.objects.filter(incident__client=client,visible=True,status__in=OPEN_TASK_STATUSES).order_by(F('due_at').asc(nulls_last=True),'pk'),
+        'closed_tasks':CustomerTask.objects.filter(incident__client=client,visible=True).exclude(status__in=OPEN_TASK_STATUSES).order_by(F('reviewed_at').desc(nulls_last=True),'-pk')[:20],
         'publications':CustomerPublication.objects.filter(client=client,visible=True)[:100],
         'reports':released_reports(client).order_by('-week_start')[:52]})
 
