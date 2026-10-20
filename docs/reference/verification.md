@@ -36,6 +36,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_indexer_tls.py](../../core/test_indexer_tls.py) | 4 |
 | [core/test_interface_topology.py](../../core/test_interface_topology.py) | 12 |
 | [core/test_investigation.py](../../core/test_investigation.py) | 11 |
+| [core/test_login_ip_throttle.py](../../core/test_login_ip_throttle.py) | 5 |
 | [core/test_native_pipeline.py](../../core/test_native_pipeline.py) | 1 |
 | [core/test_navigation.py](../../core/test_navigation.py) | 3 |
 | [core/test_network_coverage.py](../../core/test_network_coverage.py) | 20 |

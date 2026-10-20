@@ -252,7 +252,7 @@ def deliver_pending(now=None):
     sent = 0
     queue = UrgentAlert.objects.filter(status__in=[UrgentAlert.Status.PENDING, UrgentAlert.Status.FAILED], attempts__lt=3).filter(
         Q(next_retry_at__isnull=True) | Q(next_retry_at__lte=now)
-    ).select_related("client").order_by("observed_at")[:100]
+    ).select_related("client").order_by("observed_at", "pk")[:100]
     for alert in queue:
         client = alert.client
         recipient = client.urgent_email or client.report_email
