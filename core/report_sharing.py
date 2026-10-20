@@ -74,29 +74,26 @@ def private_headers(response):
 @require_GET
 @never_cache
 def customer_report(request, token):
-    from .service_development import customer_report_context
     try:
         share = resolve_share(token)
     except Http404:
         return private_headers(render(request, "report_link_unavailable.html", status=404))
-    context = customer_report_context(share.report)
-    context.update({"customer_view": True, "report_base": "customer_report_base.html",
-                    "pdf_url": reverse("customer_report_pdf", args=[token]), "expires_at": share.expires_at})
-    return private_headers(render(request, "weekly_report.html", context))
+    from .report_versions import published_version, version_page
+    version = published_version(share.report)
+    return private_headers(version_page(request, version, reverse("customer_report_pdf", args=[token]),
+                                        base="customer_report_base.html", expires_at=share.expires_at))
 
 
 @require_GET
 @never_cache
 def customer_report_pdf(request, token):
-    from .report_pdf import render_report_pdf
-    from .service_development import customer_report_context
     try:
         share = resolve_share(token)
     except Http404:
         return private_headers(render(request, "report_link_unavailable.html", status=404))
-    response = HttpResponse(render_report_pdf(share.report, context_override=customer_report_context(share.report)), content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="informe-seguridad-{share.report.week_start:%Y-%m-%d}.pdf"'
-    return private_headers(response)
+    from .report_versions import published_version, version_pdf
+    version = published_version(share.report)
+    return private_headers(version_pdf(version, f"informe-seguridad-{share.report.week_start:%Y-%m-%d}-v{version.number}.pdf"))
 
 
 @require_GET

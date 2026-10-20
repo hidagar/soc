@@ -83,6 +83,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `reports/<str:token>/pdf/` | `customer_report_pdf` | `report_sharing.customer_report_pdf` |
 | `reports/<str:token>/` | `customer_report` | `report_sharing.customer_report` |
 | `report-links/<int:report_pk>/` | `manage_report_link` | `report_sharing.manage_report_link` |
+| `report-versions/<int:report_pk>/rectify/` | `rectify_report` | `report_versions.rectify` |
 | `mail/verify-reports/` | `verify_public_reports` | `report_sharing.verify_public_reports` |
 | `gestion/` | `dashboard` | `views.dashboard` |
 | `/` | `dashboard_legacy` | `views.dashboard` |

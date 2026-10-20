@@ -33,3 +33,11 @@ La activación del webhook quedó pendiente por decisión del usuario. Hasta obs
 Invitación de un solo uso y 48 h: usuario establece contraseña sin que el administrador la elija. GET de escáner no consume el enlace. Avisos urgentes usan interpretación común, agrupación/estado y acuse; no convertir toda alerta menor o fallo del colector en ataque al cliente.
 
 Revisar HTML, texto, PDF, logo y pruebas de scope al cambiar comunicaciones. Véase [frontend](frontend.md) e [inventario de pruebas](reference/verification.md).
+
+## Versiones publicadas (inmutables)
+
+El cliente nunca ve el informe calculado en el momento: ve una `ReportVersion` congelada (HTML y PDF con sus SHA-256). La versión 1 se crea al enviar el informe o, si se publicó sin correo, la primera vez que el cliente lo abre por el portal o el enlace firmado. Después no cambia aunque cambien sedes, equipos, casos, publicaciones o el propio `WeeklyReport`.
+
+Rectificar (ficha del informe, permiso `manage_connections`) congela el contenido actual como versión siguiente con un motivo obligatorio que el cliente ve; no envía correo. El portal del cliente lista todas las versiones y permite abrir cada una y su PDF (`?version=N`); el enlace firmado muestra la última con el aviso de rectificación. Los cambios de seguimiento posteriores aparecen en «Seguimiento y próximos pasos», no en informes ya publicados.
+
+Cada versión guarda el PDF en la base (del orden de cien KB por informe y semana). Las versiones congeladas antes de esta entrega no existen: los informes ya enviados se congelan con el contenido del primer acceso posterior al despliegue.

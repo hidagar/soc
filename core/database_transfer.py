@@ -144,6 +144,8 @@ def normalized(field, value):
         return str(ipaddress.ip_address(value))
     if isinstance(value, datetime):
         return value.astimezone(dt_timezone.utc).isoformat()
+    if isinstance(value, memoryview):
+        return bytes(value)  # Defensa: psycopg2 devolvía bytea como memoryview (psycopg 3, como bytes).
     return value
 
 

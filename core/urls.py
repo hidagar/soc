@@ -9,6 +9,7 @@ from . import gdms_views
 from . import inventory_views
 from .connection_help import connection_guide
 from . import report_sharing
+from . import report_versions
 from . import onboarding
 from . import security
 from . import operations_views as ops
@@ -96,6 +97,7 @@ urlpatterns = [
     path("reports/<str:token>/pdf/", report_sharing.customer_report_pdf, name="customer_report_pdf"),
     path("reports/<str:token>/", report_sharing.customer_report, name="customer_report"),
     path("report-links/<int:report_pk>/", report_sharing.manage_report_link, name="manage_report_link"),
+    path("report-versions/<int:report_pk>/rectify/", report_versions.rectify, name="rectify_report"),
     path("mail/verify-reports/", report_sharing.verify_public_reports, name="verify_public_reports"),
     path("gestion/", views.dashboard, name="dashboard"),
     path("", views.dashboard, name="dashboard_legacy"),

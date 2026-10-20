@@ -308,4 +308,10 @@ def send_report(report):
     report.provider_message_id = provider_message_id
     report.last_send_error = ""
     report.save(update_fields=["sent_at", "sent_to", "provider_message_id", "last_send_error"])
+    try:
+        from .report_versions import published_version
+        published_version(report)
+    except Exception:
+        # El correo ya salió: si no se pudo congelar ahora, se congela en la primera consulta del cliente.
+        pass
     return True

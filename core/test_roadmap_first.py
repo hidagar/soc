@@ -54,10 +54,12 @@ class FirstRoadmapTests(TestCase):
         public=Incident.objects.create(client=self.a,title='INTERNAL-ORIGINAL',description='Hidden',observed_at=self.now)
         CustomerPublication.objects.create(client=self.a,incident=public,title='Approved summary',summary='Approved',visible=True)
         share=ReportShare.objects.create(report=report,expires_at=self.now+timedelta(days=1))
-        page=self.client.get(share_path(share))
-        self.assertContains(page,'Approved summary');self.assertNotContains(page,private.title);self.assertNotContains(page,public.title)
+        # El PDF se genera al congelar la versión publicada (primera visita), no al descargarlo.
         with patch('core.report_pdf.render_report_pdf',return_value=b'%PDF-test') as render:
-            self.assertEqual(self.client.get(share_path(share,download=True)).status_code,200)
+            page=self.client.get(share_path(share))
+            self.assertContains(page,'Approved summary');self.assertNotContains(page,private.title);self.assertNotContains(page,public.title)
+            download=self.client.get(share_path(share,download=True))
+        self.assertEqual((download.status_code,download.content),(200,b'%PDF-test'))
         rows=render.call_args.kwargs['context_override']['incidents']
         self.assertEqual([r.title for r in rows],['Approved summary'])
 

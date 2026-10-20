@@ -767,7 +767,8 @@ def weekly_report(request, client_pk):
     report = WeeklyReport.objects.filter(client=client, week_start=monday).first()
     if report:
         context = report_context(report)
-        context.update({"previous_week": monday - timedelta(days=7), "next_week": monday + timedelta(days=7)})
+        context.update({"previous_week": monday - timedelta(days=7), "next_week": monday + timedelta(days=7),
+                        "versions": report.versions.all()})
         if request.user.has_perm("core.manage_connections"):
             from .report_sharing import share_path
             share = getattr(report, "customer_share", None)
