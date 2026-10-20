@@ -21,12 +21,15 @@ Estado: **20/10/2026**. Producción sigue en SQLite. PostgreSQL está soportado 
 - **También afectaba a SQLite en producción:** `audit()` y las filas de bloqueo de asignación HTTPS, propiedad de fuentes y VPN hacían `get_or_create` (lectura) antes del `UPDATE` que serializa. Con dos escritores a la vez, SQLite devolvía `database is locked` sin esperar, contrario al invariante 7. `WorkerState.reserve()` escribe primero; el ensayo concurrente fallaba siempre antes del cambio y pasa después.
 - Dos pruebas dependían de SQLite: una IP construida con `pk` (en PostgreSQL los ID no se reinician entre pruebas) y un texto no IP guardado en un campo IP (PostgreSQL valida el tipo `inet`).
 
+## Componentes con SQLite directo
+
+`deploy/sync_wazuh_dashboards.py` (dashboards internos, sin Django) lee el archivo SQLite solo si el motor es `sqlite` y la ruta es la de la instalación. Con otro motor o `SOC_PORTAL_SQLITE_PATH` pide clientes y orígenes a `manage.py dashboard_sources` (venv y entorno del portal), que aplica la misma selección; una prueba compara ambas lecturas sobre la misma base.
+
 ## Componentes que todavía solo admiten SQLite
 
 Se niegan explícitamente con PostgreSQL en lugar de trabajar sobre el archivo SQLite abandonado:
 
 - `core/recovery.py` (copia cifrada): marca la copia como fallida.
-- `deploy/sync_wazuh_dashboards.py` (dashboards internos): lee el motor de `/etc/soc-portal/portal.env` y se detiene.
 Adaptarlos es requisito antes de usar PostgreSQL en producción.
 
 `deploy/update.sh` sí admite ambos motores: con PostgreSQL copia con `pg_dump` (formato custom, comprobado con `pg_restore --list`) y `--rollback` restaura en **una transacción** que borra todas las tablas (incluidas las creadas por una versión posterior, que impedirían volver a migrar) y carga la copia; si falla, base y código quedan como estaban. Requiere `postgresql-client` en la VM. Cada copia guarda el motor en `engine` y la reversión se niega a usar una copia de otro motor. Ensayado en el contenedor con PostgreSQL 16 y systemd simulado: despliegue con migración, reversión que elimina datos y tablas posteriores, redespliegue y reversión con copia corrupta sin cambios.

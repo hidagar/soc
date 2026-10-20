@@ -11,6 +11,7 @@ import json
 import re
 import sqlite3
 import ssl
+import subprocess
 import tarfile
 import urllib.error
 import urllib.parse
@@ -63,43 +64,76 @@ def request(path, auth, method="GET", body=None, *, tenant=None):
         raise RuntimeError(f"Wazuh rechazó {method} {path}: HTTP {exc.code}: {detail}") from exc
 
 
-def portal_database_engine(env_file=Path("/etc/soc-portal/portal.env")):
-    # Se ejecuta sin Django ni EnvironmentFile: leer solo el motor del entorno protegido.
+def portal_env_value(name, default, env_file=Path("/etc/soc-portal/portal.env")):
+    # Se ejecuta sin Django ni EnvironmentFile: leer solo la variable pedida del entorno protegido.
     try:
         lines = env_file.read_text(encoding="utf-8").splitlines()
     except OSError:
-        return "sqlite"
-    values = [line.split("=", 1)[1].strip() for line in lines if line.startswith("SOC_PORTAL_DB_ENGINE=")]
-    return values[-1] if values else "sqlite"
+        return default
+    values = [line.split("=", 1)[1].strip() for line in lines if line.startswith(name + "=")]
+    return values[-1] if values and values[-1] else default
 
 
-def clients_and_sources():
-    if portal_database_engine() != "sqlite":
-        # Leer el SQLite abandonado publicaría clientes y fuentes obsoletos.
-        raise RuntimeError("El portal no usa SQLite: esta sincronización aún no admite PostgreSQL.")
-    db = sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True)
+def portal_database_engine(env_file=Path("/etc/soc-portal/portal.env")):
+    return portal_env_value("SOC_PORTAL_DB_ENGINE", "sqlite", env_file)
+
+
+PORTAL = Path("/srv/soc-portal")
+PORTAL_PYTHON = Path("/opt/soc-portal-venv/bin/python")
+PORTAL_ENV = Path("/etc/soc-portal/portal.env")
+
+
+def sqlite_rows(database=DATABASE):
+    db = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
     try:
-        clients = [dict(code=code, name=name, sources=set()) for code, name in db.execute(
-            "SELECT code, name FROM core_client WHERE active=1 ORDER BY name"
-        )]
-        by_code = {client["code"]: client for client in clients}
-        owners = {}
-        for code, source in db.execute("""
+        clients = list(db.execute("SELECT code, name FROM core_client WHERE active=1 ORDER BY name"))
+        sources = list(db.execute("""
             SELECT c.code, e.source_ip FROM core_exportconfiguration e
             JOIN core_device d ON d.id=e.device_id
             JOIN core_site s ON s.id=d.site_id
             JOIN core_client c ON c.id=s.client_id
             WHERE c.active=1 AND s.active=1 AND d.active=1
               AND e.source_ip IS NOT NULL AND e.receiver_ready=1
-        """):
-            source = str(ipaddress.ip_address(source))
-            if source in owners and owners[source] != code:
-                raise RuntimeError(f"Origen {source} asignado a dos clientes; no se crean paneles ambiguos.")
-            owners[source] = code
-            by_code[code]["sources"].add(source)
-        return clients
+        """))
+        return clients, sources
     finally:
         db.close()
+
+
+def portal_rows():
+    # Sin Django en este proceso: el portal lee su base (cualquier motor) con su propio entorno.
+    env = {"PATH": "/usr/bin:/bin"}
+    for line in PORTAL_ENV.read_text(encoding="utf-8").splitlines():
+        if "=" in line and not line.lstrip().startswith("#"):
+            key, value = line.split("=", 1)
+            value = value.strip()
+            if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            env[key.strip()] = value
+    result = subprocess.run([str(PORTAL_PYTHON), str(PORTAL / "manage.py"), "dashboard_sources"], cwd=PORTAL,
+                            env=env, capture_output=True, text=True, timeout=120, check=True)
+    data = json.loads(result.stdout)
+    return [tuple(row) for row in data["clients"]], [tuple(row) for row in data["sources"]]
+
+
+def clients_and_sources():
+    # Lectura directa solo con el SQLite de la instalación; otro motor u otra ruta, mediante el portal.
+    direct = portal_database_engine() == "sqlite" and not portal_env_value("SOC_PORTAL_SQLITE_PATH", "")
+    rows = sqlite_rows() if direct else portal_rows()
+    return group_sources(*rows)
+
+
+def group_sources(client_rows, source_rows):
+    clients = [dict(code=code, name=name, sources=set()) for code, name in client_rows]
+    by_code = {client["code"]: client for client in clients}
+    owners = {}
+    for code, source in source_rows:
+        source = str(ipaddress.ip_address(source))
+        if source in owners and owners[source] != code:
+            raise RuntimeError(f"Origen {source} asignado a dos clientes; no se crean paneles ambiguos.")
+        owners[source] = code
+        by_code[code]["sources"].add(source)
+    return clients
 
 
 def query(sources):

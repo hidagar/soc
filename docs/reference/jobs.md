@@ -6,6 +6,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 
 | Comando manage.py | Argumentos declarados |
 |---|---|
+| [core/management/commands/dashboard_sources.py](../../core/management/commands/dashboard_sources.py) | Sin argumentos propios |
 | [core/management/commands/monitor_soc.py](../../core/management/commands/monitor_soc.py) | parser.add_argument('--no-notify', action='store_true') |
 | [core/management/commands/operate_soc.py](../../core/management/commands/operate_soc.py) | parser.add_argument('job', choices=['vpn', 'changes', 'backup']); parser.add_argument('--daily', action='store_true') |
 | [core/management/commands/poll_urgent_alerts.py](../../core/management/commands/poll_urgent_alerts.py) | Sin argumentos propios |
