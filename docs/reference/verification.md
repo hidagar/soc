@@ -15,6 +15,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
+| [core/test_dashboard_sources.py](../../core/test_dashboard_sources.py) | 1 |
 | [core/test_database_concurrency.py](../../core/test_database_concurrency.py) | 2 |
 | [core/test_database_engine.py](../../core/test_database_engine.py) | 5 |
 | [core/test_database_transfer.py](../../core/test_database_transfer.py) | 5 |

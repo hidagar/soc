@@ -55,15 +55,19 @@ class SqliteOnlyComponentsTests(TestCase):
         self.assertEqual(run.status, 'failed')
         self.assertIn('PostgreSQL', run.error)
 
-    def test_dashboard_sync_refuses_to_read_sqlite_when_portal_uses_postgresql(self):
+    def test_dashboard_sync_reads_through_the_portal_unless_it_is_the_installation_sqlite(self):
         sync = load('sync_wazuh_dashboards')
         with tempfile.TemporaryDirectory() as directory:
             env = Path(directory) / 'portal.env'
             self.assertEqual(sync.portal_database_engine(env), 'sqlite')
             env.write_text('SOC_PORTAL_SECRET_KEY=x\nSOC_PORTAL_DB_ENGINE=postgresql\n', encoding='utf-8')
             self.assertEqual(sync.portal_database_engine(env), 'postgresql')
-            with mock.patch.object(sync, 'portal_database_engine', return_value='postgresql'), \
-                    mock.patch.object(sync.sqlite3, 'connect') as connect:
-                with self.assertRaises(RuntimeError):
-                    sync.clients_and_sources()
-            connect.assert_not_called()
+        rows = ([('a', 'A')], [('a', '198.51.100.7')])
+        for engine, path, direct in (('sqlite', '', True), ('postgresql', '', False), ('sqlite', '/otra.sqlite3', False)):
+            values = {'SOC_PORTAL_DB_ENGINE': engine, 'SOC_PORTAL_SQLITE_PATH': path}
+            with mock.patch.object(sync, 'portal_env_value', side_effect=lambda name, default, *a: values[name] or default), \
+                    mock.patch.object(sync, 'sqlite_rows', return_value=rows) as sqlite_rows, \
+                    mock.patch.object(sync, 'portal_rows', return_value=rows) as portal_rows:
+                clients = sync.clients_and_sources()
+            self.assertEqual(clients, [{'code': 'a', 'name': 'A', 'sources': {'198.51.100.7'}}])
+            self.assertEqual((sqlite_rows.called, portal_rows.called), (direct, not direct))
