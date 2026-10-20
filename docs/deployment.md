@@ -20,6 +20,25 @@ El script root cambia el host: adaptarlo y leerlo completo, no usarlo como recet
 
 ## Actualización existente
 
+`deploy/update.sh` automatiza los pasos siguientes para una instalación ya creada con `install.sh`. Se ejecuta como root desde un checkout Git limpio en el servidor:
+
+```sh
+cd /ruta/del/checkout && git pull
+sudo deploy/update.sh                      # muestra cambios y pide confirmación
+sudo deploy/update.sh --rollback /var/backups/soc-portal/<copia>
+```
+
+1. Toma el código del commit (`git archive`), nunca de archivos sin commit, y rechaza un checkout con cambios. Avisa si la rama no es `main` o no coincide con `origin`.
+2. Antes de tocar producción ejecuta `manage.py check` y `makemigrations --check` sobre ese commit en un directorio temporal. Muestra versión instalada, commits, migraciones nuevas, cambios de dependencias y unidades systemd que difieran de las instaladas.
+3. Para los timers `soc-*` activos, espera a que terminen los trabajos en curso y para `soc-portal`. No para `soc-wazuh-https` ni `soc-wazuh-https-db`.
+4. Copia en `/var/backups/soc-portal/<fecha>-<commit>/`: base SQLite con la API backup e `integrity_check`, código instalado, commit y timers activos. Conserva las 10 copias más recientes.
+5. Sustituye el código, instala dependencias si cambian, migra, ejecuta collectstatic y `check`, registra el commit en `/srv/soc-portal/.deployed-commit`, rearranca exactamente los timers que estaban activos y comprueba que el login responde HTTP 200.
+6. Si falla, se detiene con servicios parados e indica la orden de reversión. `--rollback` guarda antes el estado actual y restaura código, base, estáticos y timers de la copia; se pierden los datos escritos después de esa copia.
+
+Límites: no instala ni modifica unidades systemd, Nginx, Wazuh, el perfil del motor HTTPS, secretos ni índices; si una entrega los cambia, aplicar los pasos manuales siguientes. La copia no sustituye la copia de VM ni la de `recovery.py`. Probado en una instalación simulada (systemd simulado) con despliegue, migración nueva, migración fallida, commit con error y reversión, y desplegado en la VM el 20/10/2026 (véase [traspaso](handoff.md)). La reversión aún no se ha ensayado en la VM.
+
+Pasos manuales equivalentes o adicionales:
+
 1. Copia consistente SQLite mediante API backup, código/configuración/secretos protegidos y snapshot del índice cuando proceda. No copiar una base viva ignorando WAL/journal.
 2. Identificar timers/escritores; detener los afectados y coordinar ventana del portal.
 3. Instalar código con permisos; migrar con usuario/entorno adecuados; collectstatic y check.

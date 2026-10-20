@@ -13,7 +13,7 @@ Portal de gestión de seguridad para clientes, sedes y firewalls. Wazuh analiza 
 - Referencia: [módulos](docs/reference/modules.md), [modelos](docs/reference/models.md), [rutas](docs/reference/routes.md), [entorno](docs/reference/environment.md), [trabajos](docs/reference/jobs.md), [migraciones/pruebas](docs/reference/verification.md).
 - Planificación: [decisiones](docs/decisions.md) y [hoja de ruta](docs/roadmap.md).
 
-Estado documentado: **20/10/2026**. La parte servidor de 3B está desplegada; la validación del primer relay en sede sigue pendiente. PostgreSQL/CI y otras ampliaciones no se presentan como completadas. La rama inicial de importación es `codex/soc-platform-2026-10-20`; comprobar qué rama contiene la aplicación antes de desarrollar.
+Estado documentado: **20/10/2026**. La parte servidor de 3B está desplegada; la validación del primer relay en sede sigue pendiente. PostgreSQL/CI y otras ampliaciones no se presentan como completadas. `main` contiene la aplicación y es la rama base (la rama de importación `codex/soc-platform-2026-10-20` apunta al mismo commit); comprobar el estado de ramas antes de desarrollar.
 
 ## Funcionalidades
 
@@ -54,7 +54,7 @@ El ajuste MFA anterior solo corresponde al entorno de pruebas. Las pruebas de pe
 
 ## Despliegue
 
-`deploy/install.sh` prepara la aplicación y los servicios de la instalación Linux. Revisar rutas, proxy HTTPS, certificados y variables de entorno antes de ejecutarlo. Las credenciales se introducen en el panel o en el archivo protegido de configuración del servidor, fuera de Git.
+Para actualizar una instalación existente desde Git: `git pull` y `sudo deploy/update.sh` (copia, migración, reinicio, comprobación y `--rollback`); ver [despliegue](docs/deployment.md). `deploy/install.sh` prepara la aplicación y los servicios de la instalación Linux. Revisar rutas, proxy HTTPS, certificados y variables de entorno antes de ejecutarlo. Las credenciales se introducen en el panel o en el archivo protegido de configuración del servidor, fuera de Git.
 
 Para el motor privado del canal HTTPS existe `deploy/wazuh/install_https_engine.sh`, que se ejecuta como root con el entorno protegido del portal cargado. Requiere Wazuh e indexador locales y acceso mTLS administrativo. Detener primero los servicios privados si se actualiza su perfil. Las copias y la reversión deben verificarse antes de migrar una instalación existente.
 
