@@ -29,13 +29,20 @@ confirm() {
 }
 
 as_portal() {
-  runuser -u socportal -- /bin/sh -c "set -a; . $ENV_FILE; set +a; cd $APP; $*"
+  # Como systemd (EnvironmentFile): root lee el entorno protegido y lo pasa al
+  # proceso de socportal, que no necesita permiso de lectura sobre el archivo.
+  # shellcheck source=/dev/null
+  ( set -a; . "$ENV_FILE"; set +a; cd "$APP"; runuser -u socportal -- /bin/sh -c "$*" )
 }
 
 stop_writers() {
   # Guarda qué timers estaban activos para volver a dejar exactamente esos.
   systemctl list-units --type=timer --state=active --no-legend --plain 'soc-*' \
     | awk '{print $1}' > "$1/timers-active.txt"
+  if [[ ! -s "$1/timers-active.txt" ]]; then
+    log "AVISO: no hay timers soc-* activos. Si un intento anterior los paró, no se reactivarán solos:"
+    log "  revisa timers-active.txt de la copia de ese intento en $BACKUPS."
+  fi
   log "Parando timers: $(tr '\n' ' ' < "$1/timers-active.txt")"
   [[ -s "$1/timers-active.txt" ]] && xargs -r systemctl stop < "$1/timers-active.txt"
   # Esperar a que terminen los trabajos en curso en lugar de matarlos (máx. 180 s + margen).
