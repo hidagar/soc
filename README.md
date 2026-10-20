@@ -13,7 +13,7 @@ Portal de gestión de seguridad para clientes, sedes y firewalls. Wazuh analiza 
 - Referencia: [módulos](docs/reference/modules.md), [modelos](docs/reference/models.md), [rutas](docs/reference/routes.md), [entorno](docs/reference/environment.md), [trabajos](docs/reference/jobs.md), [migraciones/pruebas](docs/reference/verification.md).
 - Planificación: [decisiones](docs/decisions.md) y [hoja de ruta](docs/roadmap.md).
 
-Estado documentado: **20/10/2026**. La parte servidor de 3B está desplegada; la validación del primer relay en sede sigue pendiente. PostgreSQL/CI y otras ampliaciones no se presentan como completadas. La rama inicial de importación es `codex/soc-platform-2026-10-20`; comprobar qué rama contiene la aplicación antes de desarrollar.
+Estado documentado: **20/10/2026**. La parte servidor de 3B está desplegada; la validación del primer relay en sede sigue pendiente. PostgreSQL/CI y otras ampliaciones no se presentan como completadas. `main` contiene la aplicación y es la rama base (la rama de importación `codex/soc-platform-2026-10-20` apunta al mismo commit); comprobar el estado de ramas antes de desarrollar.
 
 ## Funcionalidades
 

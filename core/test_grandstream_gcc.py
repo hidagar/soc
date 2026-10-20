@@ -39,12 +39,12 @@ class GrandstreamGccTests(TestCase):
     def test_guided_direct_destination_and_security_limits(self):
         FirewallOnboarding.objects.create(device=self.device,step=4,method='manual')
         page=self.client.get(reverse('device_onboarding',args=[self.device.pk]))
-        self.assertContains(page,'System Settings → System Diagnosis → Syslog')
-        self.assertContains(page,'5514 / UDP')
+        self.assertContains(page,'Networking</strong> (icono del globo) y abre <strong>Maintenance → System Diagnostics → Syslog')
+        self.assertContains(page,':5514</strong> y deja <strong>Protocol: UDP')
         self.assertContains(page,'Seguridad pendiente de validar')
         guide=self.client.get(reverse('connection_guide'),{'device':self.device.pk})
         self.assertContains(guide,'Grandstream GCC')
-        self.assertContains(guide,'System Settings → System Diagnosis → Syslog')
+        self.assertContains(guide,'Networking</strong> (icono del globo) y abre <strong>Maintenance → System Diagnostics → Syslog')
         self.assertContains(guide,'No necesitas credenciales de gestión para este alta.')
 
     def test_https_guide_uses_local_relay_destination(self):
@@ -52,8 +52,8 @@ class GrandstreamGccTests(TestCase):
         prepare(self.device)
         page=self.client.get(reverse('secure_log_setup',args=[self.device.pk]))
         self.assertContains(page,'IP LAN del reenviador')
-        self.assertContains(page,'5515 / UDP')
-        self.assertContains(page,'System Settings → System Diagnosis → Syslog')
+        self.assertContains(page,'IP LAN del reenviador:5515</strong> y deja <strong>Protocol: UDP')
+        self.assertContains(page,'Networking</strong> (icono del globo) y abre <strong>Maintenance → System Diagnostics → Syslog')
 
     def test_real_activity_confirms_receipt_but_keeps_threat_coverage_pending(self):
         now=timezone.now()
