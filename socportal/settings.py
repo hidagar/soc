@@ -75,6 +75,8 @@ else:
 SOC_MFA_REQUIRED = os.environ.get('SOC_PORTAL_MFA_REQUIRED', '1') == '1'
 SOC_PUBLIC_ORIGIN = os.environ.get('SOC_PUBLIC_ORIGIN','https://soc.ibred.es')
 SOC_WAZUH_PROXY_KEY = os.environ.get('SOC_WAZUH_PROXY_KEY', '')
+# Claves Fernet de la bóveda «nueva,anterior»; vacío = solo la derivada de SECRET_KEY (comportamiento previo).
+SOC_VAULT_KEYS = os.environ.get('SOC_PORTAL_VAULT_KEYS', '')
 # Receptor Syslog UDP de Wazuh en la VM. Los valores por defecto son los de la instalación actual.
 SOC_RECEIVER_IP = os.environ.get('SOC_PORTAL_RECEIVER_IP', '172.20.10.20')
 SOC_RECEIVER_PORT = int(os.environ.get('SOC_PORTAL_RECEIVER_PORT', '5514'))

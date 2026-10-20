@@ -5,7 +5,8 @@ import os
 import re
 from urllib import error, parse, request
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import InvalidToken
+from .keyring import multifernet
 
 
 class UnifiCloudError(Exception):
@@ -22,7 +23,7 @@ def _fernet():
     if not key:
         raise UnifiCloudError("Falta la clave de cifrado del panel.")
     try:
-        return Fernet(key.encode("ascii"))
+        return multifernet(key)
     except (ValueError, UnicodeError) as exc:
         raise UnifiCloudError("La clave de cifrado del panel no es válida.") from exc
 

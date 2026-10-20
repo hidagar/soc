@@ -8,7 +8,8 @@ import socket
 from urllib.parse import urlsplit
 
 import paramiko
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import InvalidToken
+from .keyring import multifernet
 
 
 class SshConnectionError(Exception):
@@ -20,7 +21,7 @@ def _fernet():
     if not key:
         raise SshConnectionError("Falta la clave de cifrado SSH en el servidor.")
     try:
-        return Fernet(key.encode("ascii"))
+        return multifernet(key)
     except (ValueError, UnicodeError) as exc:
         raise SshConnectionError("La clave de cifrado SSH no es válida.") from exc
 

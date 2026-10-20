@@ -11,6 +11,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | [core/management/commands/operate_soc.py](../../core/management/commands/operate_soc.py) | parser.add_argument('job', choices=['vpn', 'changes', 'backup']); parser.add_argument('--daily', action='store_true') |
 | [core/management/commands/poll_urgent_alerts.py](../../core/management/commands/poll_urgent_alerts.py) | Sin argumentos propios |
 | [core/management/commands/rebuild_customer_projection.py](../../core/management/commands/rebuild_customer_projection.py) | parser.add_argument('--client', type=int) |
+| [core/management/commands/rotate_encryption_keys.py](../../core/management/commands/rotate_encryption_keys.py) | parser.add_argument('--apply', action='store_true', help='Escribir los valores recifrados') |
 | [core/management/commands/run_soc_job.py](../../core/management/commands/run_soc_job.py) | parser.add_argument('job', choices=sorted(JOBS)) |
 | [core/management/commands/sync_wazuh_sources.py](../../core/management/commands/sync_wazuh_sources.py) | Sin argumentos propios |
 | [core/management/commands/transfer_database.py](../../core/management/commands/transfer_database.py) | parser.add_argument('--source', required=True, help='Copia SQLite de origen (se abre en solo lectura)'); parser.add_argument('--check', action='store_true', help='Solo comprobación previa; no escribe nada'); parser.add_argument('--replace-target', action='store_true', help='Confirma que se vacían las tablas del destino PostgreSQL antes de copiar') |

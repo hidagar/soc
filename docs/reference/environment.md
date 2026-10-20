@@ -35,6 +35,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_SSH_KEY` | [core/ssh_connection.py](../../core/ssh_connection.py) |
 | `SOC_PORTAL_TRUSTED_PROXIES` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_UNIFI_KEY` | [core/unifi_cloud.py](../../core/unifi_cloud.py) |
+| `SOC_PORTAL_VAULT_KEYS` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PUBLIC_ORIGIN` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_REPORT_EMAIL_BACKEND` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_WAZUH_PROXY_KEY` | [socportal/settings.py](../../socportal/settings.py) |

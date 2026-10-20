@@ -14,7 +14,8 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_PORTAL_CSRF_ORIGINS | Orígenes HTTPS separados por comas | Incluir esquema y puerto si procede; no desactivar CSRF. |
 | SOC_PUBLIC_ORIGIN | Origen HTTPS público sin ruta | Invitaciones y recursos de correo; mantenerlo coherente con el proxy. |
 | SOC_PORTAL_MFA_REQUIRED | `1` normal; `0` únicamente en pruebas aisladas | No modificar en producción para arreglar un login. |
-| SOC_PORTAL_UNIFI_KEY | Clave Fernet | Cifra la clave API UniFi; no es una API key del fabricante. |
+| SOC_PORTAL_VAULT_KEYS | Claves Fernet «nueva,anterior» de la bóveda operativa | Opcional. Vacío: solo la clave derivada de SECRET_KEY (comportamiento previo). Ver rotación en [seguridad](security.md). |
+| SOC_PORTAL_UNIFI_KEY | Clave Fernet (o «nueva,anterior» para rotar) | Cifra la clave API UniFi; no es una API key del fabricante. |
 | SOC_PORTAL_OPNSENSE_KEY | Clave Fernet | Cifra credenciales OPNsense. |
 | SOC_PORTAL_SSH_KEY | Clave Fernet | Cifra SSH y credenciales reutilizadas por conectores Hillstone/GDMS. |
 | SOC_PORTAL_MAIL_KEY | Clave Fernet | Cifra la API key SendGrid. |
