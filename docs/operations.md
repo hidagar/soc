@@ -13,6 +13,10 @@ sudo journalctl -u soc-job@transport.service -n 50 --no-pager
 
 Journal es información privada: redactar antes de adjuntarlo a un issue. No imprimir entorno ni reader para diagnosticar.
 
+## Versión instalada
+
+«Salud del SOC» muestra a quien tiene acceso global el commit instalado, su fecha y el motor de base. Lo registra `deploy/update.sh` en `/srv/soc-portal/.deployed-commit`; una instalación que no se haya actualizado con el script aparece como «sin registrar».
+
 ## Programación
 
 `soc-monitor.timer` invoca dispatcher; `run_soc_job` toma lock por nombre. `JOBS` define 16 tareas separadas. `soc-job@.service` limita ejecución a 180 s y escritura a rutas permitidas; intervalos no garantizan latencia máxima. HTTPS añade timer de 5 s tras finalizar la unidad. Véase [referencia](reference/jobs.md).

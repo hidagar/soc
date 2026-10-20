@@ -13,6 +13,7 @@ from django.db import transaction
 from django.db.models import Count, F, Min, Sum
 from django.utils import timezone
 from .models import SecureLogChannel, SecureLogReceipt
+from .provisioning import DESTINATION, PORT
 from .security import decrypt
 
 PENDING=('queued','retry')
@@ -95,7 +96,7 @@ def forward_batch(row,now=None):
                 SecureLogReceipt.objects.filter(pk=row.pk,status='delivering').update(inflight_index=index)
                 try:
                     data=lines[index].encode('utf-8')
-                    sent=sender.sendto(data,('172.20.10.20',5514))
+                    sent=sender.sendto(data,(DESTINATION,PORT))
                 except OSError:
                     _fail(row,'El sistema local rechazó el envío; reintento programado.',now);return False
                 if sent!=len(data):

@@ -13,6 +13,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 
 from core.models import Device, ExportConfiguration
+from core.provisioning import PORT
 
 
 CONFIG_PATH = Path("/var/ossec/etc/ossec.conf")
@@ -36,7 +37,7 @@ def add_sources(contents, sources):
     validate(contents)
     for match in REMOTE_BLOCK.finditer(contents):
         node = ET.fromstring(match.group())
-        if node.findtext("connection", "").strip() != "syslog" or node.findtext("port", "").strip() != "5514":
+        if node.findtext("connection", "").strip() != "syslog" or node.findtext("port", "").strip() != str(PORT):
             continue
         existing = {item.text.strip() for item in node.findall("allowed-ips") if item.text}
         additions = sorted(set(sources) - existing)
@@ -47,7 +48,7 @@ def add_sources(contents, sources):
         updated = contents[:match.start()] + replacement + contents[match.end():]
         validate(updated)
         return updated, True
-    raise ValueError("No se encontró el receptor syslog UDP 5514 en Wazuh.")
+    raise ValueError(f"No se encontró el receptor syslog UDP {PORT} en Wazuh.")
 
 
 def _replace_file(path, data, previous_stat=None):
