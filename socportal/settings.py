@@ -54,7 +54,8 @@ WSGI_APPLICATION = "socportal.wsgi.application"
 # requiere requirements-postgresql.txt; la contraseña nunca va en Git.
 SOC_DB_ENGINE = os.environ.get("SOC_PORTAL_DB_ENGINE", "sqlite")
 if SOC_DB_ENGINE == "sqlite":
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "data" / "portal.sqlite3",
+    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3",
+                             "NAME": os.environ.get("SOC_PORTAL_SQLITE_PATH") or BASE_DIR / "data" / "portal.sqlite3",
                              "OPTIONS": {"timeout": 30}}}
     if os.environ.get("SOC_PORTAL_DB_TEST_NAME"):
         # Solo pruebas: base de archivo para los ensayos de concurrencia (docs/testing.md).

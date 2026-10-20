@@ -27,6 +27,7 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_REPORT_EMAIL_BACKEND | Backend de correo Django | No sustituye MailSettings ni bloquea el envío directo SendGrid. |
 | SOC_PORTAL_DB_ENGINE | `sqlite` (por defecto) o `postgresql` | Cambiarlo no traslada datos: seguir [base de datos](database.md). Otro valor detiene el arranque. |
 | SOC_PORTAL_DB_NAME / _USER / _PASSWORD / _HOST / _PORT / _SSLMODE | Conexión PostgreSQL | Solo con `postgresql`. Contraseña en el archivo protegido; `_SSLMODE` por defecto `prefer` (usar `require` o superior fuera del host local). |
+| SOC_PORTAL_SQLITE_PATH | Ruta del archivo SQLite | Por defecto `data/portal.sqlite3`. Para staging y pruebas; en producción no cambiarla sin mover la base y las copias. |
 | SOC_PORTAL_DB_TEST_NAME | Ruta de base SQLite de archivo para pruebas | Solo para los ensayos de concurrencia; nunca la base real. |
 | SOC_NATIVE_ENGINE_GATE | `1` solo para ensayo optativo | Nunca activarlo en servicios de producción. |
 

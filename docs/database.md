@@ -31,6 +31,22 @@ Se niegan explícitamente con PostgreSQL en lugar de trabajar sobre el archivo S
 
 Adaptarlos (bloque 4, paso 5) es requisito antes de usar PostgreSQL en producción.
 
-## Riesgos que el traslado debe comprobar
+## Traslado de SQLite a PostgreSQL
 
-PostgreSQL aplica restricciones que SQLite no aplica: longitud máxima de `CharField`, formato de `GenericIPAddressField`, caracteres NUL en texto y JSON, y claves foráneas. Un dato histórico que incumpla alguna hace fallar el traslado o una escritura posterior; debe detectarse antes de copiar.
+`python manage.py transfer_database` (código en `core/database_transfer.py`) copia la base SQLite a la conexión `default`, que debe ser PostgreSQL:
+
+1. **Origen:** una copia consistente, nunca la base en uso. Sirve la que deja `deploy/update.sh` en `/var/backups/soc-portal/<copia>/portal.sqlite3`, hecha con la API backup y los escritores parados. Se abre en solo lectura.
+2. **Destino:** base PostgreSQL nueva con `migrate` ejecutado con el **mismo commit**. Se niega si las migraciones aplicadas difieren o si ya hay clientes o usuarios.
+3. **Comprobación previa** (`--check`, no escribe): busca lo que SQLite admite y PostgreSQL rechaza (textos más largos que `max_length`, IP no válidas, caracteres NUL en texto y JSON, enteros fuera de rango y claves foráneas huérfanas). Informa por tabla, campo y número de filas, **sin mostrar valores**. No necesita PostgreSQL: puede ejecutarse ya en la VM sobre una copia de la base real para saber si sus datos son trasladables.
+4. **Copia** (`--replace-target`): una sola transacción. Vacía las tablas del destino (también grupos, permisos y tipos sembrados por las migraciones, que se sustituyen por los del origen), copia todas las tablas con sus claves primarias, sin que `auto_now`/`auto_now_add` reescriban fechas, y ajusta las secuencias.
+5. **Verificación antes de confirmar:** filas y huella SHA-256 por tabla, calculadas en origen y destino sobre valores normalizados (JSON con claves ordenadas, IP canónicas, fechas en UTC) e independientes del orden. Cualquier diferencia deshace todo el traslado.
+
+```sh
+SOC_PORTAL_DB_ENGINE=postgresql ... python manage.py migrate
+SOC_PORTAL_DB_ENGINE=postgresql ... python manage.py transfer_database --source /ruta/copia.sqlite3 --check
+SOC_PORTAL_DB_ENGINE=postgresql ... python manage.py transfer_database --source /ruta/copia.sqlite3 --replace-target
+```
+
+Ensayado en el contenedor de desarrollo con PostgreSQL 16 y datos anonimizados (66 tablas, 50 636 filas, 50 000 evidencias): 12 s, verificación correcta, inicio de sesión con la contraseña copiada, secreto MFA descifrable, cadena de auditoría íntegra, ámbito de cliente aplicado y nuevas filas con ID posteriores a los copiados. **No es un ensayo con la base real** ni mide el tiempo de producción. Las pruebas `core/test_database_transfer.py` repiten el traslado en CI.
+
+El traslado no cambia el motor del servicio: después habría que añadir las variables al entorno protegido, instalar `requirements-postgresql.txt` y reiniciar. No hacerlo en producción hasta adaptar la copia y la restauración (apartado anterior) y ensayar el regreso a SQLite.
