@@ -27,9 +27,9 @@ Se niegan explícitamente con PostgreSQL en lugar de trabajar sobre el archivo S
 
 - `core/recovery.py` (copia cifrada): marca la copia como fallida.
 - `deploy/sync_wazuh_dashboards.py` (dashboards internos): lee el motor de `/etc/soc-portal/portal.env` y se detiene.
-- `deploy/update.sh`: se detiene antes de parar servicios.
+Adaptarlos es requisito antes de usar PostgreSQL en producción.
 
-Adaptarlos (bloque 4, paso 5) es requisito antes de usar PostgreSQL en producción.
+`deploy/update.sh` sí admite ambos motores: con PostgreSQL copia con `pg_dump` (formato custom, comprobado con `pg_restore --list`) y `--rollback` restaura en **una transacción** que borra todas las tablas (incluidas las creadas por una versión posterior, que impedirían volver a migrar) y carga la copia; si falla, base y código quedan como estaban. Requiere `postgresql-client` en la VM. Cada copia guarda el motor en `engine` y la reversión se niega a usar una copia de otro motor. Ensayado en el contenedor con PostgreSQL 16 y systemd simulado: despliegue con migración, reversión que elimina datos y tablas posteriores, redespliegue y reversión con copia corrupta sin cambios.
 
 ## Traslado de SQLite a PostgreSQL
 
