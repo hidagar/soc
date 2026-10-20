@@ -8,11 +8,13 @@ import tarfile
 import tempfile
 import struct
 import shutil
+import subprocess
 from contextlib import closing
 from datetime import timedelta
 from pathlib import Path,PurePosixPath
 import paramiko
 from cryptography.fernet import Fernet
+from django.conf import settings
 from django.utils import timezone
 from django.db import connection
 from .models import BackupRun,RecoverySettings,SecurityEvidence,FeedBucket,AuthAttempt,WorkerState
@@ -20,7 +22,7 @@ from .security import decrypt,audit
 
 ROOT=Path('/var/lib/soc-recovery')
 KEY=Path('/etc/soc-portal/recovery.key')
-DB=Path('/srv/soc-portal/data/portal.sqlite3')
+DB=Path(settings.DATABASES['default']['NAME']) if 'sqlite' in settings.DATABASES['default']['ENGINE'] else None
 
 def cipher():
     return Fernet(KEY.read_bytes().strip())
@@ -121,7 +123,7 @@ def validate_tar(decrypted,directory):
             firewall=entry.name.startswith('firewalls/encrypted/')
             if firewall and entry.size>32*1024*1024:raise ValueError('Firewall archive too large')
             firewall_parts=[]
-            if entry.name=='portal.sqlite3': db_output=(Path(directory)/'verify.sqlite3').open('xb')
+            if entry.name in DATABASE_MEMBERS.values(): db_output=(Path(directory)/('verify-'+entry.name)).open('xb')
             try:
                 with archive.extractfile(entry) as stream:
                     for chunk in iter(lambda:stream.read(1024*1024),b''):
@@ -139,14 +141,52 @@ def validate_tar(decrypted,directory):
         from .recovery_components import verify_profile
         coverage=verify_profile(manifest,hashes)
         if 'config/soc-portal/portal.env' not in hashes: raise ValueError('Falta el material de recuperación de claves.')
-        if 'portal.sqlite3' not in hashes: raise ValueError('Falta la base de datos.')
-        path=Path(directory)/'verify.sqlite3'
+        present=[name for name in DATABASE_MEMBERS.values() if name in hashes]
+        if len(present)!=1: raise ValueError('Falta la base de datos.')
+        path=Path(directory)/('verify-'+present[0])
         path.chmod(0o600)
+        database=verify_database(present[0],path)
+        return {'files':len(hashes)+1,**database,'encrypted':True,'firewall_xml_checked':firewalls_checked,**coverage}
+
+DATABASE_MEMBERS={'sqlite':'portal.sqlite3','postgresql':'portal.pgdump'}
+
+def pg_environment():
+    db=settings.DATABASES['default']
+    return {'PATH':'/usr/bin:/bin','PGHOST':str(db.get('HOST') or ''),'PGPORT':str(db.get('PORT') or ''),
+        'PGUSER':str(db.get('USER') or ''),'PGPASSWORD':str(db.get('PASSWORD') or ''),'PGDATABASE':str(db.get('NAME') or ''),
+        'PGSSLMODE':str(db.get('OPTIONS',{}).get('sslmode','prefer'))}
+
+def dump_database(directory):
+    """Copia consistente de la base del portal según su motor: {nombre en el archivo: ruta}."""
+    name=DATABASE_MEMBERS.get(connection.vendor)
+    if not name: raise ValueError('Motor de base sin copia soportada.')
+    path=Path(directory)/name
+    if connection.vendor=='sqlite':
+        with closing(sqlite3.connect(DB)) as source,closing(sqlite3.connect(path)) as target: source.backup(target)
+    else:
+        # Instantánea transaccional de pg_dump; credenciales solo en el entorno del proceso hijo.
+        subprocess.run(['pg_dump','--format=custom','--no-owner','--file',str(path)],env=pg_environment(),
+            check=True,capture_output=True,timeout=3600)
+    return {name:path}
+
+def verify_database(name,path):
+    if name=='portal.sqlite3':
         with closing(sqlite3.connect(f'file:{path}?mode=ro',uri=True)) as connection:
             if connection.execute('PRAGMA integrity_check').fetchone()[0]!='ok': raise ValueError('La base de datos no es íntegra.')
             if connection.execute('PRAGMA foreign_key_check').fetchone(): raise ValueError('Referencias de datos inválidas.')
             migrations=connection.execute('SELECT count(*) FROM django_migrations').fetchone()[0]
-        return {'files':len(hashes)+1,'migrations':migrations,'database_integrity':'ok','encrypted':True,'firewall_xml_checked':firewalls_checked,**coverage}
+        return {'migrations':migrations,'database_integrity':'ok','database_engine':'sqlite'}
+    # PostgreSQL: pg_restore debe leer el índice completo y los datos de django_migrations.
+    # Acredita una copia legible y coherente, no una restauración ensayada.
+    listing=subprocess.run(['pg_restore','--list',str(path)],check=True,capture_output=True,text=True,timeout=600).stdout
+    if 'TABLE DATA public django_migrations' not in listing: raise ValueError('La copia PostgreSQL no contiene las migraciones.')
+    data=subprocess.run(['pg_restore','--data-only','--table=django_migrations','--file=-',str(path)],
+        check=True,capture_output=True,text=True,timeout=600).stdout
+    rows=data.split('FROM stdin;\n',1)[1].split('\n\\.\n',1)[0] if 'FROM stdin;\n' in data else ''
+    migrations=len([line for line in rows.splitlines() if line])
+    if not migrations: raise ValueError('La copia PostgreSQL no contiene migraciones aplicadas.')
+    return {'migrations':migrations,'database_integrity':'pg_dump_ok','database_engine':'postgresql',
+        'database_tables':listing.count('TABLE DATA public ')}
 
 class HashingReader:
     def __init__(self,stream):
@@ -197,9 +237,8 @@ def test_indexer_restore(name):
         admin_request('/'+prefix+'*?expand_wildcards=all',method='DELETE')
 
 def make_backup(run):
-    if connection.vendor!='sqlite':
-        # Copiar el archivo SQLite abandonado daría una copia "verificada" sin los datos reales.
-        run.status='failed'; run.error='La copia del portal aún no admite PostgreSQL. Usar el procedimiento manual documentado.'; run.save()
+    if connection.vendor not in DATABASE_MEMBERS:
+        run.status='failed'; run.error='Motor de base sin copia soportada.'; run.save()
         return
     cfg,_=RecoverySettings.objects.get_or_create(pk=1)
     ROOT.mkdir(mode=0o700,parents=True,exist_ok=True)
@@ -207,9 +246,7 @@ def make_backup(run):
     try:
         snapshot_name=native_snapshot()
         with tempfile.TemporaryDirectory(dir=ROOT,prefix='build-') as directory:
-            database=Path(directory)/'portal.sqlite3'
-            with closing(sqlite3.connect(DB)) as source,closing(sqlite3.connect(database)) as target: source.backup(target)
-            files={'portal.sqlite3':database}
+            files=dump_database(directory)
             roots=[(Path('/etc/soc-portal'),'config/soc-portal'),(Path('/etc/wireguard'),'config/wireguard'),
                 (Path('/etc/wazuh-indexer'),'config/indexer'),(Path('/etc/nginx'),'config/nginx'),
                 (Path('/var/ossec/etc'),'config/wazuh'),(Path('/srv/soc-portal'),'code/portal'),

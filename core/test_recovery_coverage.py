@@ -20,10 +20,11 @@ class RecoveryCoverageTests(SimpleTestCase):
         self.assertEqual(len(result),3);self.assertNotIn('.opendistro_security',result)
         with self.assertRaises(ValueError):selected_indices([{'index':'wazuh-alerts-only'}])
     def test_profile_requires_sso_bootstrap_and_live_security_exports(self):
-        names={n:'hash' for n in REQUIRED}
+        names={n:'hash' for n in (*REQUIRED,'portal.sqlite3')}
         manifest={'profile':2,'indexer_indices':['.kibana_1','wazuh-alerts-test']}
         self.assertEqual(verify_profile(manifest,names)['coverage']['saved_object_indices'],1)
-        for missing in ('config/dashboard/opensearch_dashboards_sso.yml','config/live-security/rolesmapping.json','config/bootstrap/wazuh-install-files.tar'):
+        self.assertEqual(verify_profile(manifest,{**{n:'hash' for n in REQUIRED},'portal.pgdump':'hash'})['profile'],2)
+        for missing in ('portal.sqlite3','config/dashboard/opensearch_dashboards_sso.yml','config/live-security/rolesmapping.json','config/bootstrap/wazuh-install-files.tar'):
             with self.assertRaises(ValueError):verify_profile(manifest,{k:v for k,v in names.items() if k!=missing})
         self.assertEqual(verify_profile({},{}),{}) # Existing encrypted archives remain readable.
     def test_native_snapshot_has_explicit_names_without_global_state(self):

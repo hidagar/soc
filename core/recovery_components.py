@@ -6,7 +6,7 @@ PROFILE=2
 SECURITY_KINDS=('securityconfig','roles','rolesmapping','actiongroups','internalusers','tenants')
 INDEX_NAME=re.compile(r'(?:wazuh-alerts-[a-zA-Z0-9_.-]+|soc-customer-[1-9][0-9]*-events|\.kibana[a-zA-Z0-9_.-]*|\.opensearch_dashboards[a-zA-Z0-9_.-]*)\Z')
 REQUIRED=(
-    'portal.sqlite3','config/soc-portal/portal.env','code/portal/manage.py',
+    'config/soc-portal/portal.env','code/portal/manage.py',
     'config/dashboard/opensearch_dashboards.yml','config/dashboard/opensearch_dashboards_sso.yml',
     'config/systemd/wazuh-dashboard-sso.service','config/nginx/snippets/soc-wazuh-auth-key.conf',
     'config/indexer/certs/admin.pem','config/indexer/certs/admin-key.pem',
@@ -36,7 +36,8 @@ def export_live_security(directory,api):
 def verify_profile(manifest,hashes):
     if manifest.get('profile')!=PROFILE:return {}
     missing=[name for name in REQUIRED if name not in hashes]
-    if missing:raise ValueError('Recovery components missing')
+    # Base del portal: copia SQLite o pg_dump, según el motor en uso.
+    if missing or not {'portal.sqlite3','portal.pgdump'}&set(hashes):raise ValueError('Recovery components missing')
     indices=manifest.get('indexer_indices')
     if selected_indices([{'index':n} for n in indices or []])!=indices:raise ValueError('Incomplete snapshot inventory')
     return {'profile':PROFILE,'coverage':{'portal':True,'dashboard_config':True,'sso_config':True,'live_security_export':True,

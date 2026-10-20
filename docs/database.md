@@ -25,14 +25,13 @@ Estado: **20/10/2026**. Producción sigue en SQLite. PostgreSQL está soportado 
 
 `deploy/sync_wazuh_dashboards.py` (dashboards internos, sin Django) lee el archivo SQLite solo si el motor es `sqlite` y la ruta es la de la instalación. Con otro motor o `SOC_PORTAL_SQLITE_PATH` pide clientes y orígenes a `manage.py dashboard_sources` (venv y entorno del portal), que aplica la misma selección; una prueba compara ambas lecturas sobre la misma base.
 
-## Componentes que todavía solo admiten SQLite
+## Copias con PostgreSQL
 
-Se niegan explícitamente con PostgreSQL en lugar de trabajar sobre el archivo SQLite abandonado:
+Ningún componente lee ya el archivo SQLite abandonado cuando el motor es PostgreSQL.
 
-- `core/recovery.py` (copia cifrada): marca la copia como fallida.
-Adaptarlos es requisito antes de usar PostgreSQL en producción.
+`core/recovery.py` (copia cifrada) incluye `portal.pgdump` (`pg_dump` en formato custom) en lugar de `portal.sqlite3`. Su verificación exige exactamente una base en el archivo, que `pg_restore` lea el índice completo y que `django_migrations` contenga migraciones; el panel lo muestra como «copia PostgreSQL legible». **No equivale** al `integrity_check` de SQLite ni a una restauración de prueba: el ensayo de restauración completa sigue pendiente. Requiere `postgresql-client`.
 
-`deploy/update.sh` sí admite ambos motores: con PostgreSQL copia con `pg_dump` (formato custom, comprobado con `pg_restore --list`) y `--rollback` restaura en **una transacción** que borra todas las tablas (incluidas las creadas por una versión posterior, que impedirían volver a migrar) y carga la copia; si falla, base y código quedan como estaban. Requiere `postgresql-client` en la VM. Cada copia guarda el motor en `engine` y la reversión se niega a usar una copia de otro motor. Ensayado en el contenedor con PostgreSQL 16 y systemd simulado: despliegue con migración, reversión que elimina datos y tablas posteriores, redespliegue y reversión con copia corrupta sin cambios.
+`deploy/update.sh` admite ambos motores: con PostgreSQL copia con `pg_dump` (formato custom, comprobado con `pg_restore --list`) y `--rollback` restaura en **una transacción** que borra todas las tablas (incluidas las creadas por una versión posterior, que impedirían volver a migrar) y carga la copia; si falla, base y código quedan como estaban. Requiere `postgresql-client` en la VM. Cada copia guarda el motor en `engine` y la reversión se niega a usar una copia de otro motor. Ensayado en el contenedor con PostgreSQL 16 y systemd simulado: despliegue con migración, reversión que elimina datos y tablas posteriores, redespliegue y reversión con copia corrupta sin cambios.
 
 ## Traslado de SQLite a PostgreSQL
 
