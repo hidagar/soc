@@ -28,6 +28,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_OPNSENSE_KEY` | [core/opnsense_api.py](../../core/opnsense_api.py) |
 | `SOC_PORTAL_PUBLIC_SYSLOG_IP` | [core/provisioning.py](../../core/provisioning.py) |
 | `SOC_PORTAL_SECRET_KEY` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_SQLITE_PATH` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_SSH_KEY` | [core/ssh_connection.py](../../core/ssh_connection.py) |
 | `SOC_PORTAL_UNIFI_KEY` | [core/unifi_cloud.py](../../core/unifi_cloud.py) |
 | `SOC_PUBLIC_ORIGIN` | [socportal/settings.py](../../socportal/settings.py) |
