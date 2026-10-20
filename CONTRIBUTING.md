@@ -22,4 +22,4 @@ Ejecutar las pruebas relevantes de [testing.md](docs/testing.md); comprobar migr
 
 ## Entrega
 
-Subir la rama sin `--force`. La descripción debe incluir motivo, cambios, pruebas con resultados reales, migraciones, reversión y límites. El repositorio aún no tiene CI/CD completo; no afirmar que una comprobación fue automática si se ejecutó manualmente. Publicar código no implica desplegarlo. Mantener [handoff.md](docs/handoff.md) y la hoja de ruta al cerrar una entrega.
+Subir la rama sin `--force`. La descripción debe incluir motivo, cambios, pruebas con resultados reales, migraciones, reversión y límites. La integración continua (`.github/workflows/ci.yml`) ejecuta pruebas, migraciones `--check`, referencias, documentación y shellcheck en cada push y pull request; no hay despliegue continuo. No afirmar que una comprobación fue automática si se ejecutó manualmente o fuera de esa lista. Publicar código no implica desplegarlo. Mantener [handoff.md](docs/handoff.md) y la hoja de ruta al cerrar una entrega.

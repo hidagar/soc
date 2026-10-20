@@ -13,6 +13,10 @@ python docs/tools/generate_reference.py --check
 
 PowerShell: establecer `$env:SOC_PORTAL_DEBUG="1"` y `$env:SOC_PORTAL_MFA_REQUIRED="0"` antes de invocar Python. No persistir estos valores en un servicio público.
 
+## Integración continua
+
+`.github/workflows/ci.yml` ejecuta en GitHub, en cada push a `main` y en cada pull request, los mismos comandos del apartado anterior (salvo `check`, cubierto por las pruebas), `check_docs.py` y `shellcheck -S warning` sobre los scripts de `deploy/`. Usa Python 3.14 como producción, base de pruebas vacía y ningún secreto. Un resultado verde no acredita despliegue, ensayos nativos/SQLite de archivo ni validación en una sede.
+
 ## Selección por cambio
 
 | Área | Grupos que localizar |

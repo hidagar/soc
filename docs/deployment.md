@@ -2,7 +2,7 @@
 
 ## Estado
 
-No hay CI/CD completo ni reconstrucción de toda la infraestructura demostrada solo con `deploy/install.sh`. Prepara aplicación, venv, entorno, Nginx local y algunos servicios; contiene rutas/direcciones de la instalación original. Wazuh, indexador, SSO/proxy, credenciales, objetos y backups tienen requisitos adicionales. Versionar la entrega completa es bloque 4. Un push no despliega.
+Hay integración continua de comprobaciones (`.github/workflows/ci.yml`), pero no despliegue continuo ni reconstrucción de toda la infraestructura demostrada solo con `deploy/install.sh`. Prepara aplicación, venv, entorno, Nginx local y algunos servicios; contiene rutas/direcciones de la instalación original. Wazuh, indexador, SSO/proxy, credenciales, objetos y backups tienen requisitos adicionales. Versionar la entrega completa es bloque 4. Un push no despliega.
 
 ## Staging
 

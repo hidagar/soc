@@ -1,0 +1,52 @@
+# Comprobaciones de AGENTS.md en cada push y pull request. No despliega nada:
+# no usa secretos, credenciales de clientes ni acceso a la VM.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    name: Pruebas y comprobaciones
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SOC_PORTAL_DEBUG: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Batería de pruebas
+        env:
+          SOC_PORTAL_MFA_REQUIRED: "0"
+        run: |
+          mkdir -p data
+          python manage.py test --verbosity 1
+
+      - name: Migraciones sin generar
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Referencias generadas al día
+        run: python docs/tools/generate_reference.py --check
+
+      - name: Enlaces de la documentación
+        run: python docs/tools/check_docs.py
+
+      - name: Scripts de despliegue (shellcheck)
+        run: shellcheck -S warning deploy/*.sh deploy/wazuh/*.sh
