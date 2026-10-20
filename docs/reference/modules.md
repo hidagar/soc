@@ -52,6 +52,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/log_delivery.py](../../core/log_delivery.py) | Durable inbox summaries and retained v1 UDP forwarding/recovery. — `queue_summary`, `recover_interrupted`, `retry_reviewed`, `forward_batch`, `deliver_due`, `cleanup` |
 | [core/mail_delivery.py](../../core/mail_delivery.py) | Encrypted SendGrid Web API configuration for customer mail. — `MailConfigurationError`, `MailDeliveryError`, `encrypt_sendgrid_key`, `decrypt_sendgrid_key`, `send_via_sendgrid`, `send_test_email`, `send_customer_email`, `send_report_email` |
 | [core/models.py](../../core/models.py) | `Client`, `WeeklyReport`, `MailSettings`, `ReportShare`, `UrgentMonitorCursor`, `SourceOwnership`, `UrgentAlert`, `Site`, `Device`, `UnifiCloudConnection`, `OpnsenseConnection`, `HillstoneConnection`, `GdmsConnection`, `SshConnection`, … (ver archivo) |
+| [core/navigation.py](../../core/navigation.py) | Menú lateral del portal agrupado por áreas de trabajo. — `build_navigation` |
 | [core/network_coverage.py](../../core/network_coverage.py) | Bounded readonly discovery and network-specific proof, without inferring blanket protection. — `literal`, `cidrs`, `opnsense_networks`, `unifi_networks`, `save_discovery`, `discover_networks`, `current`, `fingerprint`, `matches_ip`, `uniquely_contains`, `snapshot` |
 | [core/network_models.py](../../core/network_models.py) | `NetworkCheck`, `NetworkCoverage` |
 | [core/network_views.py](../../core/network_views.py) | `NetworkForm`, `coverage`, `requirements` |
