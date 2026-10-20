@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from .models import (Asset,AuditEvent,Client,Device,DeviceHealth,Incident,IncidentUpdate,
     OperationalIssue,SecurityEvidence,StaffAccess,WorkerState)
+from .release import deployed_release
 from .security import audit,audit_integrity,mfa_fresh
 
 def permitted(request,permission):
@@ -112,6 +113,7 @@ def health_list(request):
         'issues':issues.order_by('severity','opened_at')[:100],
         'monitor':state,'reconciliation':reconciliation,'workers':workers,
         'receipt_metrics':WorkerState.objects.filter(pk='receipts').first() if global_access else None,
+        'release':deployed_release() if global_access else None,
         'monitor_stale':not state or not state.last_success_at or timezone.now()-state.last_success_at>timedelta(minutes=5)})
 
 @login_required

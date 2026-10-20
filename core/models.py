@@ -332,6 +332,14 @@ class SshConnection(models.Model):
         return f"SSH · {self.device}"
 
 
+def default_receiver_ip():
+    return settings.SOC_RECEIVER_IP
+
+
+def default_receiver_port():
+    return settings.SOC_RECEIVER_PORT
+
+
 class ExportConfiguration(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Pendiente"
@@ -340,8 +348,8 @@ class ExportConfiguration(models.Model):
         ERROR = "error", "Error"
 
     device = models.OneToOneField(Device, on_delete=models.CASCADE, related_name="export_configuration")
-    destination = models.GenericIPAddressField(protocol="IPv4", default="172.20.10.20")
-    port = models.PositiveIntegerField(default=5514)
+    destination = models.GenericIPAddressField(protocol="IPv4", default=default_receiver_ip)
+    port = models.PositiveIntegerField(default=default_receiver_port)
     source_ip = models.GenericIPAddressField(protocol="IPv4", null=True, blank=True)
     receiver_ready = models.BooleanField(default=False)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)

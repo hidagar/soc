@@ -45,6 +45,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
 | [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 11 |
+| [core/test_release_and_receiver.py](../../core/test_release_and_receiver.py) | 5 |
 | [core/test_report_freshness.py](../../core/test_report_freshness.py) | 3 |
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
@@ -114,3 +115,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0044_event_interpretation.py](../../core/migrations/0044_event_interpretation.py)
 - [core/migrations/0045_durable_https_inbox.py](../../core/migrations/0045_durable_https_inbox.py)
 - [core/migrations/0046_acknowledged_wazuh_delivery.py](../../core/migrations/0046_acknowledged_wazuh_delivery.py)
+- [core/migrations/0047_export_receiver_defaults.py](../../core/migrations/0047_export_receiver_defaults.py)

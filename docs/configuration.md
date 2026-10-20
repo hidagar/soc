@@ -18,6 +18,7 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_PORTAL_OPNSENSE_KEY | Clave Fernet | Cifra credenciales OPNsense. |
 | SOC_PORTAL_SSH_KEY | Clave Fernet | Cifra SSH y credenciales reutilizadas por conectores Hillstone/GDMS. |
 | SOC_PORTAL_MAIL_KEY | Clave Fernet | Cifra la API key SendGrid. |
+| SOC_PORTAL_RECEIVER_IP / SOC_PORTAL_RECEIVER_PORT | IPv4 y puerto UDP del receptor Syslog de Wazuh en la VM | Por defecto `172.20.10.20` y `5514` (instalación actual). Se usan en el aprovisionamiento, el asistente, el reenvío HTTPS→UDP, la regla nftables de la VPN y la búsqueda del bloque `<remote>` en Wazuh. Un valor no válido detiene el arranque. Cambiarlos no reconfigura Wazuh, Nginx ni el DNAT ni los equipos ya configurados. |
 | SOC_PORTAL_PUBLIC_SYSLOG_IP | IPv4 pública de destino | Distinguir destino de envío de IP de origen del firewall. |
 | SOC_PORTAL_EXTRA_SYSLOG_IPS | IPs adicionales separadas por comas | Opciones de transición, no reconocimiento automático de clientes. |
 | SOC_INDEXER_READER_FILE | Ruta JSON privada | `username` y `password` del reader, fuera de Git. |
@@ -50,4 +51,4 @@ Credenciales de conectores, selección cloud/sede, CA por dispositivo, SSH con h
 | `/var/lib/soc-wazuh-https/var/ossec` | Perfil, cola, DB y logs del motor HTTPS privado. |
 | `/var/lib/soc-recovery` | Copias cifradas y configuraciones de firewall. |
 
-`deploy/install.sh` contiene valores de una instalación concreta (dirección local y puerto, entre otros). Revisarlos en staging; cambiar variables no reescribe automáticamente el Nginx generado ni el DNAT de la red.
+`deploy/install.sh` contiene valores de una instalación concreta (dirección local y puerto, entre otros); el código de la aplicación los toma de `SOC_PORTAL_RECEIVER_IP`/`_PORT`, pero el instalador y los textos de ayuda de la VPN siguen fijos. Revisarlos en staging; cambiar variables no reescribe automáticamente el Nginx generado ni el DNAT de la red.

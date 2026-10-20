@@ -15,6 +15,7 @@ from django.views.decorators.http import require_http_methods
 from .models import SecureLogChannel,SecureLogReceipt,Device,WorkerState,ExportConfiguration,FirewallOnboarding
 from .security import encrypt,decrypt,audit,mfa_fresh
 from .invitations import origin
+from .provisioning import DESTINATION,PORT
 
 NETWORK=ipaddress.ip_network('127.80.0.0/16')
 MAX_BODY=128*1024
@@ -145,7 +146,7 @@ def setup(request,pk):
                 else:messages.error(request,'Selecciona un lote pendiente de revisión y confirma el posible duplicado.')
             elif action=='verify' and channel.enabled:
                 config,_=ExportConfiguration.objects.get_or_create(device=device)
-                config.source_ip=channel.source_identity;config.destination='172.20.10.20';config.port=5514;config.status='configured';config.receiver_ready=channel.receiver_ready;config.configured_at=timezone.now();config.save()
+                config.source_ip=channel.source_identity;config.destination=DESTINATION;config.port=PORT;config.status='configured';config.receiver_ready=channel.receiver_ready;config.configured_at=timezone.now();config.save()
                 row,_=FirewallOnboarding.objects.get_or_create(device=device)
                 row.method='https';row.step=5;row.verified_at=row.event_at=row.zenarmor_event_at=None;row.verification_started_at=timezone.now();row.verification_error='';row.save()
                 device.log_method='syslog';device.integration='pending';device.save(update_fields=['log_method','integration'])

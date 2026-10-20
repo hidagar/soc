@@ -10,6 +10,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from .models import VpnPeer,WorkerState
+from .provisioning import PORT
 from .security import encrypt,decrypt,audit
 
 SERVER='10.255.251.1'
@@ -67,7 +68,7 @@ def synchronize():
     # Validate rules before replacing only our own nft table. Never change existing perimeter rules.
     rules='''table inet soc_wg {
       chain input { type filter hook input priority -10; policy accept;
-        iifname "wg-soc" ip daddr 10.255.251.1 udp dport 5514 accept
+        iifname "wg-soc" ip daddr 10.255.251.1 udp dport {PORT} accept
         iifname "wg-soc" ip daddr 10.255.251.1 icmp type echo-request accept
         iifname "wg-soc" drop
       }
@@ -75,7 +76,7 @@ def synchronize():
         iifname "wg-soc" drop
         oifname "wg-soc" drop
       }
-    }'''
+    }'''.replace('{PORT}',str(PORT))
     exists=subprocess.run(['nft','list','table','inet','soc_wg'],capture_output=True,timeout=5).returncode==0
     script=('delete table inet soc_wg\n' if exists else '')+rules
     subprocess.run(['nft','--check','-f','-'],input=script,text=True,check=True,capture_output=True,timeout=5)

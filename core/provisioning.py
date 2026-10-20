@@ -6,6 +6,8 @@ import os
 import re
 from urllib.parse import urlsplit
 
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
 
 from .models import Device, ExportConfiguration, FirewallOnboarding
@@ -18,8 +20,17 @@ class ProvisionError(Exception):
     pass
 
 
-DESTINATION = "172.20.10.20"
-PORT = 5514
+def _receiver():
+    try:
+        address = ipaddress.IPv4Address(settings.SOC_RECEIVER_IP)
+    except ValueError as exc:
+        raise ImproperlyConfigured("SOC_PORTAL_RECEIVER_IP debe ser una IPv4.") from exc
+    if not 1 <= settings.SOC_RECEIVER_PORT <= 65535:
+        raise ImproperlyConfigured("SOC_PORTAL_RECEIVER_PORT debe estar entre 1 y 65535.")
+    return str(address), settings.SOC_RECEIVER_PORT
+
+
+DESTINATION, PORT = _receiver()
 
 
 def available_destinations():
