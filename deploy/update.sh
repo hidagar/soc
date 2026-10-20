@@ -40,8 +40,10 @@ stop_writers() {
   systemctl list-units --type=timer --state=active --no-legend --plain 'soc-*' \
     | awk '{print $1}' > "$1/timers-active.txt"
   if [[ ! -s "$1/timers-active.txt" ]]; then
-    log "AVISO: no hay timers soc-* activos. Si un intento anterior los paró, no se reactivarán solos:"
-    log "  revisa timers-active.txt de la copia de ese intento en $BACKUPS."
+    # Ninguno activo suele indicar un intento anterior interrumpido: reactivar los habilitados.
+    systemctl list-unit-files --type=timer --state=enabled --no-legend 'soc-*' \
+      | awk '{print $1}' > "$1/timers-active.txt"
+    log "AVISO: no hay timers soc-* activos; al terminar se arrancarán los habilitados."
   fi
   log "Parando timers: $(tr '\n' ' ' < "$1/timers-active.txt")"
   [[ -s "$1/timers-active.txt" ]] && xargs -r systemctl stop < "$1/timers-active.txt"
