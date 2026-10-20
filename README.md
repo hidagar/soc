@@ -2,6 +2,19 @@
 
 Portal de gestión de seguridad para clientes, sedes y firewalls. Wazuh analiza los eventos; el portal aporta aislamiento por cliente, investigación, seguimiento, informes y operación.
 
+## Continuar el proyecto
+
+**Entrada principal: [documentación del proyecto](docs/README.md).**
+
+- IA: leer [AGENTS.md](AGENTS.md) y [estado/traspaso](docs/handoff.md) antes de cambiar código.
+- Desarrollo: [arranque local](docs/development.md), [arquitectura](docs/architecture.md), [modelo de datos](docs/domain-model.md), [contribución](CONTRIBUTING.md).
+- Operación: [configuración](docs/configuration.md), [despliegue](docs/deployment.md), [trabajos](docs/operations.md), [recuperación](docs/recovery.md), [diagnóstico](docs/troubleshooting.md).
+- Funciones: [integraciones](docs/integrations.md), [ingesta](docs/ingestion.md), [informes/correo](docs/reports-and-mail.md), [interfaz](docs/frontend.md), [guía funcional](docs/user-guide.md).
+- Referencia: [módulos](docs/reference/modules.md), [modelos](docs/reference/models.md), [rutas](docs/reference/routes.md), [entorno](docs/reference/environment.md), [trabajos](docs/reference/jobs.md), [migraciones/pruebas](docs/reference/verification.md).
+- Planificación: [decisiones](docs/decisions.md) y [hoja de ruta](docs/roadmap.md).
+
+Estado documentado: **20/10/2026**. La parte servidor de 3B está desplegada; la validación del primer relay en sede sigue pendiente. PostgreSQL/CI y otras ampliaciones no se presentan como completadas. La rama inicial de importación es `codex/soc-platform-2026-10-20`; comprobar qué rama contiene la aplicación antes de desarrollar.
+
 ## Funcionalidades
 
 - Asistente de conexión y exportación Syslog para OPNsense, UniFi, Hillstone y Grandstream GCC/GDMS, según las capacidades del equipo.
@@ -22,20 +35,22 @@ pip install -r requirements.txt
 mkdir -p data
 export SOC_PORTAL_DEBUG=1
 python manage.py migrate
-python manage.py createsuperuser
+python manage.py createsuperuser --username developer --email developer@example.test
 python manage.py runserver
 ```
 
-En PowerShell, activa `.venv\Scripts\Activate.ps1` y establece `$env:SOC_PORTAL_DEBUG="1"`. El modo de desarrollo nunca debe usarse en un servicio público.
+En PowerShell, activa `.venv\Scripts\Activate.ps1` y establece `$env:SOC_PORTAL_DEBUG="1"`. Entrar por correo en `http://127.0.0.1:8000/login/`; configurar MFA cuando lo pida. Django no carga `.env` automáticamente. El modo de desarrollo nunca debe usarse en un servicio público.
 
 ## Pruebas
 
 ```sh
 SOC_PORTAL_DEBUG=1 SOC_PORTAL_MFA_REQUIRED=0 python manage.py test
 SOC_PORTAL_DEBUG=1 python manage.py makemigrations --check --dry-run
+python docs/tools/generate_reference.py --check
+python docs/tools/check_docs.py
 ```
 
-El ajuste MFA anterior solo corresponde al entorno de pruebas. Las pruebas de permisos y MFA establecen sus propios escenarios. Los ensayos nativos e integración requieren un laboratorio Linux separado; no inyectar sus fixtures en índices de producción.
+El ajuste MFA anterior solo corresponde al entorno de pruebas. Las pruebas de permisos y MFA establecen sus propios escenarios. Los ensayos nativos e integración requieren un laboratorio Linux separado; no inyectar sus fixtures en índices de producción. [Guía completa de pruebas](docs/testing.md).
 
 ## Despliegue
 
