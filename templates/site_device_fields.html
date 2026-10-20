@@ -1,0 +1,7 @@
+{% if device_form.non_field_errors %}<div class="form-error">{{ device_form.non_field_errors }}</div>{% endif %}
+<div class="form-grid">
+  {% for field in device_form %}<div class="field{% if field.name == 'ca_certificate' %} wide{% endif %}"{% if field.name == 'management_address' or field.name == 'ssh_username' %} data-connection="ssh"{% elif field.name == 'api_key' %} data-connection="api-key"{% elif field.name == 'api_secret' or field.name == 'api_url' or field.name == 'ca_certificate' %} data-connection="opnsense"{% endif %}>
+    <label for="{{ field.id_for_label }}">{% if field.name == 'management_address' %}IP o nombre para SSH{% else %}{{ field.label }}{% endif %}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}
+    {% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}
+  </div>{% endfor %}
+</div>

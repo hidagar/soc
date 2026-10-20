@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Centro SOC client dashboards in Wazuh
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=soc-wazuh-dashboards.service
+
+[Install]
+WantedBy=timers.target

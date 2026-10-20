@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Añadir sede y equipos{% endblock %}
+{% block content %}
+<div class="breadcrumbs"><a href="{{ cancel_url }}">Volver</a><span>›</span>Añadir sede y equipos</div>
+<header class="page-head"><div><p class="eyebrow">Nueva sede</p><h1>Añadir sede y equipos</h1><p class="muted">Lo esencial para empezar. El panel completará los datos que encuentre al conectar cada equipo.</p></div></header>
+<p class="help-shortcut"><a href="{% url 'connection_guide' %}" target="_blank" rel="noopener noreferrer">Primera vez: abre la guía de conexión ↗</a><span>Se abre en otra pestaña para conservar este formulario.</span></p>
+<form method="post" id="site-devices-form" autocomplete="off">{% csrf_token %}
+  <section class="card editor"><h2>Sede</h2>
+    {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid">
+      {% for field in form %}<div class="field">{% if field.name == 'client' and selected_client %}<label for="selected-client-name">Cliente</label><input id="selected-client-name" class="input" type="text" value="{{ selected_client.name }}" readonly>{{ field }}{% else %}<label for="{{ field.id_for_label }}">{% if field.name == 'code' %}Identificador{% else %}{{ field.label }}{% endif %}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% endif %}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}</div>{% endfor %}
+    </div>
+  </section>
+  <section class="card"><div class="card-head"><h2>Equipos</h2><button class="button secondary" type="button" id="add-device">+ Añadir otro equipo</button></div>
+    <p class="muted">Puedes añadir varios equipos ahora o dejarlos para más adelante.</p>
+    {{ devices_formset.management_form }}
+    {% if devices_formset.non_form_errors %}<div class="form-error">{{ devices_formset.non_form_errors }}</div>{% endif %}
+    <div id="device-forms">{% for device_form in devices_formset %}<fieldset class="device-entry"><legend>Equipo {{ forloop.counter }}</legend>{% include 'site_device_fields.html' with device_form=device_form %}</fieldset>{% endfor %}</div>
+    <template id="empty-device-form"><fieldset class="device-entry"><legend>Equipo</legend>{% include 'site_device_fields.html' with device_form=devices_formset.empty_form %}</fieldset></template>
+    <p class="notice">Al crear la sede podrás abrir el equipo y configurar SSH con contraseña cifrada y huella verificada. El panel configurará la exportación en OPNsense al verificar el acceso.</p>
+  </section>
+  <div class="form-actions"><a class="button secondary" href="{{ cancel_url }}">Cancelar</a><button class="button primary" type="submit">Crear sede y equipos</button></div>
+</form>
+<script>
+(() => {
+  const button = document.getElementById('add-device');
+  const total = document.getElementById('id_devices-TOTAL_FORMS');
+  const max = Number(document.getElementById('id_devices-MAX_NUM_FORMS').value);
+  const container = document.getElementById('device-forms');
+  const template = document.getElementById('empty-device-form').innerHTML;
+  function update(fieldset) {
+    const vendor = fieldset.querySelector('select[name$="-vendor"]')?.value;
+    const method = fieldset.querySelector('select[name$="-management_method"]');
+    if (!method) return;
+    const apiOption = method.querySelector('option[value="api"]');
+    apiOption.disabled = !['unifi', 'opnsense'].includes(vendor) || !{{ can_manage_connections|yesno:'true,false' }};
+    if (apiOption.disabled && method.value === 'api') method.value = '';
+    fieldset.querySelectorAll('[data-connection]').forEach(element => {
+      const kind = element.dataset.connection;
+      element.hidden = !(method.value === 'ssh' && kind === 'ssh' || method.value === 'api' && (kind === 'api-key' || kind === vendor));
+    });
+  }
+  container.addEventListener('change', event => {
+    if (event.target.matches('select[name$="-vendor"], select[name$="-management_method"]')) update(event.target.closest('fieldset'));
+  });
+  container.querySelectorAll('fieldset').forEach(update);
+  button.addEventListener('click', () => {
+    const index = Number(total.value);
+    if (index >= max) return;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = template.replaceAll('__prefix__', String(index));
+    const fieldset = wrapper.firstElementChild;
+    fieldset.querySelector('legend').textContent = `Equipo ${index + 1}`;
+    container.appendChild(fieldset);
+    total.value = String(index + 1);
+    update(fieldset);
+  });
+})();
+</script>
+{% endblock %}

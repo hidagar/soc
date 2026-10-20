@@ -1,0 +1,21 @@
+AVISO URGENTE · CENTRO SOC
+{{ headline }} · {{ client.name }}{% if alert.site_name %} · {{ alert.site_name }}{% endif %}
+
+Detectado el {{ alert.observed_at|date:'d/m/Y' }} a las {{ alert.observed_at|date:'H:i' }} (hora de Madrid).
+
+QUÉ HA PASADO
+{{ meaning }}
+
+Equipo: {{ alert.asset_name }}{% if alert.destination_ip %} ({{ alert.destination_ip }}){% endif %}.
+{% if alert.destination_port %}Puerto de destino: {{ alert.destination_port }}.
+{% endif %}{% if alert.external_ip %}IP de origen observada: {{ alert.external_ip }}.
+{% endif %}{% if alert.signature %}Registro: {{ alert.signature }}.
+{% endif %}{% if alert.action %}Acción informada por el firewall: {{ action_label }}.
+{% endif %}
+Nivel Wazuh: {{ alert.rule_level }}. Prioridad SOC: {{ alert.interpretation.priority_label|default:"por revisar" }}.
+{% if alert.interpretation.vendor_severity %}Severidad del fabricante: {{ alert.interpretation.vendor_severity }}.
+{% endif %}
+QUÉ HACER AHORA
+{% for action in actions %}{{ forloop.counter }}. {{ action }}
+{% endfor %}
+Este aviso se genera con eventos recibidos por Wazuh desde una fuente verificada de {{ client.name }}. Una detección no demuestra por sí sola que el equipo haya sido comprometido. Si ya estáis gestionando este evento, no hace falta duplicar la incidencia.

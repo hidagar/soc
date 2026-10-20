@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}API OPNsense · {{ device.name }}{% endblock %}
+{% block content %}
+{% include 'onboarding_connection_return.html' %}
+<div class="breadcrumbs"><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a><span>›</span>API OPNsense</div>
+<header class="page-head"><div><p class="eyebrow">{{ device.site.client.name }} · {{ device.site.name }}</p><h1>Conexión API OPNsense</h1><p class="muted">{{ device.name }}</p></div></header>
+<p class="help-shortcut"><a href="{% url 'connection_guide' %}?device={{ device.pk }}&amp;method=api#paso-3" target="_blank" rel="noopener noreferrer">Ayuda: crear la clave, encontrar el secreto y validar el certificado ↗</a></p>
+{% if error_message %}<section class="card"><p role="alert">{{ error_message }}</p></section>{% endif %}
+<section class="card"><h2>Credenciales API</h2>
+  <p>Crea una pareja API para este servicio en Sistema → Acceso → Usuarios de OPNsense. El usuario necesita permiso para consultar y modificar destinos de syslog y aplicar el servicio. La VM debe llegar a la dirección HTTPS por red privada o VPN.</p>
+  {% if connection %}<p><strong>Credenciales guardadas.</strong> Estado API: {% if connection.last_ok %}verificado{% else %}pendiente o con error{% endif %}.{% if connection.last_checked_at %} Última comprobación: {{ connection.last_checked_at|date:'d/m/Y H:i' }}.{% endif %}</p>{% endif %}
+  <form method="post" autocomplete="off">{% csrf_token %}<input type="hidden" name="action" value="save">
+    <label for="api_url">Dirección HTTPS de OPNsense</label><input id="api_url" class="input" name="api_url" type="url" required maxlength="255" placeholder="https://opnsense.sede.interna" value="{{ connection.api_url|default:'' }}">
+    <label for="api_key">Clave API</label><input id="api_key" class="input" name="api_key" type="password" required maxlength="512" autocomplete="new-password">
+    <label for="api_secret">Secreto API</label><input id="api_secret" class="input" name="api_secret" type="password" required maxlength="512" autocomplete="new-password">
+    <label for="ca_certificate">Certificado CA de OPNsense (PEM, si no lo firma una CA confiable por la VM)</label><textarea id="ca_certificate" class="input" name="ca_certificate" rows="5" maxlength="20000">{{ connection.ca_certificate|default:'' }}</textarea>
+    <button class="button primary" type="submit">Guardar y configurar exportación</button>
+  </form>
+</section>
+{% if connection %}<section class="card"><h2>Comprobar acceso</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="test"><button class="button primary" type="submit">Probar y reconfigurar exportación</button></form></section>
+<section class="card"><h2>Retirar acceso</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove"><button class="button secondary" type="submit">Eliminar credenciales del panel</button></form></section>{% endif %}
+{% if export %}<section class="card"><h2>Exportación</h2><p>{{ export.get_status_display }} · {{ export.destination }}:{{ export.port }}{% if export.receiver_ready %} · Wazuh preparado{% endif %}</p>{% if export.last_error %}<p role="alert">{{ export.last_error }}</p>{% endif %}</section>{% endif %}
+<section class="card"><p>El panel configura el destino syslog de OPNsense al verificar la API. La recepción real de eventos se comprueba en Wazuh.</p></section>
+{% endblock %}

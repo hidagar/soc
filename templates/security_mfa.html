@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Seguridad de acceso{% endblock %}
+{% block content %}
+<header class="page-head"><div><p class="eyebrow">Tu cuenta</p><h1>Seguridad de acceso</h1><p>Protege tu acceso al Centro SOC con una aplicación de autenticación.</p></div></header>
+<section class="card" style="max-width:650px">
+{% if error %}<p role="alert" class="message">{{ error }}</p>{% endif %}
+{% if enabled %}<h2>Autenticación en dos pasos activada</h2>{% if codes %}<p><strong>Guarda estos códigos de recuperación en un lugar seguro. Se muestran una sola vez y cada código sirve una vez.</strong></p><pre>{% for code in codes %}{{ code }}
+{% endfor %}</pre>{% endif %}<a class="button primary" href="{% url 'dashboard' %}">Entrar al panel</a>
+{% elif challenge %}<h2>Confirma tu acceso</h2><p>Introduce el código de tu autenticador o uno de tus códigos de recuperación.</p><form method="post">{% csrf_token %}<label for="code">Código</label><input id="code" class="input" name="code" autocomplete="one-time-code" required autofocus maxlength="32"><p><button class="button primary">Verificar</button></p></form>
+{% elif secret %}<h2>Conecta tu autenticador</h2><p>1. Escanea este QR con tu aplicación de autenticación.</p><div>{{ qr|safe }}</div><details><summary>Introducir la clave manualmente</summary><code>{{ secret }}</code></details><p>2. Introduce el código que aparece en la aplicación.</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="confirm"><label for="code">Código de seis dígitos</label><input class="input" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" required maxlength="6"><p><button class="button primary">Activar y guardar códigos de recuperación</button></p></form>
+{% else %}<h2>Configura la autenticación en dos pasos</h2><p>Primero confirma tu contraseña. Después conectarás tu autenticador y guardarás los códigos de recuperación.</p><form method="post">{% csrf_token %}<input type="hidden" name="action" value="generate"><label for="password">Tu contraseña actual</label><input class="input" id="password" name="password" type="password" autocomplete="current-password" required><p><button class="button primary">Preparar autenticador</button></p></form>{% endif %}
+</section>
+{% endblock %}

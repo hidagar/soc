@@ -1,0 +1,14 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;color:#183044;line-height:1.55;max-width:700px;margin:auto;padding:24px">
+<p style="font-size:12px;letter-spacing:2px;color:#008b89;font-weight:bold">CENTRO SOC · AVISO URGENTE</p>
+<h1 style="margin:0 0 5px">{{ headline }}</h1><p style="color:#526579;margin:0 0 20px">{{ client.name }}{% if alert.site_name %} · {{ alert.site_name }}{% endif %} · {{ alert.observed_at|date:'d/m/Y H:i' }} (Madrid)</p>
+<div style="border-left:5px solid #c77b2a;background:#fff5e6;padding:16px 19px;margin:20px 0"><p style="margin:0">{{ meaning }}</p></div>
+<h2 style="font-size:18px">Equipo y evidencia</h2>
+<table style="border-collapse:collapse;width:100%"><tr><td style="padding:8px;border-bottom:1px solid #d8e3e8;width:34%">Equipo</td><td style="padding:8px;border-bottom:1px solid #d8e3e8"><b>{{ alert.asset_name }}</b>{% if alert.destination_ip %} · {{ alert.destination_ip }}{% endif %}</td></tr>
+{% if alert.destination_port %}<tr><td style="padding:8px;border-bottom:1px solid #d8e3e8">Puerto de destino</td><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ alert.destination_port }}</td></tr>{% endif %}
+{% if alert.external_ip %}<tr><td style="padding:8px;border-bottom:1px solid #d8e3e8">IP de origen</td><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ alert.external_ip }}</td></tr>{% endif %}
+{% if alert.action %}<tr><td style="padding:8px;border-bottom:1px solid #d8e3e8">Acción del firewall</td><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ action_label }}</td></tr>{% endif %}
+{% if alert.signature %}<tr><td style="padding:8px;border-bottom:1px solid #d8e3e8">Registro</td><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ alert.signature }}</td></tr>{% endif %}</table>
+<p>Nivel Wazuh: {{ alert.rule_level }} · Prioridad SOC: {{ alert.interpretation.priority_label|default:"por revisar" }}{% if alert.interpretation.vendor_severity %} · Severidad del fabricante: {{ alert.interpretation.vendor_severity }}{% endif %}</p>
+<h2 style="font-size:18px;margin-top:23px">Qué hacer ahora</h2><ol>{% for action in actions %}<li style="padding-bottom:8px">{{ action }}</li>{% endfor %}</ol>
+<p style="font-size:12px;color:#526579;border-top:1px solid #d8e3e8;padding-top:14px">Aviso generado con eventos recibidos por Wazuh desde una fuente verificada de {{ client.name }}. Una detección no demuestra por sí sola que el equipo haya sido comprometido. Si ya estáis gestionando este evento, no hace falta duplicar la incidencia.</p>
+</body></html>

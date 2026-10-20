@@ -1,0 +1,19 @@
+<!-- Zenarmor's documented syslog JSON stream. Only actual zenarmor program records. -->
+<decoder name="zenarmor">
+  <program_name>^zenarmor$</program_name>
+  <prematch type="pcre2">data=\s*\{</prematch>
+</decoder>
+<!-- Zenarmor 2.6 also sends an ISO timestamp envelope which Wazuh does not predecode. -->
+<decoder name="zenarmor-iso">
+  <prematch type="pcre2">^(?:&lt;\d+&gt;)?\d{4}-\d{2}-\d{2}T\S+\s+\S+\s+zenarmor(?:\[\d+\])?:\s+daemon=zenarmor,\s+index=[a-z]+,\s+data=\s*\{</prematch>
+</decoder>
+<decoder name="zenarmor-iso-json">
+  <parent>zenarmor-iso</parent>
+  <prematch type="pcre2">data=\s*</prematch>
+  <plugin_decoder offset="after_prematch">JSON_Decoder</plugin_decoder>
+</decoder>
+<decoder name="zenarmor-json">
+  <parent>zenarmor</parent>
+  <prematch type="pcre2">data=\s*</prematch>
+  <plugin_decoder offset="after_prematch">JSON_Decoder</plugin_decoder>
+</decoder>

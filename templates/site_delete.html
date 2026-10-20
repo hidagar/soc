@@ -1,0 +1,28 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Eliminar sede · {{ site.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/site-actions.css' %}?v=20261005">
+<div class="breadcrumbs"><a href="{% url 'client_detail' site.client.pk %}">{{ site.client.name }}</a><span>›</span><a href="{% url 'site_detail' site.pk %}">{{ site.name }}</a><span>›</span>Eliminar sede</div>
+<header class="page-head"><div><p class="eyebrow">{{ site.client.name }}</p><h1>Eliminar sede</h1><p class="muted">{{ site.name }}</p></div></header>
+<section class="card editor">
+{% if error_message %}<p class="form-error" role="alert">{{ error_message }}</p>{% endif %}
+{% if incident_count or retained %}
+<h2>Esta sede tiene historial que debe conservarse</h2>
+{% if incident_count %}
+<p>Hay <strong>{{ incident_count }}</strong> incidencia{{ incident_count|pluralize }} vinculada{{ incident_count|pluralize }} a esta sede o a sus equipos. La eliminación está bloqueada para conservar ese historial.</p>
+{% endif %}
+{% if retained %}<ul>{% for item in retained %}<li>{{ item.count }} {{ item.label }}</li>{% endfor %}</ul><p>Estos registros impiden eliminar la sede. Puedes desactivarla conservando su historial.</p>{% endif %}
+<p>Puedes desactivar la sede desde «Editar» para excluirla de la recogida de alertas para nuevos informes y avisos del portal.</p>
+<div class="form-actions"><a class="button secondary" href="{% url 'site_detail' site.pk %}">Volver a la sede</a><a class="button primary" href="{% url 'site_edit' site.pk %}">Editar sede</a></div>
+{% else %}
+<h2>Se eliminará «{{ site.name }}» de {{ site.client.name }}</h2>
+<p>También se eliminarán del panel sus <strong>{{ devices|length }} equipo{{ devices|length|pluralize }}</strong>, las credenciales API/SSH guardadas, la configuración de exportación y el progreso del asistente.</p>
+{% if devices %}<ul class="delete-device-list">{% for device in devices %}<li><strong>{{ device.name }}</strong> · {{ device.get_vendor_display }}</li>{% endfor %}</ul>{% endif %}
+<p>Los informes ya generados y los eventos históricos de Wazuh se conservarán. Esta acción no cambia la configuración de los firewalls: si siguen enviando logs, tendrás que desactivar ese envío en ellos.</p>
+<form method="post">{% csrf_token %}
+<label class="delete-confirm"><input type="checkbox" name="confirm" value="yes" required> Confirmo que quiero eliminar definitivamente esta sede y sus equipos del panel.</label>
+<div class="form-actions"><a class="button secondary" href="{% url 'site_detail' site.pk %}">Cancelar</a><button class="button danger" type="submit">Eliminar sede y equipos</button></div>
+</form>
+{% endif %}
+</section>
+{% endblock %}

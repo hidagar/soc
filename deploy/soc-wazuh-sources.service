@@ -1,0 +1,15 @@
+[Unit]
+Description=Sync Centro SOC syslog sources into Wazuh
+After=wazuh-manager.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/srv/soc-portal
+EnvironmentFile=/etc/soc-portal/portal.env
+ExecStart=/opt/soc-portal-venv/bin/python /srv/soc-portal/manage.py sync_wazuh_sources
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ReadWritePaths=/var/ossec/etc /srv/soc-portal/data

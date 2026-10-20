@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Acceso{% endblock %}
+{% block guest %}
+<main class="login-wrap"><div class="login-card"><img class="login-logo" src="{% static 'brand/ibred-empresas-color.png' %}" alt="ib-red empresas"><p class="eyebrow">Acceso del equipo</p><h1>Centro SOC</h1><p class="muted">Clientes, sedes, equipos e incidencias en un solo lugar.</p>
+  <form method="post">{% csrf_token %}
+    {% if form.errors %}<p class="form-error">Correo o contraseña incorrectos.</p>{% endif %}
+    <label for="id_username">Correo electrónico</label><input class="input" type="text" inputmode="email" name="username" id="id_username" value="{{ form.username.value|default_if_none:'' }}" autocomplete="username" required autofocus>
+    <label for="id_password">Contraseña</label><input class="input" type="password" name="password" id="id_password" autocomplete="current-password" required>
+    <input type="hidden" name="next" value="{{ next }}"><button class="button primary full" type="submit">Entrar</button>
+  </form>
+</div></main>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}{% if is_edit %}Editar{% else %}Añadir{% endif %} {{ title|lower }}{% endblock %}
+{% block content %}
+<div class="breadcrumbs"><a href="{{ cancel_url }}">Volver</a><span>›</span>{% if is_edit %}Editar{% else %}Añadir{% endif %} {{ title|lower }}</div>
+<header class="page-head"><div><p class="eyebrow">Gestión interna</p><h1>{% if is_edit %}Editar{% else %}Añadir{% endif %} {{ title|lower }}</h1></div></header>
+<form class="card editor" method="post" id="object-form" data-options-url="{% url 'related_options' %}">{% csrf_token %}
+  {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-grid">{% for field in form.display_fields|default:form %}<div class="field {% if field.name == 'notes' or field.name == 'description' or field.name == 'actions' %}wide{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="required">*</span>{% endif %}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}</div>{% endfor %}</div>
+  {% if form.automatic_inventory %}<h2>Datos técnicos automáticos</h2><p>Se consultan mediante la conexión API o SSH. No necesitas introducirlos. Los que el equipo no facilite quedan pendientes.</p><dl class="facts">{% for fact in form.inventory_facts %}<dt>{{ fact.label }}</dt><dd>{{ fact.value }}<small>{{ fact.source }}</small></dd>{% endfor %}</dl>{% elif form.manual_inventory_fields %}<details><summary>Datos técnicos opcionales · sin conexión automática</summary><p>Puedes dejarlos vacíos. Al conectar la API o SSH, el panel intentará descubrirlos automáticamente.</p><div class="form-grid">{% for field in form.manual_inventory_fields %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.errors %}<div class="form-error">{{ field.errors }}</div>{% endif %}</div>{% endfor %}</div></details>{% endif %}
+  <div class="form-actions"><a class="button secondary" href="{{ cancel_url }}">Cancelar</a><button class="button primary" type="submit">Guardar {{ title|lower }}</button></div>
+</form>
+<script>
+(() => {
+  const form = document.getElementById('object-form');
+  const client = form.querySelector('#id_client');
+  const site = form.querySelector('#id_site');
+  const device = form.querySelector('#id_device');
+  if (!client || !site || !device) return;
+  function fill(select, items, placeholder, selected) {
+    select.replaceChildren(new Option(placeholder, ''));
+    items.forEach(item => select.add(new Option(item.name, item.id)));
+    select.value = selected || '';
+  }
+  async function refresh(keepSite, keepDevice) {
+    const params = new URLSearchParams({client: client.value, site: keepSite || ''});
+    const response = await fetch(form.dataset.optionsUrl + '?' + params, {credentials: 'same-origin'});
+    if (!response.ok) return;
+    const data = await response.json();
+    fill(site, data.sites, '---------', keepSite);
+    fill(device, data.devices, '---------', keepDevice);
+  }
+  client.addEventListener('change', () => refresh('', ''));
+  site.addEventListener('change', () => refresh(site.value, ''));
+})();
+</script>
+{% endblock %}

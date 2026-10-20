@@ -1,0 +1,21 @@
+[Unit]
+Description=ib-red private Wazuh HTTPS metadata database
+
+[Service]
+Type=simple
+Environment=LD_LIBRARY_PATH=/var/ossec/lib
+ExecStart=/usr/bin/chroot /var/lib/soc-wazuh-https /var/ossec/bin/wazuh-db -f
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/soc-wazuh-https/var/ossec/queue /var/lib/soc-wazuh-https/var/ossec/var /var/lib/soc-wazuh-https/var/ossec/logs
+ReadWritePaths=/var/lib/soc-wazuh-https/var/ossec/backup/db
+MemoryMax=256M
+CPUWeight=20
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

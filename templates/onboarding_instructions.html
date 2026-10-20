@@ -1,0 +1,29 @@
+{% if device.vendor == 'grandstream_gcc' %}
+{% include 'grandstream_gcc_instructions.html' with gcc_destination=destination gcc_port=port %}
+{% else %}
+<ol class="wizard-instructions">
+{% if device.vendor == 'unifi' %}
+<li>Abre <strong>UniFi Network</strong> y selecciona la consola de esta sede.</li>
+<li>Busca <strong>Integration → System Logging / SIEM</strong>. En la interfaz Network 10.6 utilizada en el piloto: <strong>Ajustes → CyberSecure → Traffic Logging → Activity Logging (Syslog)</strong>.</li>
+<li>Selecciona <strong>SIEM Server</strong>. Activa <strong>Security Detections</strong> y <strong>Admin Activity</strong>; añade también System, Devices y VPN si aparecen.</li>
+<li>Introduce la <strong>IP del servidor</strong> y el <strong>puerto {{ port }}</strong> indicados arriba, y guarda.</li>
+{% elif device.vendor == 'opnsense' %}
+<li>Entra en <strong>OPNsense → Sistema → Ajustes → Registro / Logging → Destinos / Targets</strong>. El nombre puede variar según la versión.</li>
+<li>Añade un destino habilitado, con transporte <strong>UDP IPv4</strong>, la <strong>IP del servidor</strong> indicada arriba y el <strong>puerto {{ port }}</strong>.</li>
+<li>Incluye los logs del sistema, autenticación, firewall y Suricata si lo utilizas. Puedes seleccionar todas las aplicaciones, niveles y categorías para comenzar.</li>
+<li><strong>Guarda y aplica</strong> los cambios. Para Zenarmor y ClamAV, configura además la exportación de sus propios registros cuando el módulo lo permita; no se habilita con el destino general.</li>
+{% elif device.vendor == 'hillstone' %}
+<li>Entra en StoneOS y abre <strong>Log → Log Configuration → Log Server</strong>. En otras versiones está en Monitor → Log; consulta la documentación de esa versión si el menú difiere.</li>
+<li>Añade un servidor syslog habilitado con la <strong>IP indicada arriba</strong>, puerto <strong>{{ port }}</strong> y protocolo <strong>UDP</strong>.</li>
+<li>Activa el envío de eventos de <strong>seguridad / IPS</strong> y <strong>sistema</strong>. Revisa la interfaz de origen si el equipo permite escogerla.</li>
+<li>Guarda o aplica la configuración.</li>
+{% else %}
+<li>Entra en la administración del firewall y busca <strong>Syslog</strong>, <strong>Remote Logging</strong> o <strong>Servidor de registros</strong>.</li>
+<li>Añade la <strong>IP del servidor</strong> indicada arriba, puerto <strong>{{ port }}</strong> y protocolo <strong>UDP</strong>.</li>
+<li>Activa el envío de logs de <strong>seguridad, sistema y autenticación</strong> y guarda.</li>
+<li>El SOC comprobará el formato recibido. Si no hay un decodificador compatible, habrá que incorporarlo antes de dar la integración por validada.</li>
+{% endif %}
+</ol>
+{% endif %}
+<details class="wizard-trouble"><summary>¿Dónde encuentro la IP de origen?</summary><p>Si el firewall envía por Internet, consulta la IP de la WAN usada para llegar al SOC. Si hay NAT, usa la IP de salida del router que hace el NAT. Si envía por VPN o enlace privado, usa la IP de origen de esa ruta. En equipos con varias WAN revisa cuál usa para enviar los logs.</p><p>Esta IP permite asociar los eventos al equipo y al cliente. Si dos firewalls comparten una salida, configura una IP propia por VPN o un colector separado antes de continuar.</p></details>
+<p class="source-note">Ayuda del fabricante: {% if device.vendor == 'grandstream_gcc' %}<a href="https://documentation.grandstream.com/knowledge-base/gcc60xx-networking-user-manual/" target="_blank" rel="noopener noreferrer">Grandstream GCC: Syslog ↗</a>{% elif device.vendor == 'unifi' %}<a href="https://help.ui.com/hc/en-us/articles/33349041044119-UniFi-System-Logs-SIEM-Integration" target="_blank" rel="noopener noreferrer">UniFi: exportar logs CEF ↗</a>{% elif device.vendor == 'opnsense' %}<a href="https://docs.opnsense.org/manual/settingsmenu.html" target="_blank" rel="noopener noreferrer">OPNsense: ajustes de registro ↗</a>{% elif device.vendor == 'hillstone' %}<a href="https://www.hillstonenet.com/support/5.0/en/SG/log_config_server.html" target="_blank" rel="noopener noreferrer">Hillstone: servidor de logs (StoneOS 5) ↗</a>{% else %}consulta la guía de syslog de tu modelo.{% endif %}</p>

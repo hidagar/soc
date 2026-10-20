@@ -1,0 +1,137 @@
+{
+  "contract_version": 1,
+  "captured_on": "2026-10-20",
+  "provenance": "Observed indexed layouts. Identifiers, addresses, ports and free-text context replaced; these are regression fixtures, not new threat evidence. Device software version is not the security engine version.",
+  "missing_real_samples": [
+    "clamav",
+    "grandstream_gcc"
+  ],
+  "samples": [
+    {
+      "engine": "unifi",
+      "device_software_version": "5.1.33",
+      "event": {
+        "decoder": {
+          "name": "soc-unifi-cef"
+        },
+        "rule": {
+          "id": "111102",
+          "level": 8,
+          "groups": [
+            "soc",
+            "unifi",
+            "attack"
+          ],
+          "description": "Anonymized observed detection"
+        },
+        "data": {
+          "srcip": "203.0.113.9",
+          "dstip": "10.0.0.20",
+          "dstport": "443",
+          "unifi": {
+            "category": "Security",
+            "action": "blocked",
+            "ips_signature": "ET CINS Active Threat Intelligence Poor Reputation IP group 285",
+            "event_name": "Threat Detected and Blocked",
+            "risk": "medium"
+          }
+        },
+        "id": "anonymized-unifi",
+        "timestamp": "2026-10-20T10:00:00+00:00",
+        "location": "192.0.2.70"
+      }
+    },
+    {
+      "engine": "suricata",
+      "device_software_version": "26.1.2",
+      "event": {
+        "decoder": {
+          "name": "json"
+        },
+        "rule": {
+          "id": "86601",
+          "level": 3,
+          "groups": [
+            "ids",
+            "suricata"
+          ]
+        },
+        "data": {
+          "src_ip": "203.0.113.9",
+          "dest_ip": "198.51.100.9",
+          "dest_port": 443,
+          "event_type": "alert",
+          "alert": {
+            "action": "allowed",
+            "severity": "3",
+            "signature": "ET SCAN Zmap User-Agent (Inbound)",
+            "category": "Detection of a Network Scan"
+          }
+        },
+        "id": "anonymized-suricata",
+        "timestamp": "2026-10-20T10:00:00+00:00",
+        "location": "192.0.2.70"
+      }
+    },
+    {
+      "engine": "zenarmor",
+      "device_software_version": "26.1.2",
+      "event": {
+        "decoder": {
+          "parent": "zenarmor-iso",
+          "name": "zenarmor-iso"
+        },
+        "rule": {
+          "id": "110102",
+          "level": 8,
+          "groups": [
+            "zenarmor",
+            "zenarmor_block",
+            "zenarmor_security"
+          ]
+        },
+        "data": {
+          "ip_src_saddr": "10.0.0.10",
+          "ip_dst_saddr": "198.51.100.9",
+          "ip_dst_port": 443,
+          "is_blocked": "1",
+          "security_tags": [
+            "Malware/Virus"
+          ]
+        },
+        "id": "anonymized-zenarmor",
+        "timestamp": "2026-10-20T10:00:00+00:00",
+        "location": "192.0.2.70"
+      }
+    },
+    {
+      "engine": "hillstone",
+      "device_software_version": "not_observed",
+      "event": {
+        "decoder": {
+          "name": "soc-hillstone"
+        },
+        "rule": {
+          "id": "110602",
+          "level": 8,
+          "groups": [
+            "hillstone",
+            "syslog",
+            "hillstone_security"
+          ]
+        },
+        "data": {
+          "hillstone": {
+            "category": "Threat",
+            "code": "FLOW",
+            "message": "FROM 10.0.0.10:40000(edge) to 198.51.100.9:443(inside), threat name:udp-flood, threat type:DoS, threat subtype:DDoS Flood, App/Protocol:IPv4/UDP, action:ALARM, defender:PTF, severity:Medium, reason:sample"
+          },
+          "action": "ALARM"
+        },
+        "id": "anonymized-hillstone",
+        "timestamp": "2026-10-20T10:00:00+00:00",
+        "location": "192.0.2.70"
+      }
+    }
+  ]
+}

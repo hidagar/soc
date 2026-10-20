@@ -1,0 +1,19 @@
+[Unit]
+Description=ib-red SOC HTTPS log relay
+After=network-online.target
+[Service]
+Type=simple
+User=soc-relay
+Group=soc-relay
+ExecStart=/usr/bin/python3 /opt/soc-log-relay/soc_log_relay.py --config /etc/soc-log-relay.json
+Restart=on-failure
+RestartSec=10
+StateDirectory=soc-log-relay
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/soc-log-relay
+[Install]
+WantedBy=multi-user.target

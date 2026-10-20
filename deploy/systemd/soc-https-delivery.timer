@@ -1,0 +1,11 @@
+[Unit]
+Description=ib-red frequent acknowledged log delivery
+
+[Timer]
+OnBootSec=30
+OnUnitInactiveSec=5
+Unit=soc-job@transport.service
+AccuracySec=1
+
+[Install]
+WantedBy=timers.target

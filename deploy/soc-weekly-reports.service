@@ -1,0 +1,17 @@
+[Unit]
+Description=Build and send weekly SOC customer reports
+After=network-online.target wazuh-indexer.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/srv/soc-portal
+EnvironmentFile=/etc/soc-portal/portal.env
+ExecStart=/opt/soc-portal-venv/bin/python /srv/soc-portal/manage.py weekly_soc_reports --send
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/srv/soc-portal/data

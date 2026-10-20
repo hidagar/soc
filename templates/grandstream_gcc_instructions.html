@@ -1,0 +1,8 @@
+<ol class="wizard-instructions">
+<li>En la barra superior, entra en el módulo <strong>Networking</strong> (icono del globo) y abre <strong>Maintenance → System Diagnostics → Syslog</strong>. No uses <strong>Home → Logs &amp; Diagnostics → System Logs</strong>: ese apartado envía solo registros de Home.</li>
+<li>En <strong>Server Address</strong>, introduce <strong>{{ gcc_destination }}:{{ gcc_port }}</strong> y deja <strong>Protocol: UDP</strong>.</li>
+<li>En <strong>Target Devices</strong>, selecciona el GCC que estás configurando. Esta exportación cubre los módulos <strong>Networking, Network Nodes y Firewall</strong>. Usa <strong>Warning</strong> para empezar con eventos relevantes; selecciona Information solo si necesitas más detalle y puedes asumir el volumen adicional. Evita Debug permanente.</li>
+<li>Pulsa <strong>Save</strong>. Luego comprueba en el SOC la recepción y el primer evento del equipo. La llegada de mensajes Home no confirma que los eventos Firewall/IDS se estén exportando.</li>
+</ol>
+<p class="notice"><strong>Seguridad pendiente de validar:</strong> comprobar un registro de actividad no confirma la interpretación de IDS/IPS o antimalware. Revisa licencia, módulos y formato de una alerta real antes de incluir ataques en los informes. Los registros de telefonía/PBX se configuran por separado.</p>
+<p>Esta integración usa Syslog guiado, sin credenciales API ni SSH. Para IP dinámica, elige el envío HTTPS del asistente: el GCC envía por UDP al reenviador local y este se autentica ante el SOC. El receptor directo actual usa UDP; no selecciones TCP o TLS para ese destino.</p>

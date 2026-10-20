@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Correo de informes{% endblock %}
+{% block content %}
+<div class="breadcrumbs"><a href="{% url 'dashboard' %}">Resumen</a><span>›</span>Correo de informes</div>
+<header class="page-head"><div><p class="eyebrow">Informes y avisos</p><h1>Correo del SOC</h1><p class="muted">Configura SendGrid para enviar informes semanales y avisos urgentes a cada cliente.</p></div></header>
+<section class="card editor">
+  <h2>Estado del envío</h2>
+  {% if config and config.enabled and config.last_test_ok %}<p><span class="pill connected">Activo</span> SendGrid aceptó la última prueba{% if config.last_tested_at %} el {{ config.last_tested_at|date:'d/m/Y H:i' }}{% endif %}. Comprueba también la llegada al buzón de prueba.</p>
+  {% elif config and config.encrypted_api_key %}<p><span class="pill pending">Pendiente</span> Hay una clave guardada. Envía una prueba para activar los correos semanales.</p>
+  {% else %}<p><span class="pill paused">Sin configurar</span> Los informes se pueden consultar en el panel, pero no se enviarán por SendGrid.</p>{% endif %}
+  <p class="notice">SendGrid requiere una clave API con permiso <strong>Mail Send</strong> y un remitente verificado. La prueba contiene solo texto genérico, sin datos de clientes.</p>
+  <form method="post" autocomplete="off">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="form-grid">
+      <div class="field"><label for="{{ form.region.id_for_label }}">{{ form.region.label }}</label>{{ form.region }}{% if form.region.errors %}<div class="form-error" role="alert">{{ form.region.errors }}</div>{% endif %}<small>Elige EU solo si vuestra cuenta usa la API regional europea.</small></div>
+      <div class="field"><label for="{{ form.from_email.id_for_label }}">{{ form.from_email.label }}</label>{{ form.from_email }}{% if form.from_email.errors %}<div class="form-error" role="alert">{{ form.from_email.errors }}</div>{% endif %}<small>Debe estar verificado en SendGrid o pertenecer a un dominio autenticado.</small></div>
+      <div class="field wide"><label for="{{ form.api_key.id_for_label }}">{{ form.api_key.label }}</label>{{ form.api_key }}{% if form.api_key.errors %}<div class="form-error" role="alert">{{ form.api_key.errors }}</div>{% endif %}<small>{{ form.api_key.help_text }}</small>{% if config and config.encrypted_api_key %}<small>Hay una clave guardada; no se muestra de nuevo.</small>{% endif %}</div>
+      <div class="field wide"><label for="{{ form.test_email.id_for_label }}">{{ form.test_email.label }}</label>{{ form.test_email }}{% if form.test_email.errors %}<div class="form-error" role="alert">{{ form.test_email.errors }}</div>{% endif %}<small>{{ form.test_email.help_text }}</small></div>
+      <div class="field"><label for="{{ form.reply_to_email.id_for_label }}">{{ form.reply_to_email.label }}</label>{{ form.reply_to_email }}{{ form.reply_to_email.errors }}<small>Las respuestas de los clientes llegarán a esta dirección. Si queda vacía, al remitente.</small></div>
+      <div class="field"><label for="{{ form.report_copy_email.id_for_label }}">{{ form.report_copy_email.label }}</label>{{ form.report_copy_email }}{{ form.report_copy_email.errors }}<small>Recibe copia oculta de cada informe semanal. No se añade a las pruebas ni a los avisos urgentes.</small></div>
+      <div class="field wide"><label for="{{ form.public_reports_url.id_for_label }}">{{ form.public_reports_url.label }}</label>{{ form.public_reports_url }}{{ form.public_reports_url.errors }}<small>Dirección base accesible desde Internet, con certificado HTTPS válido: dominio o IP y puerto. No incluye /reports/. Se puede cambiar posteriormente.</small></div>
+    </div>
+    <div class="form-actions"><button class="button secondary" name="action" value="save" type="submit">Guardar</button><button class="button primary" name="action" value="test" type="submit">Guardar y enviar prueba</button></div>
+  </form>
+</section>
+{% if config %}<section class="card editor"><h2>Enlaces de informes</h2><p>El correo incluye un enlace exclusivo, válido 90 días, para consultar el informe y descargar el PDF. No adjunta archivos. Puedes revocar o renovar cada enlace desde la ficha del informe.</p><p>{% if config.public_reports_verified %}<span class="pill connected">URL verificada</span>{% else %}<span class="pill pending">URL pendiente de comprobar</span> Los informes no se enviarán hasta que la dirección supere la comprobación HTTPS.{% endif %}</p><form method="post" action="{% url 'verify_public_reports' %}">{% csrf_token %}<button class="button secondary">Comprobar URL guardada</button></form><p class="muted">Guarda primero cualquier cambio en la URL. Además de esta prueba desde la VM, comprueba el enlace desde una red externa.</p></section>{% endif %}
+{% if config and config.enabled %}<section class="card editor"><h2>Desactivar envíos</h2><p>Detiene los correos automáticos sin borrar la configuración guardada.</p><form method="post">{% csrf_token %}<button class="button secondary" name="action" value="disable" type="submit">Desactivar envíos</button></form></section>{% endif %}
+<section class="card editor"><h2>Destinatarios</h2><p>En la ficha de cada cliente, indica «Correo para informes semanales» y activa «Enviar informe semanal automáticamente». Cada informe se envía solo al correo de su propio cliente. El envío programado se ejecuta los lunes a las 09:00.</p><a class="button secondary" href="{% url 'client_list' %}">Ir a clientes</a></section>
+{% endblock %}

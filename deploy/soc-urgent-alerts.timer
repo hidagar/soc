@@ -1,0 +1,11 @@
+[Unit]
+Description=Check urgent SOC alerts every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=10s
+Persistent=true
+Unit=soc-urgent-alerts.service
+
+[Install]
+WantedBy=timers.target

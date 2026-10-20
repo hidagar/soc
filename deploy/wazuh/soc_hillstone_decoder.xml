@@ -1,0 +1,15 @@
+<decoder name="soc-hillstone">
+  <prematch>HillstoneNetworks#</prematch>
+</decoder>
+<decoder name="soc-hillstone">
+  <parent>soc-hillstone</parent>
+  <regex type="pcre2">HillstoneNetworks#([A-Za-z-]+)@([^:]+):\s*(.*)</regex>
+  <order>hillstone.category,hillstone.code,hillstone.message</order>
+</decoder>
+
+<!-- Additional fields for the verified Threat@FLOW layout; keep raw message. -->
+<decoder name="soc-hillstone">
+  <parent>soc-hillstone</parent>
+  <regex type="pcre2">(?i)HillstoneNetworks#Threat@FLOW:\s*from\s+([0-9.]+):(\d+)\(([^)]*)\)\s+to\s+([0-9.]+):(\d+)\(([^)]*)\),\s*threat name:\s*([^,]+),\s*threat type:\s*([^,]+),\s*threat subtype:\s*([^,]*),\s*App/Protocol:\s*([^,]*),\s*action:\s*([^,]+),\s*defender:\s*([^,]+),\s*severity:\s*([A-Za-z]+),</regex>
+  <order>srcip,srcport,hillstone.source_interface,dstip,dstport,hillstone.destination_interface,hillstone.threat_name,hillstone.threat_type,hillstone.threat_subtype,hillstone.protocol,action,hillstone.defender,hillstone.severity</order>
+</decoder>

@@ -1,0 +1,6 @@
+Django==5.2.17
+gunicorn==23.0.0
+cryptography==50.0.1
+paramiko==4.0.0
+reportlab==5.0.1
+maxminddb==3.2.0

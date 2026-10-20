@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Cobertura por red{% endblock %}
+{% block content %}
+<header class="page-head"><div>
+  <p class="eyebrow">{% if device %}{{ device.site.client.name }} · {{ device.site.name }}{% else %}Gestión interna{% endif %}</p>
+  <h1>Cobertura por red</h1><p>Selección observada, requisitos del servicio y pruebas recibidas por red.</p>
+</div>{% if device %}<a class="button secondary" href="{% url 'protection_device' device.pk %}">Motores de {{ device.name }}</a>{% endif %}</header>
+<p class="notice">Una interfaz seleccionada o una prueba recibida no acredita inspección de todo el tráfico. La selección de un puerto físico no se atribuye automáticamente a sus VLAN, puentes ni túneles. Las políticas candidatas de Zenarmor requieren revisar sus condiciones y las exenciones globales.</p>
+{% if not device %}<form class="card" method="get"><label>Cliente<select name="client" class="input"><option value="">Mis clientes</option>{% for c in clients %}<option value="{{ c.pk }}"{% if selected_client == c.pk|stringformat:'s' %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label><p><button class="button secondary">Filtrar</button></p></form>{% endif %}
+<div class="actions"><a class="button secondary" href="?{% if selected_client %}client={{ selected_client }}&amp;{% endif %}view=current">Redes actuales</a><a class="button secondary" href="?{% if selected_client %}client={{ selected_client }}&amp;{% endif %}view=removed">Ya no aparecen</a></div>
+<section class="card"><h2>Redes e interfaces · {{ count }}</h2>
+<div class="table-wrap"><table><thead><tr><th>Cliente / red</th><th>Configuración observada</th><th>Ámbito y revisión</th><th>Pruebas y pasos pendientes</th></tr></thead><tbody>
+{% for row in rows %}<tr>
+  <td><strong>{{ row.network.name }}</strong><small>{{ row.network.device.site.client.name }} · {{ row.network.device.site.name }}</small><small>{{ row.network.device.name }}{% if row.network.role == 'wan' %} · WAN{% endif %}</small><small>{{ row.network.cidrs|join:', '|default:'Sin subred informada' }}</small>{% if row.network.interface %}<small>{{ row.network.interface }} · {{ row.network.physical_interface }}</small>{% endif %}</td>
+  <td>{{ row.label }}<small>Última observación: {{ row.network.last_seen_at|date:'d/m/Y H:i' }}</small>
+    {% if row.topology %}<details><summary>{{ row.topology.label }}{% if row.topology.node.vlan %} {{ row.topology.node.vlan }}{% endif %}</summary>
+      {% if row.topology.current %}
+        {% if row.topology.node.parents %}<p>Interfaz padre configurada: {{ row.topology.node.parents|join:', ' }}. Etiqueta VLAN contrastada con la interfaz en ejecución.</p>{% endif %}
+        {% if row.topology.node.members %}<p>Miembros del puente: {{ row.topology.node.members|join:', ' }}.</p>{% endif %}
+        {% if row.topology.node.link %}<p>Tipo de enlace informado: {{ row.topology.node.link }}.</p>{% endif %}
+        {% for relation in row.topology.relations %}<p>{{ relation }}</p>{% endfor %}
+        <p class="muted">La relación entre interfaces ayuda a revisar el recorrido. Prepara una prueba desde esta red para comprobar detección y bloqueo. En túneles cifrados hay que comprobar dónde se inspecciona el tráfico interior.</p>
+      {% else %}<p>Consulta pendiente, incompleta o distinta del estado en ejecución. Solicita una lectura y revisa permisos de interfaces, VLAN y puentes.</p>{% endif %}
+      <small>Última lectura válida: {{ row.topology.checked_at|date:'d/m/Y H:i'|default:'Sin consulta' }}</small>
+    </details>{% endif %}
+    {% if row.zenarmor %}<p><strong>{{ row.zenarmor.label }}</strong><small>Modo observado: {{ row.zenarmor.mode }}</small></p>
+      {% if row.zenarmor.policies_current and row.zenarmor.selection %}
+        <details><summary>Políticas activas candidatas: {{ row.zenarmor.candidates|length }}</summary>
+          <p class="muted">Coincidencia preliminar de interfaz, etiqueta y solapamiento IP. Los criterios se combinan y el orden efectivo depende del flujo.</p>
+          {% for policy in row.zenarmor.candidates %}<p>{% include 'zenarmor_policy_summary.html' %}</p>{% empty %}<p>Revisar los filtros y las políticas en Zenarmor.</p>{% endfor %}
+        </details>
+      {% elif not row.zenarmor.policies_current %}<small>Políticas: consulta completa pendiente.</small>{% endif %}
+    {% endif %}
+    {% if not row.network.present %}<strong>Ya no aparece en el último catálogo válido.</strong>{% endif %}
+  </td>
+  <td><p>{{ row.network.get_scope_display }}</p>{% if row.network.review_until %}<small>Revisar: {{ row.network.review_until|date:'d/m/Y H:i' }}</small>{% endif %}{% if row.network.require_ips %}<small>IPS requerido</small>{% endif %}{% if row.network.require_zenarmor %}<small>Zenarmor requerido</small>{% endif %}{% if perms.core.manage_operations %}<p><a href="{% url 'network_requirements' row.network.pk %}">Definir requisitos →</a></p>{% endif %}</td>
+  <td>{% for proof in row.proofs %}<p>{{ proof.get_engine_display }}: prueba recibida desde {{ proof.test_ip }}<small>{{ proof.evidence.observed_at|date:'d/m/Y H:i' }} · Acción: {{ proof.evidence.action }}</small></p>{% empty %}<p>Sin prueba reciente vinculada a esta red y configuración.</p>{% endfor %}{% for gap in row.gaps %}<p>{{ gap }}</p>{% endfor %}<a href="{% url 'validations' row.network.device_id %}?network={{ row.network.pk }}">Preparar / consultar pruebas →</a></td>
+</tr>{% empty %}<tr><td colspan="4">Sin redes en esta selección. Comprueba el acceso API y solicita una consulta; esto no acredita ausencia de redes.</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="muted">Hasta 500 redes por página. Las pruebas se conservan en el historial; esta vista considera las de los últimos 30 días con configuración observada compatible. En Zenarmor se comparan también las políticas y excepciones consultadas. Una acción desconocida no acredita bloqueo.</p>
+</section>
+{% for entry in zenarmor_devices %}<section class="card">
+  <h2>Zenarmor · {{ entry.device.name }}</h2>
+  <p>{{ entry.device.site.client.name }} · {{ entry.device.site.name }}</p>
+  <p>{% if entry.current and entry.scope.interfaces_known %}Interfaces seleccionadas: {% for iface in entry.scope.interfaces %}{{ iface.name }}{% if iface.tags %} ({{ iface.tags|join:', ' }}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}ninguna informada{% endfor %}.{% else %}Selección actual de interfaces pendiente.{% endif %}</p>
+  <p>{% if entry.policies_current %}Catálogo de políticas consultado.{% else %}Consulta completa de políticas pendiente. Cualquier política mostrada es una referencia histórica.{% endif %}<small>Última consulta completa: {{ entry.policies_last_success_at|date:'d/m/Y H:i'|default:'Sin consulta' }}</small></p>
+  <details><summary>Ver políticas {% if not entry.policies_current %}de la última consulta disponible{% endif %} ({{ entry.policies|length }})</summary>
+    {% for policy in entry.policies %}<article class="line-item"><div>{% include 'zenarmor_policy_summary.html' %}</div></article>{% empty %}<p>Sin políticas disponibles para mostrar.</p>{% endfor %}
+  </details>
+  <p class="muted">La selección y el estado de la política son datos de configuración. Revisar la política efectiva, los horarios, los criterios de usuario/dispositivo, las excepciones y las exenciones globales de tráfico en Zenarmor. Estas últimas todavía no se consultan automáticamente.</p>
+</section>{% endfor %}
+<section class="card"><h2>Consulta de cada firewall</h2>
+{% for d in devices %}<article class="line-item"><div><strong>{{ d.name }}</strong><p>{{ d.site.client.name }} · {{ d.site.name }} · {% if d.network_check.status == 'checked' %}Catálogo consultado{% else %}Catálogo pendiente o consulta fallida{% endif %} · {{ d.network_check.checked_at|date:'d/m/Y H:i'|default:'Sin consulta' }}</p><a href="{% url 'device_coverage' d.pk %}">Ver redes del firewall →</a></div></article>{% endfor %}
+{% if device and perms.core.manage_operations %}<form method="post">{% csrf_token %}<button class="button secondary">Solicitar consulta de lectura</button></form>{% endif %}
+</section>
+{% endblock %}

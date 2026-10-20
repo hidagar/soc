@@ -1,0 +1,23 @@
+[Unit]
+Description=ib-red SOC isolated job %i
+After=network-online.target wazuh-indexer.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/srv/soc-portal
+EnvironmentFile=/etc/soc-portal/portal.env
+ExecStart=/opt/soc-portal-venv/bin/python /srv/soc-portal/manage.py run_soc_job %i
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/srv/soc-portal/data /run
+ReadWritePaths=-/var/lib/soc-wazuh-https/var/ossec/logs
+UMask=0077
+TimeoutStartSec=180
+TimeoutStopSec=40
+KillMode=control-group
+CPUWeight=20
+IOWeight=20

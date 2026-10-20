@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Auditoría{% endblock %}
+{% block content %}
+<header class="page-head"><div><p class="eyebrow">Seguridad del SOC</p><h1>Auditoría</h1><p>Actividad del equipo y de los procesos automáticos.</p></div></header>
+{% if integrity_ok %}<p class="notice">La cadena de registros conserva su integridad.</p>{% else %}<p class="notice"><strong>La integridad de los registros requiere revisión.</strong></p>{% endif %}
+<section class="card"><h2>Últimas operaciones</h2><p class="muted">Se muestran los últimos 300 registros. Los nombres y enlaces corresponden a las fichas actuales; la operación original se conserva en los datos técnicos.</p>
+<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Quién</th><th>Qué ocurrió</th><th>Elemento afectado</th><th>Explicación</th></tr></thead><tbody>
+{% for row in rows %}<tr>
+<td>{{ row.event.created_at|date:'d/m/Y H:i:s' }}</td><td>{{ row.actor }}</td><td>{{ row.action }}</td>
+<td>{% if row.url %}<a href="{{ row.url }}">{{ row.object }}</a>{% else %}{{ row.object }}{% endif %}</td>
+<td>{% for line in row.details %}<p>{{ line }}</p>{% endfor %}
+<details><summary>Ver datos técnicos</summary><p class="muted">Código: {{ row.event.action }}{% if row.event.object_type %}<br>Referencia original: {{ row.event.object_type }} {{ row.event.object_id }}{% endif %}</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-width:38rem">{{ row.technical }}</pre></details></td>
+</tr>{% empty %}<tr><td colspan="5">No hay operaciones registradas.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

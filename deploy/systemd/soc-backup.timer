@@ -1,0 +1,8 @@
+[Unit]
+Description=Schedule Centro SOC soc-backup
+[Timer]
+OnBootSec=45s
+OnUnitInactiveSec=60s
+AccuracySec=1s
+[Install]
+WantedBy=timers.target

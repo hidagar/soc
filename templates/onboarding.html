@@ -1,0 +1,76 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Asistente de conexión{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/onboarding.css' %}?v=20261005">
+<div class="breadcrumbs"><a href="{{ cancel_url }}">{% if site %}{{ site.client.name }} · {{ site.name }}{% elif selected_client %}{{ selected_client.name }}{% else %}Clientes{% endif %}</a><span>›</span>Asistente de conexión</div>
+<header class="page-head"><div><p class="eyebrow">{% if device %}{{ device.name }} · {{ device.connection_profile_label }}{% else %}Nueva sede y equipo{% endif %}</p><h1>Conectar un firewall</h1><p class="muted">Un paso cada vez. Puedes guardar y continuar más tarde.</p></div><span class="pill pending">Paso {{ step }} de 5</span></header>
+<ol class="wizard-progress" aria-label="Pasos del asistente">
+  <li{% if step == 1 %} aria-current="step"{% elif step > 1 %} class="done"{% endif %}><span>1</span>Sede</li>
+  <li{% if step == 2 %} aria-current="step"{% elif step > 2 %} class="done"{% endif %}><span>2</span>Equipo</li>
+  <li{% if step == 3 %} aria-current="step"{% elif step > 3 %} class="done"{% endif %}><span>3</span>Conexión</li>
+  <li{% if step == 4 %} aria-current="step"{% elif step > 4 %} class="done"{% endif %}><span>4</span>Envío de logs</li>
+  <li{% if step == 5 %} aria-current="step"{% endif %}><span>5</span>Comprobación</li>
+</ol>
+<div class="wizard-body">
+{% if step == 1 or step == 2 %}
+<section class="card editor">
+  <h2>{% if step == 1 %}¿Cómo se llama la sede?{% else %}¿Qué equipo vas a conectar?{% endif %}</h2>
+  {% if step == 2 %}<p class="muted">Solo necesitamos un nombre y el fabricante. El modelo y la versión se completarán cuando la conexión o los eventos aporten esos datos.</p>{% endif %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="wizard_step" value="{{ step }}"><input type="hidden" name="creation_token" value="{{ creation_token }}">
+  {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-grid wizard-fields">
+  {% for field in form %}<div class="field{% if field.name == 'code' %} wide{% endif %}">
+    {% if selected_client and field.name == 'client' %}<label for="selected-client-name">Cliente</label><input class="input" id="selected-client-name" value="{{ selected_client.name }}" readonly>{{ field }}
+    {% else %}<label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required"> *</span>{% endif %}</label>{{ field }}{% endif %}
+    {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% if field.errors %}<div class="form-error" role="alert">{{ field.errors }}</div>{% endif %}
+  </div>{% endfor %}</div>
+  <div class="form-actions"><a class="button secondary" href="{{ cancel_url }}">{% if step == 2 %}Guardar para más tarde{% else %}Cancelar{% endif %}</a><button class="button primary" type="submit">{% if step == 1 %}Crear sede y seguir{% else %}Guardar equipo y seguir{% endif %} →</button></div>
+  </form>
+</section>
+{% elif step == 3 %}
+<section class="card editor"><h2>Elige cómo enviar los datos</h2><p>Puedes conectar este firewall enviando sus logs al SOC. API y SSH son opciones para que el panel prepare la exportación por ti.</p>
+{% if device.vendor == 'hillstone' and can_manage %}<p>Para Hillstone puedes <a href="{% url 'hillstone_api' device.pk %}">configurar el acceso API y descubrir el equipo</a>. Después vuelve aquí y continúa con el envío de logs guiado.</p>{% endif %}
+{% if device.vendor == 'grandstream_gcc' and can_manage %}<p>Puedes <a href="{% url 'gdms_cloud' device.pk %}">guardar y comprobar las credenciales de GDMS Networking</a>. Es opcional: continúa aquí con el envío de logs guiado para verificar la recepción en Wazuh.</p>{% endif %}
+  <form method="post">{% csrf_token %}{% if form.errors %}<div class="form-error" role="alert">{{ form.errors }}</div>{% endif %}
+  {% if form.profile %}<div class="field wizard-fields"><label for="{{ form.profile.id_for_label }}">{{ form.profile.label }}</label>{{ form.profile }}</div>{% endif %}<div class="wizard-choices">{% for option in form.method %}<label class="wizard-choice">{{ option.tag }}<span>{{ option.choice_label }}{% if option.data.value == 'https' %}<small>Para conexiones sin IP fija: un reenviador local envía los logs por HTTPS 443 con una clave del equipo. Sin VPN ni IP pública manual.</small>{% elif option.data.value == 'manual' %}<small>Envío UDP directo: necesita un origen identificable. Para IP dinámica elige HTTPS.</small>{% endif %}</span></label>{% endfor %}</div>
+  {% if not can_manage %}<p class="notice">Puedes preparar el equipo. Un usuario con permiso de conexiones tendrá que autorizar su IP de origen en el siguiente paso.</p>{% endif %}
+  <div class="form-actions"><a class="button secondary" href="{% url 'device_edit' device.pk %}">Editar equipo</a><button class="button primary" type="submit">Siguiente →</button></div></form>
+</section>
+{% elif step == 4 %}
+<section class="card editor"><h2>{% if onboarding.method == 'manual' %}Configura el envío en {{ device.connection_profile_label }}{% else %}Prepara la conexión {{ onboarding.get_method_display }}{% endif %}</h2>
+<form method="post" id="wizard-export-form">{% csrf_token %}
+{% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+<div class="form-grid">
+<div class="field wide"><label for="{{ form.destination.id_for_label }}">{{ form.destination.label }}</label>{{ form.destination }}{{ form.destination.errors }}<small>Usa la dirección pública para clientes externos o la privada si existe una ruta al SOC.</small></div>
+<div class="field wide"><label for="{{ form.source_ip.id_for_label }}">{{ form.source_ip.label }}{% if form.source_ip.field.required %} <span class="required">*</span>{% endif %}</label>{{ form.source_ip }}{% if form.source_ip.errors %}<div class="form-error" role="alert">{{ form.source_ip.errors }}</div>{% endif %}<small>{{ form.source_ip.help_text }}</small></div>
+</div>
+<div class="wizard-target"><div><span>Servidor syslog</span><strong id="wizard-destination">{{ destination }}</strong><button type="button" class="button secondary" data-copy="wizard-destination">Copiar IP</button></div><div><span>Puerto y protocolo</span><strong>{{ port }} / UDP</strong><button type="button" class="button secondary" data-copy-value="{{ port }}">Copiar puerto</button></div></div><p id="copy-status" class="muted" role="status"></p>
+{% if onboarding.method == 'manual' %}
+{% include 'onboarding_instructions.html' %}
+<div class="wizard-confirm"><label>{{ form.configured }} {{ form.configured.label }}</label>{% if form.configured.errors %}<div class="form-error" role="alert">{{ form.configured.errors }}</div>{% endif %}</div>
+{% else %}
+<ol class="wizard-instructions"><li>Confirma arriba el destino. Puedes completar la IP de origen al volver de la conexión.</li><li>Pulsa <strong>Configurar {{ onboarding.get_method_display }}</strong>. El panel te guiará para guardar las credenciales y verificar el acceso.</li><li>Cuando el destino syslog esté configurado, vuelve al asistente, confirma la IP de salida y pulsa <strong>Comprobar recepción</strong>.</li></ol>
+{% if export.status == 'configured' and automatic_ready %}<p class="wizard-success">La exportación automática está configurada. Confirma la IP de salida y continúa.</p>{% elif export.last_error %}<p class="notice" role="alert">{{ export.last_error }}</p>{% endif %}
+<p><button class="button secondary" name="action" value="connection" type="submit">Configurar {{ onboarding.get_method_display }} →</button></p>
+{% endif %}
+{% if device.zenarmor_enabled %}{% include 'onboarding_zenarmor.html' %}{% endif %}<div class="form-actions"><a class="button secondary" href="{% url 'device_onboarding' device.pk %}?step=3">← Anterior</a><button class="button primary" name="action" value="verify" type="submit">{% if onboarding.method == 'manual' %}Siguiente: comprobar recepción{% else %}Comprobar recepción{% endif %} →</button></div>
+{% if not can_manage %}<p class="notice">Un usuario con permiso de conexiones debe completar este paso para autorizar la recepción.</p>{% endif %}
+</form></section>
+{% elif step == 5 %}
+<section class="card editor" id="wizard-verification" data-status-url="{{ status_url }}"{% if onboarding.verified_at %} data-verified="true"{% endif %}>
+<h2 id="verification-title">{% if onboarding.verified_at %}Equipo activo{% else %}Vamos a comprobar que llegan los datos{% endif %}</h2>
+<p class="muted">{{ site.client.name }} · {{ site.name }} · {{ device.name }}</p>
+<ul class="wizard-checks"><li class="done">Equipo guardado</li><li id="receiver-check"{% if export.receiver_ready %} class="done"{% endif %}>Receptor Wazuh preparado{% if not export.receiver_ready %} · pendiente{% endif %}</li><li id="event-check"{% if onboarding.event_at %} class="done"{% endif %}>{% if device.zenarmor_enabled %}Eventos OPNsense{% else %}Evento nuevo recibido e interpretado{% endif %}{% if not onboarding.event_at %} · pendiente{% endif %}</li>{% if device.zenarmor_enabled %}<li id="zenarmor-check"{% if onboarding.zenarmor_event_at %} class="done"{% endif %}>Eventos Zenarmor{% if not onboarding.zenarmor_event_at %} · pendiente{% endif %}</li>{% endif %}</ul>
+<div id="verification-wait"{% if onboarding.verified_at %} hidden{% endif %}>
+<h3>Genera una actividad normal en el firewall</h3><p>{% if device.vendor == 'unifi' %}Cierra sesión y vuelve a entrar en UniFi Network de esta consola. Asegúrate de haber incluido «Admin Activity» y «Security Detections» en la exportación.{% else %}Cierra sesión y vuelve a entrar en la administración del firewall. Incluye los registros del sistema y de autenticación en el envío syslog. Si ese acceso no genera una alerta en Wazuh, espera un evento que sí interprete el receptor; no es necesario provocar un ataque.{% endif %}</p>
+{% if device.zenarmor_enabled %}<p>Para Zenarmor, genera navegación normal desde un equipo protegido si has activado temporalmente Connections, o espera un evento de Alerts. El asistente solo completa este perfil cuando Wazuh interpreta datos de <strong>OPNsense y Zenarmor</strong>.</p>{% endif %}<p>La comprobación se ejecuta cada minuto. Esta pantalla consulta el resultado automáticamente.</p><p id="verification-poll-status" class="muted" role="status"></p>
+<details class="wizard-trouble"><summary>No llegan datos</summary><ol><li>Confirma que el destino es <strong>{{ export.destination }}:{{ export.port }} UDP</strong> y que el cambio quedó guardado.</li><li>Revisa la ruta y la regla de salida del firewall hacia ese destino. En la entrada del SOC, el reenvío debe conservar el origen.</li>{% if onboarding.method == 'https' %}<li>Revisa el servicio del reenviador, su clave y el envío HTTPS al SOC. La identidad local se asigna automáticamente.</li>{% else %}<li>Comprueba que los logs salen desde <strong>{{ export.source_ip }}</strong>. En equipos con varias WAN, VPN o NAT puede ser otra IP.</li>{% endif %}<li>Que llegue tráfico no garantiza que se genere una alerta: comprueba también el formato de los logs y las categorías exportadas. El SOC debe revisar el decodificador si Wazuh no los interpreta.</li></ol><a href="{% url 'connection_guide' %}?device={{ device.pk }}" target="_blank" rel="noopener noreferrer">Abrir guía y resolución de problemas ↗</a></details>
+</div>
+<p id="verification-error" class="notice" role="alert"{% if not onboarding.verification_error %} hidden{% endif %}>{{ onboarding.verification_error }}</p>
+<div id="verification-complete"{% if not onboarding.verified_at %} hidden{% endif %}><p class="wizard-success">{% if device.zenarmor_enabled %}El SOC ha confirmado eventos reales de OPNsense y Zenarmor en Wazuh.{% else %}El SOC ha confirmado un evento real de este equipo en Wazuh.{% endif %}</p><dl class="facts"><dt>Evento recibido</dt><dd id="verified-event-at">{{ onboarding.event_at|date:'d/m/Y H:i:s' }}</dd><dt>Interpretación</dt><dd id="verified-decoder">{{ onboarding.event_decoder }}</dd><dt>Regla Wazuh</dt><dd id="verified-rule">{{ onboarding.event_rule }}</dd></dl><p class="muted">La conexión está validada. La cobertura de IPS, Zenarmor o antivirus se confirma con eventos de cada módulo; el envío de logs del sistema no activa esos módulos.</p><div class="actions wizard-finish"><a class="button primary" href="{% url 'device_detail' device.pk %}">Finalizar y ver equipo</a><a class="button secondary" href="{% url 'onboarding_add_device' site.pk %}">+ Añadir otro equipo</a></div></div>
+<div class="form-actions" id="verification-pending-actions"{% if onboarding.verified_at %} hidden{% endif %}><a class="button secondary" href="{% url 'device_onboarding' device.pk %}?step=4">← Revisar envío</a><a class="button secondary" href="{{ cancel_url }}">Guardar y continuar más tarde</a><button type="button" class="button primary" id="check-now">Comprobar ahora</button></div>
+</section>
+{% endif %}
+{% if device and step < 5 %}<p class="muted wizard-save-note">El equipo ya está guardado. Encontrarás «Continuar asistente de conexión» en su ficha.</p>{% endif %}
+</div><script src="{% static 'js/onboarding.js' %}?v=20261005zenarmor" defer></script>
+{% endblock %}

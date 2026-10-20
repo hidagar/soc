@@ -1,0 +1,15 @@
+Bienvenido al Centro SOC de ib-red empresas.
+
+Hola, {{ username }}.
+
+Tu correo para iniciar sesión es {{ email }}.
+Para activar tu cuenta y establecer tu propia contraseña, abre este enlace:
+{{ activation_url }}
+
+El enlace es personal, de un solo uso y caduca el {{ expires_at|date:'d/m/Y H:i' }}.
+Al iniciar sesión tendrás que configurar tu autenticador de dos factores.
+
+Si no esperabas esta invitación, no utilices el enlace y responde a este correo.
+
+Atentamente,
+Equipo de seguridad · ib-red empresas

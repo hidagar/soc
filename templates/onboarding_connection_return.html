@@ -1,0 +1,3 @@
+{% if device.onboarding.step == 4 %}
+<section class="card"><p class="eyebrow">Asistente · Paso 4 de 5</p><h2>Configurar conexión automática</h2><p>Completa la conexión en esta pantalla. Después vuelve al asistente para confirmar la IP de salida y comprobar que llegan eventos.</p><a class="button primary" href="{% url 'device_onboarding' device.pk %}">Volver al asistente →</a></section>
+{% endif %}

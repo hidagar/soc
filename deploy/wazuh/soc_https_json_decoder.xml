@@ -1,0 +1,6 @@
+<!-- Private HTTPS engine only: retain native JSON decoder/rule identity. -->
+<decoder name="json">
+  <program_name>^soc-json$</program_name>
+  <prematch type="pcre2">^\s*\{</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

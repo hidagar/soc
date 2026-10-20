@@ -1,0 +1,7 @@
+World boundaries: Natural Earth 1:110m, public domain.
+https://www.naturalearthdata.com/about/terms-of-use/
+Source: https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_110m_admin_0_countries.geojson
+Reduced properties for local rendering; no external map tiles or scripts required.
+IP geography uses the DB-IP Country Lite monthly MMDB dataset, CC BY 4.0.
+https://db-ip.com/db/download/ip-to-country-lite
+Attribution displayed with link on map: IP Geolocation by DB-IP.

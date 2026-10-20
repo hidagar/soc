@@ -1,0 +1,27 @@
+[Unit]
+Description=ib-red native Wazuh analysis for acknowledged HTTPS logs
+After=network.target soc-wazuh-https-db.service
+Requires=soc-wazuh-https-db.service
+
+[Service]
+Type=simple
+User=root
+Group=wazuh
+Environment=TZ=UTC
+ExecStart=/var/ossec/bin/wazuh-analysisd -f -D /var/lib/soc-wazuh-https/var/ossec -c etc/ossec.conf
+Restart=on-failure
+RestartSec=10
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/soc-wazuh-https/var/ossec/queue /var/lib/soc-wazuh-https/var/ossec/logs /var/lib/soc-wazuh-https/var/ossec/var /var/lib/soc-wazuh-https/var/ossec/stats
+ReadWritePaths=/var/lib/soc-wazuh-https/var/ossec/etc/shared/ar.conf
+CPUWeight=20
+MemoryMax=1G
+TasksMax=96
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

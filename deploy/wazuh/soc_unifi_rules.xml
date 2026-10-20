@@ -1,0 +1,43 @@
+<!-- Centro SOC: UniFi audit and security alerts. -->
+<group name="soc,unifi,">
+  <rule id="111100" level="0">
+    <decoded_as>soc-unifi-cef</decoded_as>
+    <description>UniFi Network CEF event.</description>
+  </rule>
+
+  <rule id="111101" level="3">
+    <if_sid>111100</if_sid>
+    <field name="unifi.category">^Audit$</field>
+    <description>UniFi audit event: $(unifi.event_name).</description>
+    <group>audit,</group>
+  </rule>
+
+  <rule id="111102" level="8">
+    <if_sid>111100</if_sid>
+    <field name="unifi.category">^Security$</field>
+    <description>UniFi security detection: $(unifi.event_name).</description>
+    <group>attack,</group>
+  </rule>
+
+  <rule id="111103" level="10">
+    <if_sid>111100</if_sid>
+    <field name="unifi.severity" type="pcre2">^(8|9|10)$</field>
+    <description>UniFi critical event: $(unifi.event_name).</description>
+    <group>critical,</group>
+  </rule>
+
+  <rule id="111104" level="10">
+    <if_sid>111100</if_sid>
+    <field name="unifi.category">^Security$</field>
+    <field name="unifi.action">^allowed$</field>
+    <description>UniFi security detection not blocked: $(unifi.event_name).</description>
+    <group>attack,unblocked,</group>
+  </rule>
+  <rule id="111105" level="3">
+    <if_sid>111100</if_sid>
+    <field name="unifi.category">^System$</field>
+    <field name="unifi.subcategory">^Admin$</field>
+    <description>UniFi administrator activity: $(unifi.event_name).</description>
+    <group>audit,</group>
+  </rule>
+</group>

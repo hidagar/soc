@@ -1,0 +1,7 @@
+<!-- OPNsense EVE JSON after the RFC3164 suricata program header. -->
+<!-- Keep the json decoder identity so Wazuh's standard Suricata rules apply. -->
+<decoder name="json">
+  <program_name type="pcre2">^suricata$</program_name>
+  <prematch type="pcre2">^\s*\{</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

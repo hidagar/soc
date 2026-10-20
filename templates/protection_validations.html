@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Validar recepción{% endblock %}
+{% block content %}
+<div class="actions"><a href="{% url 'protection_device' device.pk %}">Estado de protección</a><a href="{% url 'device_coverage' device.pk %}">Cobertura por red</a></div>
+<header class="page-head"><div><p class="eyebrow">{{ device.site.client.name }} · {{ device.name }}</p><h1>Validar detección y recepción</h1><p>Relaciona una prueba controlada con la evidencia real recibida.</p></div></header>
+<section class="card"><h2>Paso a paso</h2><ol>
+<li>Comprueba en Estado de protección el motor, la interfaz inspeccionada y el destino de exportación.</li>
+<li>Elige un ordenador de prueba autorizado. Para atribuir la prueba a una red, selecciónala e indica la IP del ordenador dentro de su subred descubierta. Define la firma exacta esperada.</li>
+<li>Prepara la ventana y genera la prueba desde ese ordenador. Usa una prueba documentada por el fabricante: EICAR para un análisis antivirus que cubra ese flujo; una firma de prueba para Suricata/UniFi; una regla controlada de seguridad para Zenarmor. En Hillstone, acuerda una detección documentada para su versión: los registros de acceso, actualizaciones y Event@SECURITY no validan una amenaza.</li>
+<li>El monitor buscará esa firma, motor y firewall durante una hora. Si vinculas una red, la evidencia debe identificar como equipo afectado la IP de prueba. No se atribuyen a esa red detecciones con otra IP ni sin equipo identificado. Una política de aplicaciones no cuenta como detección de seguridad.</li>
+<li>Revisa la acción: bloqueada, permitida o desconocida. Repite en otras redes y tras cambios de configuración.</li>
+</ol><p class="muted">Una coincidencia acredita recepción de esa detección desde la IP indicada, no inspección de todo el tráfico. La pertenencia de la IP se valida contra las subredes descubiertas al preparar la prueba; NAT, direcciones solapadas, rutas y políticas requieren revisión del operador. Una prueba sin red vinculada no valida la matriz de cobertura. Las acciones desconocidas no acreditan bloqueo.</p></section>
+{% if perms.core.manage_operations %}<form method="post" class="card">{% csrf_token %}{{ form.as_p }}<button class="button primary">Preparar comprobación</button></form>{% endif %}
+<section class="card"><h2>Comprobaciones registradas</h2><div class="table-wrap"><table><thead><tr><th>Motor / red declarada</th><th>Firma esperada</th><th>Ventana</th><th>Resultado</th></tr></thead><tbody>
+{% for v in validations %}<tr><td>{{ v.get_engine_display }}<small>{{ v.networks }}</small>{% if v.network_snapshot %}<small>Red de la prueba: {{ v.network_snapshot|join:', ' }}</small><small>IP del ordenador: {{ v.test_ip }}</small>{% endif %}</td><td>{{ v.expected_signature }}</td><td>{{ v.started_at|date:'d/m/Y H:i' }}<small>Hasta {{ v.expires_at|date:'H:i' }}</small></td><td>{% if v.evidence %}Detección recibida<small>Acción: {{ v.evidence.action }} · {{ v.evidence.observed_at|date:'d/m/Y H:i' }}</small><small>{{ v.evidence.identified_label }}</small>{% elif v.expires_at < now %}Sin coincidencia en la ventana{% else %}Esperando evidencia real{% endif %}</td></tr>{% empty %}<tr><td colspan="4">Aún no se han preparado comprobaciones.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Centro SOC syslog source list
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=soc-wazuh-sources.service
+
+[Install]
+WantedBy=timers.target

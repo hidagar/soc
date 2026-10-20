@@ -1,0 +1,3 @@
+{% extends 'base.html' %}{% block title %}Requisitos de {{ network.name }}{% endblock %}{% block content %}
+<p><a href="{% url 'device_coverage' network.device_id %}">Volver a cobertura por red</a></p><header class="page-head"><div><p class="eyebrow">{{ network.device.site.client.name }} · {{ network.device.name }}</p><h1>{{ network.name }}</h1><p>{{ network.cidrs|join:', ' }}</p></div></header>
+<section class="card"><h2>Ámbito y protección esperada</h2><p>Incluye la red en el servicio, define sus requisitos o documenta una exclusión con fecha de revisión. Estos requisitos no cambian reglas ni activan motores.</p><form method="post">{% csrf_token %}{{ form.as_p }}<button class="button primary">Guardar requisitos</button></form></section>{% endblock %}

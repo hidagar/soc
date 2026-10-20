@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}API Hillstone{% endblock %}
+{% block content %}
+<div class="breadcrumbs"><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a><span>›</span>API Hillstone</div>
+<header class="page-head"><div><p class="eyebrow">{{ device.site.client.name }} · {{ device.site.name }}</p><h1>Conexión API Hillstone</h1><p>Verifica el acceso REST y descubre los datos del equipo.</p></div></header>
+{% if error_message %}<section class="card"><p class="form-error" role="alert">{{ error_message }}</p></section>{% endif %}
+<section class="card"><h2>Preparar Hillstone</h2><ol><li>Crea un usuario dedicado con los permisos mínimos para consultar el sistema.</li><li>Permite HTTPS de gestión desde la IP del servidor SOC por vuestra red privada o VPN.</li><li>Introduce la URL y las credenciales aquí. Si el certificado usa una CA privada, pega su certificado PEM.</li><li>Guarda y pulsa «Comprobar acceso y descubrir equipo».</li></ol><p class="muted">Perfil REST documentado para StoneOS 5.5R6P9: usuario y contraseña codificados en base64 dentro de HTTPS. Otras versiones requieren comprobar compatibilidad. La prueba no modifica políticas ni configura syslog.</p></section>
+<section class="card"><h2>Credenciales</h2>{% if connection %}<p>Credenciales guardadas · {% if connection.last_ok %}Última comprobación correcta{% else %}Pendiente o con error{% endif %}{% if connection.last_checked_at %} · {{ connection.last_checked_at|date:'d/m/Y H:i' }}{% endif %}</p>{% endif %}<form method="post">{% csrf_token %}{{ form.as_p }}<button class="button primary" name="action" value="save">Guardar conexión</button></form></section>
+{% if connection %}<section class="card"><h2>Comprobar acceso</h2><form method="post">{% csrf_token %}<button class="button primary" name="action" value="test">Comprobar acceso y descubrir equipo</button></form><p>Se descubren modelo, versión y número de serie cuando están disponibles. Una conexión API correcta no confirma recepción de eventos.</p></section>{% endif %}
+<section class="card"><h2>Enviar eventos a Wazuh</h2><p>Continúa con el envío de logs guiado para registrar el origen y verificar un evento real de este equipo.</p><a class="button secondary" href="{% url 'device_onboarding' device.pk %}">Abrir asistente de conexión →</a></section>
+{% if connection %}<section class="card"><h2>Retirar acceso</h2><form method="post">{% csrf_token %}<button class="button secondary" name="action" value="remove">Eliminar credenciales del panel</button></form></section>{% endif %}
+{% endblock %}

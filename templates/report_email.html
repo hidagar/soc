@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Informe semanal de seguridad · ib-red empresas</title></head>
+<body style="margin:0;padding:0;background:#ffffff;color:#202820;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%">
+  <div style="display:none;font-size:1px;line-height:1px;color:#ffffff;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">Su informe semanal de seguridad, del {{ monday|date:'d/m/Y' }} al {{ sunday|date:'d/m/Y' }}, ya está disponible.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-collapse:collapse">
+    <tr><td align="center" style="padding:24px 16px 0">
+      <!--[if mso]><table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;border-collapse:collapse;text-align:left">
+        <tr><td style="padding:0 8px 26px">
+          <img src="{{ brand_logo_url }}" width="180" alt="ib-red empresas" border="0" style="display:block;width:180px;max-width:100%;height:auto;color:#0B612D;font-size:22px;font-weight:bold">
+        </td></tr>
+        <tr><td style="padding:0 8px;font-size:15px;line-height:25px">
+          <p style="margin:0 0 22px">Estimado equipo de <strong>{{ client.name }}</strong>:</p>
+          <p style="margin:0 0 20px">Ponemos a su disposición el informe semanal de nuestro servicio de seguridad gestionada, correspondiente al periodo del <strong>{{ monday|date:'d/m/Y' }} al {{ sunday|date:'d/m/Y' }}</strong>.</p>
+          <p style="margin:0 0 20px">En él encontrarán un resumen de la actividad de seguridad registrada, los dispositivos afectados y las recomendaciones de actuación, cuando procedan.</p>
+          <p style="margin:0">Pueden consultar el informe y descargarlo en PDF desde el siguiente enlace:</p>
+        </td></tr>
+        <tr><td align="center" style="padding:28px 8px 30px">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#0B612D" style="border-radius:26px;background:#0B612D;mso-padding-alt:14px 30px">
+            <a href="{{ report_url }}" target="_blank" style="display:inline-block;padding:14px 30px;border:1px solid #0B612D;border-radius:26px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;font-weight:bold;color:#ffffff;text-decoration:none;mso-padding-alt:0"><!--[if mso]><i style="letter-spacing:30px;mso-font-width:-100%">&nbsp;</i><![endif]-->Consultar informe<!--[if mso]><i style="letter-spacing:30px;mso-font-width:-100%">&nbsp;</i><![endif]--></a>
+          </td></tr></table>
+        </td></tr>
+        <tr><td style="padding:0 8px;font-size:15px;line-height:25px">
+          <p style="margin:0 0 22px">Para cualquier consulta o aclaración, pueden responder directamente a este correo. Nuestro equipo NOC les atenderá en <a href="mailto:{{ reply_address }}" style="color:#0B612D;text-decoration:underline">{{ reply_address }}</a>.</p>
+          <p style="margin:0">Atentamente,<br><strong>Equipo NOC</strong><br><span style="color:#0B612D">ib-red empresas</span></p>
+        </td></tr>
+        <tr><td style="padding:30px 8px 0;font-size:12px;line-height:19px;color:#606960">
+          <p style="margin:0">El enlace da acceso al informe de su empresa y estará disponible hasta el {{ link_expires_at|date:'d/m/Y' }}. Si el botón no se abre, <a href="{{ report_url }}" style="color:#0B612D;text-decoration:underline">pueden acceder desde aquí</a>.</p>
+        </td></tr>
+        <tr><td align="center" style="padding:42px 8px 26px;font-size:11px;line-height:18px;color:#606960">
+          <p style="margin:0 0 6px;color:#0B612D"><strong>ib-red empresas</strong> · Red Digital de Telecomunicaciones de las Islas Baleares, S.L.</p>
+          <p style="margin:0"><a href="mailto:{{ reply_address }}" style="color:#0B612D;text-decoration:underline">{{ reply_address }}</a> · Servicio de seguridad gestionada</p>
+          <p style="margin:12px 0 0">Comunicación del servicio contratado. El informe contiene información confidencial de su empresa.</p>
+        </td></tr>
+      </table>
+      <!--[if mso]></td></tr></table><![endif]-->
+    </td></tr>
+  </table>
+</body>
+</html>

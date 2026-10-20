@@ -1,0 +1,8 @@
+[Unit]
+Description=Schedule Centro SOC soc-changes
+[Timer]
+OnBootSec=45s
+OnUnitInactiveSec=5s
+AccuracySec=1s
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+<strong>{{ policy.name }}</strong>
+<small>{% if policy.active %}Activa{% else %}Desactivada{% endif %} · {% if policy.default %}Predeterminada{% else %}Orden declarado: {{ policy.order }}{% endif %}</small>
+<small>Controles configurados: {{ policy.controls|join:', '|default:'Ninguno' }}</small>
+{% if 'Seguridad' in policy.controls %}<small>Seguridad: {{ policy.essential_count }} categorías esenciales y {{ policy.advanced_count }} avanzadas seleccionadas.</small>{% endif %}
+<small>Interfaces: {{ policy.interfaces|join:', '|default:'Sin filtro de interfaz' }}{% if policy.interface_tags %} · Etiquetas: {{ policy.interface_tags|join:', ' }}{% endif %}</small>
+<small>IP / redes: {{ policy.networks|join:', '|default:'Sin filtro IP/red' }}{% if policy.vlans %} · VLAN: {{ policy.vlans|join:', ' }}{% endif %}</small>
+<small>Dirección: {% if policy.default %}según la política predeterminada{% elif policy.directions.inbound and policy.directions.outbound %}entrada y salida{% elif policy.directions.inbound %}entrada{% elif policy.directions.outbound %}salida{% else %}sin dirección activada; revisar en Zenarmor{% endif %}</small>
+{% if policy.restrictions %}<small>Otros criterios: {{ policy.restrictions|join:'; ' }}. Requieren revisión por flujo.</small>{% endif %}
+<small>{{ policy.exclusion_count }} entradas de excepción en la política (listas de permiso/bloqueo).</small>

@@ -1,0 +1,123 @@
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+from .scope import ScopedManager
+
+class RunbookStep(models.Model):
+    incident=models.ForeignKey('core.Incident',on_delete=models.CASCADE,related_name='runbook_steps')
+    position=models.PositiveSmallIntegerField()
+    title=models.CharField(max_length=220)
+    done=models.BooleanField(default=False)
+    evidence=models.TextField(blank=True)
+    completed_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True)
+    completed_at=models.DateTimeField(null=True)
+    objects=ScopedManager();customer_lookup='incident__client_id'
+    class Meta:
+        ordering=['position','pk']
+        constraints=[models.UniqueConstraint(fields=['incident','position'],name='unique_runbook_step')]
+
+class ProtectionValidation(models.Model):
+    network=models.ForeignKey('core.NetworkCoverage',on_delete=models.SET_NULL,null=True,blank=True,related_name='validations')
+    test_ip=models.GenericIPAddressField(null=True,blank=True)
+    network_snapshot=models.JSONField(default=list,blank=True)
+    configuration_fingerprint=models.CharField(max_length=64,blank=True)
+    device=models.ForeignKey('core.Device',on_delete=models.CASCADE,related_name='validations')
+    engine=models.CharField(max_length=16,choices=[('suricata','Suricata'),('zenarmor','Zenarmor'),('clamav','ClamAV'),('unifi','UniFi'),('hillstone','Hillstone: detección de amenaza')])
+    networks=models.CharField(max_length=500)
+    expected_signature=models.CharField(max_length=240)
+    started_at=models.DateTimeField(default=timezone.now)
+    expires_at=models.DateTimeField()
+    evidence=models.ForeignKey('core.SecurityEvidence',on_delete=models.SET_NULL,null=True,blank=True)
+    requested_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True)
+    objects=ScopedManager();customer_lookup='device__site__client_id'
+    class Meta:ordering=['-started_at']
+
+class ZenarmorExportRequest(models.Model):
+    device=models.OneToOneField('core.Device',on_delete=models.CASCADE,related_name='zenarmor_export_request')
+    status=models.CharField(max_length=24,default='queued')
+    requested_at=models.DateTimeField(default=timezone.now)
+    checked_at=models.DateTimeField(null=True)
+    confirmed_at=models.DateTimeField(null=True)
+    requested_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True)
+    note=models.TextField(blank=True)
+    encrypted_previous=models.TextField(blank=True)
+    objects=ScopedManager();customer_lookup='device__site__client_id'
+    @property
+    def status_label(self):
+        return {'queued':'Pendiente de comprobar','waiting_license':'Esperando licencia compatible','configured':'Configuración confirmada; validar recepción','error':'Requiere revisión'}.get(self.status,'Sin comprobar')
+
+class CustomerTask(models.Model):
+    incident=models.ForeignKey('core.Incident',on_delete=models.PROTECT,related_name='customer_tasks')
+    action=models.OneToOneField('core.IncidentAction',on_delete=models.SET_NULL,null=True,blank=True,related_name='customer_task')
+    title=models.CharField('Título para el cliente',max_length=220)
+    instructions=models.TextField('Pasos que debe realizar el cliente')
+    due_at=models.DateTimeField('Fecha acordada',null=True,blank=True)
+    visible=models.BooleanField('Publicar en el portal del cliente',default=False)
+    status=models.CharField('Estado',max_length=16,choices=[('pending','Pendiente'),('submitted','Respuesta recibida'),('accepted','Validada por el SOC'),('rework','Requiere más información'),('cancelled','Cancelada por el SOC')],default='pending')
+    response=models.TextField(blank=True)
+    submitted_at=models.DateTimeField(null=True)
+    reviewed_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True)
+    review_note=models.TextField('Respuesta del SOC para el cliente',blank=True)
+    reviewed_at=models.DateTimeField(null=True)
+    updated_at=models.DateTimeField(auto_now=True)
+    objects=ScopedManager();customer_lookup='incident__client_id'
+    class Meta:ordering=['due_at','pk']
+
+class DeliverySettings(models.Model):
+    public_key=models.TextField('Clave pública de verificación de SendGrid',blank=True)
+    enabled=models.BooleanField('Recibir eventos firmados de SendGrid',default=False)
+    ack_minutes=models.PositiveIntegerField('Minutos para recordar avisos urgentes sin atender',default=30)
+    last_signed_at=models.DateTimeField(null=True,blank=True)
+    last_matched_at=models.DateTimeField(null=True,blank=True)
+
+class AdvancedReview(models.Model):
+    device=models.ForeignKey('core.Device',on_delete=models.CASCADE,related_name='advanced_reviews')
+    note=models.TextField('Qué se revisó y resultado',max_length=2000)
+    valid_until=models.DateTimeField('Revisar de nuevo antes de')
+    baseline=models.CharField(max_length=64)
+    created_at=models.DateTimeField(default=timezone.now)
+    reviewed_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True)
+    objects=ScopedManager();customer_lookup='device__site__client_id'
+
+class MailDispatch(models.Model):
+    token=models.UUIDField(unique=True,editable=False)
+    client=models.ForeignKey('core.Client',on_delete=models.CASCADE,null=True,blank=True)
+    report=models.ForeignKey('core.WeeklyReport',on_delete=models.SET_NULL,null=True,blank=True)
+    urgent=models.ForeignKey('core.UrgentAlert',on_delete=models.SET_NULL,null=True,blank=True)
+    recipient=models.EmailField()
+    kind=models.CharField(max_length=16,default='other')
+    provider_id=models.CharField(max_length=180,blank=True)
+    status=models.CharField(max_length=16,default='sending')
+    event_at=models.DateTimeField(null=True)
+    created_at=models.DateTimeField(default=timezone.now)
+    objects=ScopedManager();customer_lookup='client_id'
+    class Meta:ordering=['-created_at']
+    @property
+    def status_label(self):
+        return {'sending':'En proceso','accepted':'Aceptado por SendGrid; entrega sin confirmar','processed':'Procesado por SendGrid','delivered':'Entregado al servidor de correo','deferred':'Entrega aplazada','bounce':'Rebotado','dropped':'Descartado por SendGrid','failed':'Solicitud fallida','uncertain':'Resultado por comprobar'}.get(self.status,'Sin confirmar')
+
+class MailEvent(models.Model):
+    event_hash=models.CharField(max_length=64,unique=True)
+    dispatch=models.ForeignKey(MailDispatch,on_delete=models.CASCADE,related_name='events')
+    kind=models.CharField(max_length=16)
+    occurred_at=models.DateTimeField()
+    objects=ScopedManager();customer_lookup='dispatch__client_id'
+    class Meta:ordering=['occurred_at','pk']
+    @property
+    def label(self):
+        return {'processed':'Procesado','delivered':'Entregado al servidor','deferred':'Aplazado','bounce':'Rebotado','dropped':'Descartado'}.get(self.kind,'Sin confirmar')
+
+class ConfigurationArchive(models.Model):
+    reviewed_at=models.DateTimeField(null=True,blank=True)
+    reviewed_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True,blank=True)
+    review_note=models.TextField(blank=True)
+    device=models.ForeignKey('core.Device',on_delete=models.CASCADE,related_name='configuration_archives')
+    created_at=models.DateTimeField(default=timezone.now)
+    status=models.CharField(max_length=16)
+    kind=models.CharField(max_length=24,default='opnsense_full')
+    sha256=models.CharField(max_length=64,blank=True)
+    summary=models.JSONField(default=dict)
+    changes=models.JSONField(default=list)
+    note=models.CharField(max_length=250,blank=True)
+    objects=ScopedManager();customer_lookup='device__site__client_id'
+    class Meta:ordering=['-created_at']

@@ -1,0 +1,19 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}{{ site.name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/site-actions.css' %}?v=20261005">
+<div class="breadcrumbs"><a href="{% url 'client_list' %}">Clientes</a><span>›</span><a href="{% url 'client_detail' site.client.pk %}">{{ site.client.name }}</a><span>›</span>{{ site.name }}</div>
+<header class="page-head"><div><p class="eyebrow">Sede · {{ site.code }}</p><h1>{{ site.name }}</h1><p class="muted">{{ site.address|default:'Ubicación no indicada' }}</p></div><div class="actions">{% if perms.core.change_site %}<a class="button secondary" href="{% url 'site_edit' site.pk %}">Editar</a>{% endif %}{% if perms.core.add_device %}<a class="button primary" href="{% url 'onboarding_add_device' site.pk %}">+ Añadir equipo</a>{% endif %}{% if can_manage_connections %}<a class="button danger-outline" href="{% url 'site_delete' site.pk %}">Eliminar sede</a>{% endif %}</div></header>
+<section class="card"><div class="card-head"><h2>Equipos</h2></div><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Fabricante</th><th>Modelo</th><th>MAC</th><th>Versión</th><th>Integración</th><th></th></tr></thead><tbody>{% for item in devices %}<tr><td><a class="strong-link" href="{% url 'device_detail' item.pk %}">{{ item.name }}</a><small>{{ item.management_address|default:'Sin dirección' }}</small></td><td>{{ item.connection_profile_label }}</td><td>{{ item.model|default:'—' }}</td><td><code>{{ item.mac_address|default:"Sin registrar" }}</code></td><td>{{ item.software_version|default:'—' }}</td><td><span class="pill {{ item.integration }}">{{ item.get_integration_display }}</span></td><td><a href="{% url 'device_detail' item.pk %}">Abrir →</a></td></tr>{% empty %}<tr><td colspan="7" class="empty">Todavía no hay equipos en esta sede.</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="card lower"><h2>Conexiones de la sede</h2>
+{% for item in devices %}<div class="line-item"><span><strong>{{ item.name }}</strong><small>Gestión: {{ item.get_management_method_display }} · Eventos: {{ item.get_log_method_display }}</small></span><span>
+{% if item.management_method == 'api' and can_manage_connections and item.vendor == 'unifi' %}<a class="button secondary" href="{% url 'unifi_cloud' item.pk %}">Configurar API</a>
+{% elif item.management_method == 'api' and can_manage_connections and item.vendor == 'opnsense' %}<a class="button secondary" href="{% url 'opnsense_api' item.pk %}">Configurar API</a>
+{% elif item.management_method == 'api' %}<span class="pill pending">API: requiere permiso de conexión</span>
+{% elif item.management_method == 'ssh' and can_manage_connections %}<a class="button secondary" href="{% url 'ssh_connection' item.pk %}">Configurar SSH</a>
+{% elif item.management_method == 'ssh' %}<span class="pill pending">SSH: requiere permiso de conexión</span>
+{% else %}<a href="{% url 'device_detail' item.pk %}">Abrir equipo →</a>{% endif %}
+</span></div>{% empty %}<p class="empty">Añade un equipo para configurar sus conexiones.</p>{% endfor %}
+</section>
+{% if site.notes %}<section class="card lower"><h2>Notas internas</h2><p>{{ site.notes|linebreaksbr }}</p></section>{% endif %}
+{% endblock %}

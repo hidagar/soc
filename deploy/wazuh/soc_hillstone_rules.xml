@@ -1,0 +1,17 @@
+<group name="hillstone,syslog,">
+  <rule id="110600" level="3">
+    <decoded_as>soc-hillstone</decoded_as>
+    <description>Hillstone: $(hillstone.category) / $(hillstone.code).</description>
+  </rule>
+  <rule id="110601" level="0">
+    <if_sid>110600</if_sid>
+    <field name="hillstone.category">^Network$</field>
+    <description>Hillstone: actividad de red rutinaria; no genera alerta.</description>
+  </rule>
+  <rule id="110602" level="8">
+    <if_sid>110600</if_sid>
+    <field name="hillstone.category" type="pcre2">(?i)^Threat$</field>
+    <description>Hillstone: amenaza detectada; revisar acción y evidencia.</description>
+    <group>hillstone_security,</group>
+  </rule>
+</group>

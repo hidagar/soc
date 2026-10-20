@@ -1,0 +1,17 @@
+[Unit]
+Description=Centro SOC soc-vpn
+After=network-online.target wazuh-indexer.service wg-quick@wg-soc.service
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/srv/soc-portal
+EnvironmentFile=/etc/soc-portal/portal.env
+ExecStart=/opt/soc-portal-venv/bin/python /srv/soc-portal/manage.py operate_soc vpn
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/srv/soc-portal/data /run /etc/wireguard
+UMask=0077
+TimeoutStartSec=300

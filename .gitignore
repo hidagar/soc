@@ -1,0 +1,38 @@
+# Runtime and customer data
+data/
+staticfiles/
+media/
+logs/
+backups/
+*.sqlite*
+*.db
+*.log
+*.csv
+*.ndjson
+*.jsonl
+# Secrets and private configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+ssh/
+credentials*
+*secret*.json
+# Local runtimes and generated previews
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*-preview/
+*-preview.html
+*.tar
+*.tar.gz
+*.zip
+*.mmdb

@@ -1,0 +1,82 @@
+<!-- Centro SOC: UniFi Network Activity Logging in CEF format. -->
+<decoder name="soc-unifi-cef">
+  <program_name>^CEF$</program_name>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">0\|Ubiquiti\|UniFi Network\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|</regex>
+  <order>unifi.version,unifi.event_id,unifi.event_name,unifi.severity</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">UNIFIcategory=([^ ]+)</regex>
+  <order>unifi.category</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">UNIFIsubCategory=([^ ]+)</regex>
+  <order>unifi.subcategory</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">UNIFIadmin=(.*?) (?=[A-Za-z][A-Za-z0-9]*=)</regex>
+  <order>unifi.admin</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">src=([0-9a-fA-F:.]+)</regex>
+  <order>srcip</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">dst=([0-9a-fA-F:.]+)</regex>
+  <order>dstip</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">spt=([0-9]+)</regex>
+  <order>srcport</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">dpt=([0-9]+)</regex>
+  <order>dstport</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">proto=([A-Za-z0-9]+)</regex>
+  <order>protocol</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">act=([A-Za-z_]+)</regex>
+  <order>unifi.action</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">UNIFIrisk=([A-Za-z]+)</regex>
+  <order>unifi.risk</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">UNIFIipsSignature=(.*?) (?=[A-Za-z][A-Za-z0-9]*=)</regex>
+  <order>unifi.ips_signature</order>
+</decoder>
+
+<decoder name="soc-unifi-cef">
+  <parent>soc-unifi-cef</parent>
+  <regex type="pcre2">UNIFIipsSignatureId=([0-9]+)</regex>
+  <order>unifi.ips_signature_id</order>
+</decoder>

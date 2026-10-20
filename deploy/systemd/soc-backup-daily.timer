@@ -1,0 +1,8 @@
+[Unit]
+Description=Schedule Centro SOC soc-backup-daily
+[Timer]
+OnCalendar=*-*-* 03:15:00 Europe/Madrid
+Persistent=true
+RandomizedDelaySec=5m
+[Install]
+WantedBy=timers.target

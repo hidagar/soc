@@ -1,0 +1,18 @@
+Estimado equipo de {{ client.name }}:
+
+Ponemos a su disposición el informe semanal de nuestro servicio de seguridad gestionada, correspondiente al periodo del {{ monday|date:'d/m/Y' }} al {{ sunday|date:'d/m/Y' }}.
+
+En él encontrarán un resumen de la actividad de seguridad registrada, los dispositivos afectados y las recomendaciones de actuación, cuando procedan.
+
+Pueden consultar el informe y descargarlo en PDF desde el siguiente enlace:
+{{ report_url }}
+Enlace disponible hasta el {{ link_expires_at|date:'d/m/Y' }}.
+
+Para cualquier consulta o aclaración, pueden responder directamente a este correo. Nuestro equipo NOC les atenderá en {{ reply_address }}.
+
+Atentamente,
+Equipo NOC
+ib-red empresas
+
+Red Digital de Telecomunicaciones de las Islas Baleares, S.L.
+Comunicación del servicio contratado. El informe contiene información confidencial de su empresa.

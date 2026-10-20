@@ -1,0 +1,11 @@
+<h3>Ahora configura Zenarmor</h3>
+<p>OPNsense y Zenarmor exportan sus registros por separado. Aunque hayas utilizado API o SSH, completa también este apartado en Zenarmor.</p>
+<ol class="wizard-instructions">
+<li>Abre <strong>Zenarmor → Settings → Reporting &amp; Data → Streaming Data</strong>.</li>
+<li>Activa <strong>Stream Reporting Data to Syslog</strong>.</li>
+<li>Introduce la <strong>IP del servidor</strong> indicada arriba, puerto <strong>{{ port }}</strong> y protocolo <strong>UDP</strong>. Utiliza la misma ruta y la misma IP de origen que OPNsense.</li>
+<li>Selecciona <strong>Alerts</strong> y pulsa <strong>Save &amp; Enable</strong>. Para comprobar la recepción con navegación normal, puedes añadir temporalmente <strong>Connections</strong> y retirarlo después.</li>
+</ol>
+<details class="wizard-trouble"><summary>No aparece Streaming Data o no me permite activarlo</summary><p>La exportación Syslog requiere <strong>Zenarmor SOHO o Business</strong>. Las ediciones Free y Home no incluyen esta función. Puedes volver a «Conexión» y elegir el perfil OPNsense para conectar sus logs generales mientras resuelves la exportación de Zenarmor.</p><p>Si la base de informes de Zenarmor está detenida o muestra un error, revisa su estado antes de comprobar la exportación.</p></details>
+<div class="wizard-confirm"><label>{{ form.zenarmor_configured }} {{ form.zenarmor_configured.label }}</label>{% if form.zenarmor_configured.errors %}<div class="form-error" role="alert">{{ form.zenarmor_configured.errors }}</div>{% endif %}</div>
+<p class="source-note"><a href="https://www.zenarmor.com/docs/opnsense/configuring/streaming-reporting-data" target="_blank" rel="noopener noreferrer">Guía oficial de exportación Zenarmor ↗</a></p>
