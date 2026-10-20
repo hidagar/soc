@@ -45,6 +45,8 @@ Secuencia propuesta para quien continúe:
 
 Cerrar cuando existan evidencias de migración, concurrencia, recuperación, aislamiento y reconstrucción. No cambiar la base de producción solo porque se haya añadido un driver.
 
+**Bloque 5 (parcial):** historial completo de respuestas y revisiones de tareas del cliente (`CustomerTaskEntry`, migración `0048`), reapertura de la acción al reabrir la tarea y pendientes que no desaparecen por volumen. Faltan los SLA de acuse/investigación/resolución y el mantenimiento con motivo y caducidad.
+
 ## Pendientes que siguen abiertos
 
 - Piloto real del canal HTTPS y muestras reales por motor/red/versión, especialmente GCC y ClamAV. La API cloud accesible no acredita amenazas recibidas.

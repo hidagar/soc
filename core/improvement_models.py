@@ -63,6 +63,20 @@ class CustomerTask(models.Model):
     objects=ScopedManager();customer_lookup='incident__client_id'
     class Meta:ordering=['due_at','pk']
 
+class CustomerTaskEntry(models.Model):
+    """Historial completo de la conversación de una tarea: cada respuesta y cada revisión.
+
+    CustomerTask.response y review_note conservan solo la última; este registro no se edita.
+    """
+    task=models.ForeignKey(CustomerTask,on_delete=models.CASCADE,related_name='entries')
+    kind=models.CharField(max_length=16,choices=[('response','Respuesta del cliente'),('review','Revisión del SOC')])
+    status=models.CharField(max_length=16)
+    text=models.TextField()
+    author=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True)
+    created_at=models.DateTimeField(default=timezone.now)
+    objects=ScopedManager();customer_lookup='task__incident__client_id'
+    class Meta:ordering=['created_at','pk']
+
 class DeliverySettings(models.Model):
     public_key=models.TextField('Clave pública de verificación de SendGrid',blank=True)
     enabled=models.BooleanField('Recibir eventos firmados de SendGrid',default=False)

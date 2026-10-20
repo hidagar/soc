@@ -157,6 +157,20 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `review_note` | TextField | blank=True |
 | `reviewed_at` | DateTimeField | null=True |
 | `updated_at` | DateTimeField |  |
+## CustomerTaskEntry
+
+Fuente: [core/improvement_models.py](../../core/improvement_models.py).
+
+Ámbito declarado: `'task__incident__client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `task` | ForeignKey | → CustomerTask; on_delete=models.CASCADE |
+| `kind` | CharField | max_length=16 |
+| `status` | CharField | max_length=16 |
+| `text` | TextField |  |
+| `author` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `created_at` | DateTimeField |  |
 ## DeliverySettings
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

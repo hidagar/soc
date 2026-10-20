@@ -15,6 +15,7 @@ erDiagram
   WeeklyReport ||--o| ReportShare : comparte
   Client ||--o{ Incident : investiga
   Incident ||--o{ CustomerTask : solicita
+  CustomerTask ||--o{ CustomerTaskEntry : historial
   Client ||--o{ CustomerPublication : publica
 ```
 
@@ -28,7 +29,7 @@ Diagrama de lectura, no sustituto de los `on_delete`/constraints reales. El [cat
 | Gestión del equipo | UnifiCloudConnection, OpnsenseConnection, HillstoneConnection, GdmsConnection, SshConnection | `core/models.py` |
 | Autenticación | User de Django, StaffAccess, MfaProfile, AuthAttempt, UserInvitation | modelos operativos y de acceso |
 | Observación | Asset, DeviceHealth, DeviceFeed, FeedBucket, SecurityEvidence, SourceOwnership, AttributionCatalog | modelos operativos / principales |
-| Investigación | Incident, IncidentUpdate, IncidentAction, RunbookStep, CustomerTask, ChangePlan | modelos principales, operativos y de mejora |
+| Investigación | Incident, IncidentUpdate, IncidentAction, RunbookStep, CustomerTask, CustomerTaskEntry, ChangePlan | modelos principales, operativos y de mejora |
 | Cobertura | ProtectionPolicy, ProtectionValidation, NetworkCoverage, NetworkCheck, AdvancedReview, ZenarmorExportRequest | modelos operativos, de red y de mejora |
 | Comunicaciones | WeeklyReport, ReportShare, CustomerPublication, MailSettings, MailDispatch, MailEvent, UrgentAlert | modelos principales y de mejora |
 | Operación | WorkerState, OperationalIssue, AuditEvent, ConfigurationArchive, RecoverySettings, BackupRun, VpnPeer, VpnAccessEvent | varios módulos |
@@ -55,3 +56,7 @@ Lotes v1 previos: `legacy`, `queued`, `delivering`, `retry`, `forwarded`, `uncer
 Una invitación usa token de un solo uso y expira; `accepted` en su estado de envío significa aceptación del proveedor, mientras `accepted_at` acredita que el usuario estableció contraseña. GET de un escáner de correo no consume el enlace. La invitación anterior se invalida al rotar/reinvitar.
 
 Un correo tiene aceptación del proveedor y, si se activa el webhook firmado, eventos posteriores de entrega/rechazo. No agrupar esos hechos bajo una única etiqueta de éxito. Las tareas de cliente tienen estados y visibilidad propios; lo interno no se publica por la simple existencia de una incidencia.
+
+## Tareas del cliente
+
+`CustomerTask.response` y `review_note` guardan solo la última respuesta y revisión; `CustomerTaskEntry` conserva cada una (autor, fecha y estado) y no se edita. La migración `0048` sembró el historial con los valores existentes. Validar una tarea completa su acción vinculada; devolverla a pendiente, pedir más información o recibir una nueva respuesta reabre esa acción (`awaiting_client`) salvo que esté cancelada. El portal muestra todas las tareas abiertas (pendiente, en revisión, más información) sin límite y, aparte, las 20 cerradas más recientes.

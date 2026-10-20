@@ -41,7 +41,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/hillstone_api.py](../../core/hillstone_api.py) | StoneOS REST login and bounded inventory discovery; no configuration writes. — `HillstoneApiError`, `NoRedirect`, `validate_url`, `validate_ca`, `encrypt`, `decrypt`, `username`, `inventory`, `check_connection` |
 | [core/hillstone_events.py](../../core/hillstone_events.py) | Threat@FLOW layout contrasted with actual StoneOS logs (19 October 2026). — `action`, `flow`, `legacy_action_regexp` |
 | [core/hillstone_views.py](../../core/hillstone_views.py) | `ConnectionForm`, `hillstone_api` |
-| [core/improvement_models.py](../../core/improvement_models.py) | `RunbookStep`, `ProtectionValidation`, `ZenarmorExportRequest`, `CustomerTask`, `DeliverySettings`, `AdvancedReview`, `MailDispatch`, `MailEvent`, `ConfigurationArchive` |
+| [core/improvement_models.py](../../core/improvement_models.py) | `RunbookStep`, `ProtectionValidation`, `ZenarmorExportRequest`, `CustomerTask`, `CustomerTaskEntry`, `DeliverySettings`, `AdvancedReview`, `MailDispatch`, `MailEvent`, `ConfigurationArchive` |
 | [core/incident_episodes.py](../../core/incident_episodes.py) | `attach_episode` |
 | [core/indexer_admin.py](../../core/indexer_admin.py) | Privileged provisioning/recovery only. Reporting uses a separate reader. — `admin_request` |
 | [core/indexer_results.py](../../core/indexer_results.py) | Reject partial searches before changing reports or durable cursors. — `complete`, `count`, `total`, `hits` |

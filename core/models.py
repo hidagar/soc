@@ -443,7 +443,7 @@ class Incident(models.Model):
 from .operations_models import (StaffAccess, MfaProfile, AuthAttempt, AuditEvent, DeviceHealth,
     DeviceFeed, FeedBucket, Asset, SecurityEvidence, IncidentUpdate, OperationalIssue,
     WorkerState, ChangePlan, VpnPeer, RecoverySettings, BackupRun, IncidentAction, ExposureCheck, ExposureFinding, ProtectionPolicy, CustomerPublication, DeviceObservation)
-from .improvement_models import (RunbookStep,ProtectionValidation,CustomerTask,DeliverySettings,MailDispatch,MailEvent,ConfigurationArchive)
+from .improvement_models import (RunbookStep,ProtectionValidation,CustomerTask,CustomerTaskEntry,DeliverySettings,MailDispatch,MailEvent,ConfigurationArchive)
 from .network_models import NetworkCheck, NetworkCoverage
 from .operations_models import AttributionCatalog
 from .improvement_models import ZenarmorExportRequest

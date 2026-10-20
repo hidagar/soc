@@ -8,7 +8,7 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404,render,redirect
 from django.utils import timezone
 from django.views.decorators.http import require_POST,require_http_methods
-from .models import (Incident,IncidentUpdate,IncidentAction,RunbookStep,CustomerTask,
+from .models import (Incident,IncidentUpdate,IncidentAction,RunbookStep,CustomerTask,CustomerTaskEntry,
     Device,ProtectionValidation,SecurityEvidence,ConfigurationArchive,UrgentAlert,DeliverySettings,NetworkCoverage)
 from .security import audit
 from .service_development import customer_client
@@ -79,6 +79,7 @@ def task_edit(request,incident_pk=None,pk=None):
     if not request.user.has_perm('core.change_incident'):return HttpResponseForbidden()
     task=get_object_or_404(CustomerTask,pk=pk) if pk else None
     incident=task.incident if task else get_object_or_404(Incident,pk=incident_pk)
+    before=(task.status,task.review_note) if task else (None,'')
     form=TaskForm(request.POST or None,instance=task,incident=incident)
     if request.method=='POST' and form.is_valid():
         with transaction.atomic():
@@ -86,11 +87,19 @@ def task_edit(request,incident_pk=None,pk=None):
             if saved.status in ('accepted','rework','cancelled'):
                 saved.reviewed_by=request.user;saved.reviewed_at=timezone.now()
             saved.save()
+            if saved.status in ('accepted','rework','cancelled') and (saved.status,saved.review_note)!=before:
+                CustomerTaskEntry.objects.create(task=saved,kind='review',status=saved.status,text=saved.review_note,author=request.user)
             if saved.status=='accepted' and saved.action_id:
                 action=IncidentAction.objects.select_for_update().get(pk=saved.action_id,incident=incident,responsible_party='client')
                 if action.status not in ('done','cancelled'):
                     action.status='done';action.resolution='Respuesta del cliente: '+saved.response+'\nVerificación SOC: '+saved.review_note
                     action.completed_at=timezone.now();action.save()
+            elif saved.status in ('pending','rework','submitted') and saved.action_id:
+                # Una tarea reabierta no puede dejar su acción como completada.
+                action=IncidentAction.objects.select_for_update().get(pk=saved.action_id,incident=incident,responsible_party='client')
+                if action.status=='done':
+                    action.status='awaiting_client';action.completed_at=None;action.resolution='';action.save()
+                    IncidentUpdate.objects.create(incident=incident,author=request.user,text='Acción reabierta al reabrir la tarea del cliente: '+action.title+'.')
             elif saved.status not in ('accepted','cancelled') and incident.status=='resolved':
                 incident.status='investigating';incident.resolved_at=None;incident.save()
             IncidentUpdate.objects.create(incident=incident,author=request.user,text='Tarea para el cliente: '+saved.title+'. Estado: '+saved.get_status_display()+'.')
@@ -112,6 +121,7 @@ def customer_task_reply(request,pk):
                 changed=CustomerTask.objects.filter(pk=task.pk,visible=True,status__in=('pending','rework')).update(
                     response=text,submitted_at=timezone.now(),updated_at=timezone.now(),status='submitted')
                 if changed:
+                    CustomerTaskEntry.objects.create(task=task,kind='response',status='submitted',text=text,author=request.user)
                     IncidentUpdate.objects.create(incident=task.incident,author=request.user,text='Respuesta recibida del cliente para la tarea «'+task.title+'». Pendiente de verificación SOC.')
                     audit('customer.task_response',task,{'status':'submitted'})
                     return redirect('customer_home')
