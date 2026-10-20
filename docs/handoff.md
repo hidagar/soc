@@ -51,6 +51,8 @@ Cerrar cuando existan evidencias de migración, concurrencia, recuperación, ais
 
 **Bloque 8 (parcial):** rotación de la bóveda y de las claves de conectores sin perder secretos ni MFA (`SOC_PORTAL_VAULT_KEYS`, listas «nueva,anterior», `rotate_encryption_keys`). No se ha rotado ninguna clave real. Faltan rotación de SECRET_KEY/auditoría, anclaje externo de auditoría, recuperación completa de VM y monitor exterior.
 
+**Ensayo de actualización de la pila completa (20/10/2026, contenedor):** instalación limpia de `main` (`4351945`, migración 0046) con datos anonimizados (cliente, MFA, tarea respondida y revisada, informe ya enviado), `update.sh` hasta la última rama (0047–0049 aplicadas, historial sembrado desde la respuesta y revisión existentes, portal, tarea, informe y PDF con 200 bajo MFA, versión 1 congelada en el primer acceso) y `--rollback` a 0046 con los datos intactos. No sustituye el ensayo con una copia de la base real.
+
 ## Pendientes que siguen abiertos
 
 - Piloto real del canal HTTPS y muestras reales por motor/red/versión, especialmente GCC y ClamAV. La API cloud accesible no acredita amenazas recibidas.
