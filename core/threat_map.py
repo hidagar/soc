@@ -4,7 +4,7 @@ import os
 import hashlib
 import json
 from pathlib import Path
-from collections import Counter,defaultdict
+from collections import Counter
 from datetime import timedelta,datetime,timezone as dt_timezone
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache

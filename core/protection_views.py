@@ -4,7 +4,6 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404,redirect,render
-from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from .models import Client,Site,Device,DeviceHealth,ProtectionPolicy,Incident,IncidentUpdate
 from .protection import snapshot,incident_key

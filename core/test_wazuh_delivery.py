@@ -9,7 +9,7 @@ from .models import Client,Site,Device,SecureLogReceipt,SecureLogMessage,Securit
 from .security import encrypt,decrypt
 from .secure_logs import prepare
 from .wazuh_delivery import (prepare_messages,reframe,hostname,identify,canonical,_record_ack,
-    send_due,read_native_receipts,publish_due,finish_batches,prune_logs)
+    send_due,read_native_receipts,publish_due,finish_batches)
 
 @override_settings(SECURE_SSL_REDIRECT=False,SOC_MFA_REQUIRED=False)
 class AcknowledgedDeliveryTests(TestCase):

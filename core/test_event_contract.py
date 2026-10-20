@@ -60,7 +60,6 @@ def sample(engine, action='blocked'):
 
 class EventContractTests(SimpleTestCase):
     def test_live_index_regex_limit_and_invalid_legacy_endpoints(self):
-        import json
         for action in ('allowed','blocked'):
             def walk(query):
                 if isinstance(query,dict):

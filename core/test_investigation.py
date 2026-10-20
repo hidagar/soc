@@ -4,7 +4,7 @@ from django.test import TestCase,override_settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import Client,Site,Device,StaffAccess,SecurityEvidence,Asset,ExportConfiguration
-from .vpn_security import VpnAccessEvent,parse,record,analysis
+from .vpn_security import VpnAccessEvent, parse, analysis
 
 @override_settings(SECURE_SSL_REDIRECT=False,SOC_MFA_REQUIRED=False)
 class InvestigationTests(TestCase):

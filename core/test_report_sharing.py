@@ -2,7 +2,6 @@ from .testing_access import workflow_access
 import json
 from datetime import date, timedelta
 from unittest import mock
-from io import BytesIO
 
 from cryptography.fernet import Fernet
 from django.contrib.auth import get_user_model
@@ -12,9 +11,9 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .mail_delivery import MailConfigurationError, encrypt_sendgrid_key, send_via_sendgrid
+from .mail_delivery import encrypt_sendgrid_key, send_via_sendgrid
 from .models import Client, MailSettings, ReportShare, WeeklyReport
-from .report_sharing import SALT, create_report_link, share_path
+from .report_sharing import SALT, create_report_link
 
 
 @override_settings(SECURE_SSL_REDIRECT=False)

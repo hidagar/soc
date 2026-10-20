@@ -1,6 +1,5 @@
 """Privileged provisioning/recovery only. Reporting uses a separate reader."""
 import json
-import ssl
 import urllib.request
 
 def admin_request(path,payload=None,method=None,timeout=20):

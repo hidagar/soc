@@ -3,7 +3,7 @@ import hashlib
 import json
 from datetime import datetime,timedelta,timezone as utc
 from django.utils import timezone
-from .models import DeviceFeed,Incident
+from .models import Incident
 
 def flag(value):
     if value in (True,1,'1','true'):return True

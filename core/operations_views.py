@@ -11,7 +11,7 @@ from django.shortcuts import get_object_or_404,redirect,render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from .models import (Asset,AuditEvent,Client,Device,DeviceHealth,Incident,IncidentUpdate,
-    OperationalIssue,SecurityEvidence,StaffAccess,WorkerState)
+    OperationalIssue,StaffAccess,WorkerState)
 from .release import deployed_release
 from .security import audit,audit_integrity,mfa_fresh
 

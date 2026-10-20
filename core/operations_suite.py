@@ -3,13 +3,12 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Count
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404,render,redirect
 from django.utils import timezone
 from django.views.decorators.http import require_POST,require_http_methods
 from .models import (Incident,IncidentUpdate,IncidentAction,RunbookStep,CustomerTask,CustomerTaskEntry,
-    Device,ProtectionValidation,SecurityEvidence,ConfigurationArchive,UrgentAlert,DeliverySettings,NetworkCoverage)
+    Device,ProtectionValidation,SecurityEvidence,ConfigurationArchive,UrgentAlert,NetworkCoverage)
 from .security import audit
 from .service_development import customer_client
 

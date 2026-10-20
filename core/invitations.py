@@ -7,7 +7,6 @@ from django.contrib.auth import logout
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.http import HttpResponse
 from django.shortcuts import render,redirect
 from django.template.loader import render_to_string
 from django.urls import reverse

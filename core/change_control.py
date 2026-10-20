@@ -3,7 +3,6 @@ import hashlib
 import ipaddress
 import json
 import re
-from django.db import transaction
 from django.utils import timezone
 from .models import ChangePlan,Device
 from .security import encrypt,decrypt,audit

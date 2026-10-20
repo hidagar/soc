@@ -14,9 +14,8 @@ import socket
 import shutil
 import time
 import urllib.request
-from datetime import datetime,timedelta,timezone as utc
+from datetime import timedelta, timezone as utc
 from pathlib import Path
-from urllib.error import HTTPError
 from cryptography.fernet import InvalidToken
 from django.db import transaction
 from django.db.models import F,Q

@@ -16,7 +16,7 @@ from django.contrib.auth.hashers import make_password
 from django.test import TestCase,override_settings
 from django.urls import reverse
 from django.utils import timezone
-from .models import Client,Site,Device,ExportConfiguration,StaffAccess,MfaProfile,SecurityEvidence,Incident,Asset,DeviceHealth,DeviceFeed,FeedBucket,ChangePlan,AuditEvent,VpnPeer,WorkerState,OperationalIssue
+from .models import Client, Site, Device, ExportConfiguration, StaffAccess, MfaProfile, SecurityEvidence, Incident, Asset, DeviceHealth, DeviceFeed, ChangePlan, AuditEvent, WorkerState, OperationalIssue
 from .security import totp,verify_token,encrypt,audit,audit_integrity
 from .operations import normalize,ingest_events,evaluate_health,observe_asset
 

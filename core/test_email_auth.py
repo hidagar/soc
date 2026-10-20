@@ -2,7 +2,6 @@ from django.contrib.auth import authenticate,get_user_model
 from django.db import IntegrityError,transaction
 from django.test import TestCase,override_settings
 from .operations_views import StaffForm
-from .models import Client
 
 
 @override_settings(SECURE_SSL_REDIRECT=False,SOC_MFA_REQUIRED=False)
