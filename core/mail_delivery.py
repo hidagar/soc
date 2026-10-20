@@ -4,8 +4,9 @@ import json
 import os
 from urllib import error, request
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import InvalidToken
 from .models import MailSettings
+from .keyring import multifernet
 
 
 class MailConfigurationError(Exception):
@@ -26,7 +27,7 @@ def _fernet():
     if not value:
         raise MailConfigurationError("Falta la clave de cifrado del correo.")
     try:
-        return Fernet(value.encode("ascii"))
+        return multifernet(value)
     except (ValueError, UnicodeError) as exc:
         raise MailConfigurationError("La clave de cifrado del correo no es válida.") from exc
 

@@ -6,7 +6,8 @@ import os
 import ssl
 from urllib import error, parse, request
 
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import InvalidToken
+from .keyring import multifernet
 
 
 class OpnsenseApiError(Exception):
@@ -23,7 +24,7 @@ def _fernet():
     if not key:
         raise OpnsenseApiError("Falta la clave de cifrado de OPNsense en el servidor.")
     try:
-        return Fernet(key.encode("ascii"))
+        return multifernet(key)
     except (ValueError, UnicodeError) as exc:
         raise OpnsenseApiError("La clave de cifrado de OPNsense no es válida.") from exc
 

@@ -21,12 +21,15 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from .models import AuditEvent, AuthAttempt, MfaProfile, StaffAccess, WorkerState
+from .keyring import multifernet
 from .scope import actor_scope, customer_scope
 
 def vault():
     # Separate cryptographic domain from connector credentials; survives process restarts.
+    # SOC_PORTAL_VAULT_KEYS (opcional, «nueva,anterior») desacopla la bóveda de SECRET_KEY;
+    # la clave derivada sigue al final para leer lo cifrado antes de rotar.
     key = hmac.new(settings.SECRET_KEY.encode(), b'soc-operations-vault-v1', hashlib.sha256).digest()
-    return Fernet(base64.urlsafe_b64encode(key))
+    return multifernet(settings.SOC_VAULT_KEYS, legacy=[Fernet(base64.urlsafe_b64encode(key))])
 
 def encrypt(value):
     return vault().encrypt(value.encode()).decode()

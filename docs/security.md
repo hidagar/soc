@@ -30,7 +30,8 @@ Para clientes, usar la proyección publicable de `service_development.py`, inclu
 
 ## Criptografía y transporte
 
-- Claves separadas para UniFi, OPNsense, SSH/conectores y correo. La bóveda operativa y la auditoría derivan de SECRET_KEY; rotar sin migración rompe descifrado/verificación.
+- Claves separadas para UniFi, OPNsense, SSH/conectores y correo. La bóveda operativa (MFA, tokens de canales e invitaciones, lotes HTTPS, copias de cambios) deriva de SECRET_KEY salvo que se configure `SOC_PORTAL_VAULT_KEYS`; la cadena de auditoría y las firmas de enlaces siguen dependiendo de SECRET_KEY.
+- **Rotación** (bóveda y conectores): cada variable admite `nueva,anterior`; se cifra con la primera y se descifra con cualquiera. Procedimiento: copia previa (`update.sh` o recuperación); generar la clave (`python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"`); ponerla delante en `portal.env` (para la bóveda, `SOC_PORTAL_VAULT_KEYS=nueva`); parar portal y timers y arrancar el portal; `manage.py rotate_encryption_keys` (simulación) hasta que no queden valores «sin descifrar»; `--apply`; comprobar MFA y conectores; retirar la clave anterior de la lista. El comando atribuye cada valor a su clave descifrándolo, comprueba cada valor recifrado antes de escribirlo y no toca lo que no puede descifrar. La clave derivada de SECRET_KEY permanece al final de la bóveda para leer valores antiguos. **Rotar SECRET_KEY sigue sin estar soportado**: invalida sesiones y enlaces de informes y rompe la verificación de la cadena de auditoría existente.
 - SSH autentica contra una huella confirmada. No aceptar automáticamente una clave cambiada.
 - HTTPS valida cadena y nombre. `indexer_tls.py` relaja únicamente un requisito de perfil de la PKI privada instalada; conserva CERT_REQUIRED y hostname. No generalizar esa excepción.
 - Root/mTLS del indexador pertenece al worker protegido; el reader usa una credencial limitada distinta.
