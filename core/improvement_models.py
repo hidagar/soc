@@ -135,3 +135,23 @@ class ConfigurationArchive(models.Model):
     note=models.CharField(max_length=250,blank=True)
     objects=ScopedManager();customer_lookup='device__site__client_id'
     class Meta:ordering=['-created_at']
+
+class ReportVersion(models.Model):
+    """Versión publicada de un informe semanal: HTML y PDF tal como los recibió el cliente.
+
+    Se crea al enviar el informe o al mostrarlo por primera vez al cliente, y no se edita.
+    Una rectificación añade la versión siguiente con su motivo y conserva las anteriores.
+    """
+    report=models.ForeignKey('core.WeeklyReport',on_delete=models.CASCADE,related_name='versions')
+    number=models.PositiveIntegerField()
+    html=models.TextField()
+    pdf=models.BinaryField()
+    html_sha256=models.CharField(max_length=64)
+    pdf_sha256=models.CharField(max_length=64)
+    reason=models.TextField(blank=True)
+    created_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True)
+    created_at=models.DateTimeField(default=timezone.now)
+    objects=ScopedManager();customer_lookup='report__client_id'
+    class Meta:
+        ordering=['report','number']
+        constraints=[models.UniqueConstraint(fields=['report','number'],name='unique_report_version_number')]

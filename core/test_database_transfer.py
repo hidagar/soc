@@ -58,6 +58,10 @@ WorkerState.objects.create(name='alfa-cursor')
 for index in range(3):
     audit('transfer.seed', a, {'count': index})
 session = SessionStore(); session['soc_mfa_user'] = operator.pk; session.create()
+from core.models import WeeklyReport, ReportVersion
+report = WeeklyReport.objects.create(client=a, week_start=OLD.date())
+ReportVersion.objects.create(report=report, number=1, html='<p>Informe ñ</p>', pdf=b'%PDF-1.4\x00\xff binario',
+                             html_sha256='h', pdf_sha256='p')
 print('ok')
 '''
 
@@ -129,6 +133,8 @@ class TransferToPostgresqlTests(TransactionTestCase):
         self.assertEqual(Incident._base_manager.get().updated_at, OLD)
         self.assertEqual(set(SecurityEvidence._base_manager.values_list('client_scope_id', flat=True)), {company.pk})
         self.assertTrue(SecureLogChannel._base_manager.get().token_hash)
+        from .models import ReportVersion
+        self.assertEqual(bytes(ReportVersion._base_manager.get().pdf), b'%PDF-1.4\x00\xff binario')
         self.assertTrue(audit_integrity())
         self.assertEqual(AuditEvent.objects.count(), 3)
         # Las secuencias continúan tras el último ID copiado.

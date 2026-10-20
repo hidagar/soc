@@ -245,6 +245,23 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `summary` | JSONField |  |
 | `changes` | JSONField |  |
 | `note` | CharField | max_length=250; blank=True |
+## ReportVersion
+
+Fuente: [core/improvement_models.py](../../core/improvement_models.py).
+
+Ámbito declarado: `'report__client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `report` | ForeignKey | → 'core.WeeklyReport'; on_delete=models.CASCADE |
+| `number` | PositiveIntegerField |  |
+| `html` | TextField |  |
+| `pdf` | BinaryField |  |
+| `html_sha256` | CharField | max_length=64 |
+| `pdf_sha256` | CharField | max_length=64 |
+| `reason` | TextField | blank=True |
+| `created_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `created_at` | DateTimeField |  |
 ## Client
 
 Fuente: [core/models.py](../../core/models.py).

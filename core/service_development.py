@@ -115,23 +115,29 @@ def customer_map(request):
 def customer_map_data(request):
     return JsonResponse(customer_geography(request)[1])
 
+def customer_version(request,pk):
+    from .report_versions import published_version
+    report=get_object_or_404(released_reports(customer_client(request)),pk=pk)
+    raw=request.GET.get('version','')
+    version=published_version(report,int(raw) if raw.isdigit() and len(raw)<6 else None)
+    if not version:raise Http404
+    return version,('?version='+str(version.number) if raw else '')
+
 @login_required
 @require_GET
 def customer_weekly(request,pk):
     from django.urls import reverse
-    report=get_object_or_404(released_reports(customer_client(request)),pk=pk)
-    context=customer_report_context(report)
-    context.update(customer_view=True,report_base='customer_report_base.html',pdf_url=reverse('customer_weekly_pdf',args=[pk]))
-    return render(request,'weekly_report.html',context)
+    from .report_versions import version_page
+    version,suffix=customer_version(request,pk)
+    return version_page(request,version,reverse('customer_weekly_pdf',args=[pk])+suffix,base='customer_report_base.html',
+        versions=version.report.versions.all(),version_url=reverse('customer_weekly',args=[pk]))
 
 @login_required
 @require_GET
 def customer_weekly_pdf(request,pk):
-    from .report_pdf import render_report_pdf
-    report=get_object_or_404(released_reports(customer_client(request)),pk=pk)
-    response=HttpResponse(render_report_pdf(report,context_override=customer_report_context(report)),content_type='application/pdf')
-    response['Content-Disposition']='attachment; filename="informe-semanal.pdf"'
-    return response
+    from .report_versions import version_pdf
+    version,_=customer_version(request,pk)
+    return version_pdf(version,f'informe-semanal-v{version.number}.pdf')
 
 def record_observation(device,health):
     """Persist only fixed non-secret fields; unknown results don't erase known data."""
