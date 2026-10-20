@@ -1,4 +1,6 @@
-import hashlib,json,time,uuid
+import json
+import time
+import uuid
 from datetime import timedelta
 from unittest.mock import patch,MagicMock
 from django.contrib.auth import get_user_model
@@ -6,7 +8,7 @@ from django.contrib.auth.models import Permission
 from django.test import TestCase,Client as Browser,override_settings
 from django.urls import reverse
 from django.utils import timezone
-from .models import Client,Site,Device,StaffAccess,UserInvitation,SecureLogChannel,SecureLogReceipt,ExportConfiguration
+from .models import Client, Site, Device, StaffAccess, UserInvitation, SecureLogReceipt, ExportConfiguration
 from .security import decrypt
 from .invitations import queue,send_pending
 from .secure_logs import prepare

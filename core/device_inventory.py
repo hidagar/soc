@@ -3,7 +3,6 @@ import hashlib
 import json
 import re
 from datetime import timedelta
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from .models import Device

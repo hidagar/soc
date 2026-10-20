@@ -7,7 +7,6 @@ import sqlite3
 import tarfile
 import tempfile
 import struct
-import shutil
 import subprocess
 from contextlib import closing
 from datetime import timedelta
@@ -17,7 +16,7 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 from django.utils import timezone
 from django.db import connection
-from .models import BackupRun,RecoverySettings,SecurityEvidence,FeedBucket,AuthAttempt,WorkerState
+from .models import BackupRun, RecoverySettings, SecurityEvidence, FeedBucket, AuthAttempt
 from .security import decrypt,audit
 
 ROOT=Path('/var/lib/soc-recovery')
@@ -275,7 +274,7 @@ def make_backup(run):
                     if path.is_file() and not path.is_symlink():files['config/systemd/'+path.relative_to('/etc/systemd/system').as_posix()]=path
             installer=Path('/home/deploy/soc-setup/wazuh-install-files.tar')
             if installer.is_file():files['config/bootstrap/wazuh-install-files.tar']=installer
-            from .recovery_components import export_live_security,selected_indices,PROFILE
+            from .recovery_components import export_live_security, PROFILE
             from .indexer_admin import admin_request
             files.update(export_live_security(directory,admin_request))
             rbac=Path('/var/ossec/api/configuration/security/rbac.db')

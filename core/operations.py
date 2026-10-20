@@ -2,7 +2,6 @@
 import hashlib
 import ipaddress
 import json
-import os
 import re
 import socket
 import ssl
@@ -12,13 +11,11 @@ from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 from django.db import transaction
-from django.db.models import F, Max, Sum
+from django.db.models import F
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from .models import (Asset, Device, DeviceFeed, DeviceHealth, ExportConfiguration,
-    FeedBucket, Incident, IncidentUpdate, OperationalIssue, RecoverySettings,
-    SecurityEvidence, WorkerState)
-from .security import audit
+    FeedBucket, OperationalIssue, RecoverySettings, SecurityEvidence, WorkerState)
 
 def clean(value, length=240):
     return re.sub(r'[\x00-\x1f\x7f]+',' ',str(value or '')).strip()[:length]

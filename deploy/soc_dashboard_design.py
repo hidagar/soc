@@ -1,6 +1,5 @@
 """ib-red Wazuh native visualizations; no permissions or index writes."""
 import json
-from datetime import datetime,timezone
 from pathlib import Path
 import html
 

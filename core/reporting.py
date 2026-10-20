@@ -8,7 +8,6 @@ import base64
 from datetime import datetime, time, timedelta
 import ipaddress
 import json
-import ssl
 import urllib.request
 import os
 from pathlib import Path

@@ -4,7 +4,10 @@ SecurityEvidence ownership is frozen at ingestion; older records without a
 frozen owner are omitted until an operator reviews them. Each customer gets an
 exact index, DLS and an independent saved-object tenant.
 """
-import hashlib,json,re,ssl,urllib.request,urllib.error
+import hashlib
+import json
+import urllib.request
+import urllib.error
 from datetime import timedelta
 from django.utils import timezone
 from .models import Client,SecurityEvidence,WorkerState

@@ -1,10 +1,10 @@
 """Bounded investigation of normalized evidence; no external IP lookups."""
 import ipaddress
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import timedelta
 from urllib.parse import urlencode
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Count
+from django.db.models import Q
 from django.shortcuts import render, get_object_or_404
 from django.http import Http404
 from django.urls import reverse

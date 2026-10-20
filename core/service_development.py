@@ -3,7 +3,7 @@ import ipaddress
 import hashlib
 import json
 from calendar import monthrange
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from django import forms
 from django.contrib.auth.decorators import login_required
 from django.db import transaction

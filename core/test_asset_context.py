@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from .models import Client,Site,Device,AttributionCatalog,ExportConfiguration,SecurityEvidence,Asset,OpnsenseConnection
-from .asset_context import configuration_projection,interface_projection,review,describe,refresh,flow_projection
+from .asset_context import configuration_projection, interface_projection, review, describe, refresh
 from .operations import ingest_events
 from .findings import inventories_for_sources,build_findings
 from .testing_access import workflow_access

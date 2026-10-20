@@ -2,7 +2,6 @@ from django.test import TestCase,override_settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.urls import reverse
-from django.utils import timezone
 from .exposure_context import alias_catalog,expand,interface_catalog
 from .exposure import assess,save_result,port_risk
 from .models import Client,Site,Device,StaffAccess,ExposureCheck,ExposureFinding

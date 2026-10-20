@@ -3,14 +3,13 @@ from datetime import timedelta
 from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization,hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-from django.test import TestCase,SimpleTestCase,override_settings,Client as Browser
+from django.test import TestCase, SimpleTestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from .models import Client,Site,Device,StaffAccess,MfaProfile,WorkerState,SecurityEvidence,DeliverySettings,MailDispatch,MailEvent,VpnPeer,AdvancedReview
-from .wazuh_scoped import role_definition,document,binding_ready
+from .wazuh_scoped import role_definition, document
 from .unifi_flow import matches,evaluate
 from .vpn import record_log_transport,transport_snapshot
-from .testing_access import workflow_access
 
 @override_settings(SECURE_SSL_REDIRECT=False,SOC_MFA_REQUIRED=True,SOC_WAZUH_PROXY_KEY='private-proxy')
 class ScopedDashboardTests(TestCase):

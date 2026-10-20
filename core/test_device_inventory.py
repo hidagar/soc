@@ -9,7 +9,7 @@ from django.contrib.auth.models import Permission
 from django.test import TestCase, SimpleTestCase, override_settings
 from django.urls import reverse
 from . import device_inventory as inventory, gdms_api
-from .models import Client, Site, Device, GdmsConnection, SshConnection, StaffAccess
+from .models import Client, Site, Device, GdmsConnection, StaffAccess
 from .forms import DeviceForm
 from .testing_access import workflow_access
 

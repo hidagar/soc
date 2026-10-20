@@ -1,10 +1,9 @@
 import copy
-from datetime import timedelta,datetime,timezone as utc
+from datetime import timedelta, datetime
 from unittest.mock import patch
 from django.test import TestCase,override_settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command,CommandError
-from django.urls import reverse
 from django.utils import timezone
 from .models import (Client,Site,Device,ExportConfiguration,SourceOwnership,FirewallOnboarding,
     StaffAccess,Incident,WeeklyReport,CustomerPublication,AuthAttempt,UrgentMonitorCursor,SecurityEvidence,WorkerState)
