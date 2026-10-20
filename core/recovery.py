@@ -14,6 +14,7 @@ from pathlib import Path,PurePosixPath
 import paramiko
 from cryptography.fernet import Fernet
 from django.utils import timezone
+from django.db import connection
 from .models import BackupRun,RecoverySettings,SecurityEvidence,FeedBucket,AuthAttempt,WorkerState
 from .security import decrypt,audit
 
@@ -196,6 +197,10 @@ def test_indexer_restore(name):
         admin_request('/'+prefix+'*?expand_wildcards=all',method='DELETE')
 
 def make_backup(run):
+    if connection.vendor!='sqlite':
+        # Copiar el archivo SQLite abandonado daría una copia "verificada" sin los datos reales.
+        run.status='failed'; run.error='La copia del portal aún no admite PostgreSQL. Usar el procedimiento manual documentado.'; run.save()
+        return
     cfg,_=RecoverySettings.objects.get_or_create(pk=1)
     ROOT.mkdir(mode=0o700,parents=True,exist_ok=True)
     run.status='running'; run.save()

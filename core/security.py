@@ -15,7 +15,6 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
-from django.db.models import F
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -82,8 +81,7 @@ def audit(action, obj=None, details=None, user=None):
     # Fixed allowlist: never request bodies, tokens, credentials, URLs or arbitrary notes.
     safe = {k: v for k, v in (details or {}).items() if k in {'fields','status','count','template','role','clients','reason','job','sha256'}}
     with transaction.atomic():
-        WorkerState.objects.get_or_create(name='audit-lock')
-        WorkerState.objects.filter(name='audit-lock').update(offset=F('offset')+1)
+        WorkerState.reserve('audit-lock')
         previous = AuditEvent.objects.order_by('-pk').first()
         stamp = timezone.now()
         record = {'actor_name': user.get_username() if user and user.is_authenticated else 'system',

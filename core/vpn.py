@@ -18,10 +18,8 @@ PUBLIC_KEY=Path('/usr/local/share/soc-portal/wg-soc.pub')
 
 def create_peer(site):
     with transaction.atomic():
-        WorkerState.objects.get_or_create(name='vpn-allocation')
         # Serialize address allocation on SQLite, including concurrent requests.
-        from django.db.models import F
-        WorkerState.objects.filter(name='vpn-allocation').update(offset=F('offset')+1)
+        WorkerState.reserve('vpn-allocation')
         existing=VpnPeer.objects.filter(site=site).first()
         if existing: return existing
         used=set(VpnPeer._base_manager.values_list('address',flat=True))

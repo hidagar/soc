@@ -58,7 +58,7 @@ class ZenarmorExportTests(TestCase):
         with self.assertRaises(ExportError):configure(queue(self.device),changed)
         self.assertEqual(self.posts,[])
     def test_receiver_must_be_prepared_and_target_allowed(self):
-        for values in ({'receiver_ready':False},{'destination':'foreign.test'}):
+        for values in ({'receiver_ready':False},{'destination':'203.0.113.9'}):
             ExportConfiguration.objects.filter(pk=self.config.pk).update(**values)
             self.device.refresh_from_db()
             row=queue(self.device)

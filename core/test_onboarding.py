@@ -79,7 +79,7 @@ class OnboardingTests(TestCase):
         self.assertEqual(Device.objects.count(), 2)
 
     def test_manual_flow_registers_receiver_without_api_ssh_and_is_not_active_yet(self):
-        for vendor in ('unifi', 'opnsense', 'hillstone', 'other'):
+        for index, vendor in enumerate(('unifi', 'opnsense', 'hillstone', 'other'), start=10):
             with self.subTest(vendor=vendor):
                 device = self.make_device(vendor=vendor)
                 url = reverse('device_onboarding', args=[device.pk])
@@ -88,7 +88,7 @@ class OnboardingTests(TestCase):
                 self.assertContains(response, 'Configura el envío')
                 with mock.patch('core.views.provision_export') as automatic:
                     response = self.client.post(url, {'destination': '172.20.10.20',
-                        'source_ip': f'198.51.100.{device.pk}', 'configured': 'on'})
+                        'source_ip': f'198.51.100.{index}', 'configured': 'on'})
                     automatic.assert_not_called()
                 self.assertEqual(response.status_code, 302)
                 device.refresh_from_db()

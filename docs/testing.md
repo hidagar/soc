@@ -15,7 +15,7 @@ PowerShell: establecer `$env:SOC_PORTAL_DEBUG="1"` y `$env:SOC_PORTAL_MFA_REQUIR
 
 ## Integración continua
 
-`.github/workflows/ci.yml` ejecuta en GitHub, en cada push a `main` y en cada pull request, los mismos comandos del apartado anterior (salvo `check`, cubierto por las pruebas), `check_docs.py` y `shellcheck -S warning` sobre los scripts de `deploy/`. Usa Python 3.14 como producción, base de pruebas vacía y ningún secreto. Un resultado verde no acredita despliegue, ensayos nativos/SQLite de archivo ni validación en una sede.
+`.github/workflows/ci.yml` ejecuta en GitHub, en cada push a `main` y en cada pull request, los mismos comandos del apartado anterior (salvo `check`, cubierto por las pruebas), `check_docs.py` y `shellcheck -S warning` sobre los scripts de `deploy/`. Usa Python 3.14 como producción, base de pruebas vacía y ningún secreto. Un segundo trabajo repite la batería sobre PostgreSQL 16, y el primero ejecuta los ensayos de concurrencia con SQLite de archivo. Un resultado verde no acredita despliegue, ensayos nativos ni validación en una sede.
 
 ## Selección por cambio
 
@@ -35,9 +35,27 @@ Cliente A no ve B por HTML/JSON/PDF/enlace/relaciones; notas no publicadas no ap
 
 ## SQLite de archivo
 
-`FileDatabaseConcurrencyTests` se omite en memoria. Requiere archivo TEST exclusivo escribible; dos escritores prueban el bloqueo real. No sustituir por dos llamadas dentro de una sola transacción TestCase.
+`FileDatabaseConcurrencyTests` y `test_database_concurrency` se omiten en memoria. Requieren archivo TEST exclusivo escribible; varios escritores con conexiones propias prueban el bloqueo real. No sustituir por dos llamadas dentro de una sola transacción TestCase.
 
-Configurar el runner desde la raíz de un checkout aislado:
+Forma corta (la misma que usa CI):
+
+```sh
+SOC_PORTAL_DEBUG=1 SOC_PORTAL_MFA_REQUIRED=0 SOC_PORTAL_DB_TEST_NAME=data/concurrency-test.sqlite3 \
+  python manage.py test core.test_durable_operations.FileDatabaseConcurrencyTests core.test_database_concurrency
+```
+
+## PostgreSQL
+
+Con un PostgreSQL desechable y `pip install -r requirements-postgresql.txt`:
+
+```sh
+SOC_PORTAL_DEBUG=1 SOC_PORTAL_MFA_REQUIRED=0 SOC_PORTAL_DB_ENGINE=postgresql SOC_PORTAL_DB_HOST=127.0.0.1 \
+  SOC_PORTAL_DB_PASSWORD=... python manage.py test
+```
+
+El usuario necesita `CREATEDB` para la base `test_*`. Las pruebas de `test_database_concurrency` sí se ejecutan aquí. Los identificadores no se reinician entre pruebas: no construir IP u otros valores a partir de `pk`.
+
+Alternativa con runner propio desde la raíz de un checkout aislado:
 
 ```python
 import os

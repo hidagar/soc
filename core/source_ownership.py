@@ -41,8 +41,7 @@ def synchronize(sender=None,instance=None,expected_before=None,raw=False,**kwarg
     changes={s for s in set(wanted)|set(before) if (s in wanted)!=(s in before) or wanted.get(s)!=before.get(s)}
     if not changes:return
     with transaction.atomic():
-        WorkerState.objects.get_or_create(name='source-ownership-lock')
-        WorkerState.objects.filter(name='source-ownership-lock').update(offset=F('offset')+1)
+        WorkerState.reserve('source-ownership-lock')
         wanted=desired();now=timezone.now()
         current={r.source:r for r in SourceOwnership._base_manager.filter(valid_until=None)}
         for source in changes:

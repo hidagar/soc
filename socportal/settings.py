@@ -50,8 +50,27 @@ TEMPLATES = [{
 }]
 WSGI_APPLICATION = "socportal.wsgi.application"
 
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "data" / "portal.sqlite3"}}
-DATABASES['default']['OPTIONS'] = {'timeout': 30}
+# SQLite sigue siendo la base por defecto. PostgreSQL es opcional (bloque 4) y
+# requiere requirements-postgresql.txt; la contraseña nunca va en Git.
+SOC_DB_ENGINE = os.environ.get("SOC_PORTAL_DB_ENGINE", "sqlite")
+if SOC_DB_ENGINE == "sqlite":
+    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "data" / "portal.sqlite3",
+                             "OPTIONS": {"timeout": 30}}}
+    if os.environ.get("SOC_PORTAL_DB_TEST_NAME"):
+        # Solo pruebas: base de archivo para los ensayos de concurrencia (docs/testing.md).
+        DATABASES["default"]["TEST"] = {"NAME": os.environ["SOC_PORTAL_DB_TEST_NAME"]}
+elif SOC_DB_ENGINE == "postgresql":
+    DATABASES = {"default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("SOC_PORTAL_DB_NAME", "socportal"),
+        "USER": os.environ.get("SOC_PORTAL_DB_USER", "socportal"),
+        "PASSWORD": os.environ.get("SOC_PORTAL_DB_PASSWORD", ""),
+        "HOST": os.environ.get("SOC_PORTAL_DB_HOST", ""),
+        "PORT": os.environ.get("SOC_PORTAL_DB_PORT", ""),
+        "OPTIONS": {"sslmode": os.environ.get("SOC_PORTAL_DB_SSLMODE", "prefer")},
+    }}
+else:
+    raise RuntimeError("SOC_PORTAL_DB_ENGINE must be 'sqlite' or 'postgresql'")
 SOC_MFA_REQUIRED = os.environ.get('SOC_PORTAL_MFA_REQUIRED', '1') == '1'
 SOC_PUBLIC_ORIGIN = os.environ.get('SOC_PUBLIC_ORIGIN','https://soc.ibred.es')
 SOC_WAZUH_PROXY_KEY = os.environ.get('SOC_WAZUH_PROXY_KEY', '')

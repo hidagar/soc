@@ -134,6 +134,9 @@ trap 'on_error $LINENO' ERR
 [[ "$(id -u)" -eq 0 ]] || { echo "Ejecutar como root (sudo)." >&2; exit 1; }
 [[ -d "$APP" && -x "$VENV/bin/python" && -f "$ENV_FILE" ]] || { echo "No se encuentra una instalación en $APP." >&2; exit 1; }
 touch "$LOG"; chmod 0600 "$LOG"
+if grep -qs '^SOC_PORTAL_DB_ENGINE=postgresql' "$ENV_FILE"; then
+  echo "La instalación usa PostgreSQL: este script aún solo copia y restaura SQLite. Seguir docs/deployment.md." >&2; exit 1
+fi
 
 MODE=deploy
 while (( $# )); do

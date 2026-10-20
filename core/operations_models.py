@@ -270,6 +270,17 @@ class WorkerState(models.Model):
     error = models.CharField(max_length=240, blank=True)
     details = models.JSONField(default=dict)
 
+    @classmethod
+    def reserve(cls, name):
+        """Serializa escritores con una fila de bloqueo; llamar dentro de transaction.atomic().
+
+        Escribe antes de leer: en SQLite, un SELECT previo (como get_or_create) deja un
+        bloqueo de lectura que no puede ascender y devuelve "database is locked" sin
+        esperar cuando hay otro escritor. En PostgreSQL el UPDATE bloquea la fila.
+        """
+        cls.objects.bulk_create([cls(name=name)], ignore_conflicts=True)
+        cls.objects.filter(name=name).update(offset=models.F('offset') + 1)
+
 class ChangePlan(models.Model):
     device = models.ForeignKey('core.Device', on_delete=models.PROTECT, related_name='change_plans')
     template = models.CharField(max_length=32)

@@ -46,8 +46,7 @@ def ensure_local_guard():
 
 def prepare(device):
     with transaction.atomic():
-        WorkerState.objects.get_or_create(name='secure-log-allocation')
-        WorkerState.objects.filter(name='secure-log-allocation').update(offset=F('offset')+1)
+        WorkerState.reserve('secure-log-allocation')
         old=SecureLogChannel._base_manager.filter(device=device).first()
         if old:
             if old.client_scope_id!=device.site.client_id:raise ValueError('El equipo cambió de cliente. Revoca el canal anterior antes de continuar.')

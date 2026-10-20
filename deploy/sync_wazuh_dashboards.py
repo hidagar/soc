@@ -63,7 +63,20 @@ def request(path, auth, method="GET", body=None, *, tenant=None):
         raise RuntimeError(f"Wazuh rechazó {method} {path}: HTTP {exc.code}: {detail}") from exc
 
 
+def portal_database_engine(env_file=Path("/etc/soc-portal/portal.env")):
+    # Se ejecuta sin Django ni EnvironmentFile: leer solo el motor del entorno protegido.
+    try:
+        lines = env_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return "sqlite"
+    values = [line.split("=", 1)[1].strip() for line in lines if line.startswith("SOC_PORTAL_DB_ENGINE=")]
+    return values[-1] if values else "sqlite"
+
+
 def clients_and_sources():
+    if portal_database_engine() != "sqlite":
+        # Leer el SQLite abandonado publicaría clientes y fuentes obsoletos.
+        raise RuntimeError("El portal no usa SQLite: esta sincronización aún no admite PostgreSQL.")
     db = sqlite3.connect(f"file:{DATABASE}?mode=ro", uri=True)
     try:
         clients = [dict(code=code, name=name, sources=set()) for code, name in db.execute(
