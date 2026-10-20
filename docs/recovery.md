@@ -4,7 +4,7 @@
 
 Portal SQLite, índices/objetos/seguridad OpenSearch, RBAC/API Wazuh, secretos/configuración, proxy/red, copias de firewalls y estado del motor privado requieren tratamientos propios. Exportar Django no cubre toda la solución.
 
-`recovery.py`: backup SQLite consistente, snapshot nativo, manifiesto/hashes, cifrado y verificación. `recovery_components.py`: perfil/componentes exigidos. RBAC se copia separadamente evitando WAL obsoleto. Revisar rutas exactas de la versión instalada.
+`recovery.py`: copia consistente de la base del portal (API backup de SQLite o `pg_dump` con PostgreSQL; ver [base de datos](database.md)), snapshot nativo, manifiesto/hashes, cifrado y verificación. `recovery_components.py`: perfil/componentes exigidos. RBAC se copia separadamente evitando WAL obsoleto. Revisar rutas exactas de la versión instalada.
 
 | Evidencia | Qué acredita |
 |---|---|

@@ -42,10 +42,10 @@ class DatabaseEngineSettingsTests(SimpleTestCase):
 
 
 class SqliteOnlyComponentsTests(TestCase):
-    def test_portal_backup_refuses_postgresql_instead_of_copying_a_stale_file(self):
+    def test_portal_backup_refuses_an_engine_without_copy_support(self):
         from . import recovery
         run = BackupRun.objects.create(status='queued')
-        with mock.patch.object(recovery.connection, 'vendor', 'postgresql'), \
+        with mock.patch.object(recovery.connection, 'vendor', 'desconocido'), \
                 mock.patch.object(recovery, 'native_snapshot') as snapshot, \
                 mock.patch.object(recovery, 'ROOT') as root:
             recovery.make_backup(run)
@@ -53,7 +53,6 @@ class SqliteOnlyComponentsTests(TestCase):
         root.mkdir.assert_not_called()
         run.refresh_from_db()
         self.assertEqual(run.status, 'failed')
-        self.assertIn('PostgreSQL', run.error)
 
     def test_dashboard_sync_reads_through_the_portal_unless_it_is_the_installation_sqlite(self):
         sync = load('sync_wazuh_dashboards')

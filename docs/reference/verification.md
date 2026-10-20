@@ -47,6 +47,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
 | [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 11 |
+| [core/test_recovery_postgresql.py](../../core/test_recovery_postgresql.py) | 3 |
 | [core/test_release_and_receiver.py](../../core/test_release_and_receiver.py) | 5 |
 | [core/test_report_freshness.py](../../core/test_report_freshness.py) | 3 |
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
