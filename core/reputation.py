@@ -41,7 +41,7 @@ LISTS_MAX_BYTES = 64 * 1024 * 1024
 SCENARIO = re.compile(rb'"scenario"\s{0,8}:\s{0,8}"((?:[^"\\]|\\.){0,200})"')
 WINDOW = timedelta(days=7)
 MAX_RESPONSE = 512 * 1024
-CTI_PACE = 1.1  # segundos entre consultas CTI: no superar el límite de ritmo del proveedor
+CTI_PACE = 15  # segundos entre consultas CTI: la API responde 429 a consultas casi seguidas
 CTI_BACKOFF = (timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6))
 BAD = ('malicious', 'suspicious')
 MODES = {'lapi+cti': 'Motor local + API CTI', 'lapi': 'Motor local (gratuito)', 'cti': 'API CTI (de pago)', '': 'Sin configurar'}
@@ -351,11 +351,19 @@ def _refresh_lists(now, details, protected, errors):
     return updated
 
 
+def cti_per_run():
+    """Consultas CTI por ejecución (cada 15 min): pocas y espaciadas para no provocar el límite de ritmo."""
+    try:
+        return max(1, min(20, int(os.environ.get('SOC_PORTAL_CROWDSEC_CTI_PER_RUN', '2'))))
+    except ValueError:
+        return 2
+
+
 def cti_allowance(details):
-    """Consultas CTI que quedan hoy, sin pasar del cupo mensual si se ha declarado."""
+    """Consultas CTI de esta ejecución: las del lote, sin pasar del cupo diario ni del mensual."""
     left = daily_limit() - details.get('used', 0)
     month = monthly_limit()
-    return max(0, min(left, month - details.get('month_used', 0)) if month else left)
+    return max(0, min(cti_per_run(), left, month - details.get('month_used', 0) if month else left))
 
 
 def _refresh_cti(now, details, protected, errors):

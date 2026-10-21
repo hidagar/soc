@@ -432,6 +432,16 @@ class CombinedModeTests(TestCase):
         paused = WorkerState.objects.get(name='crowdsec-quota').details['paused_until']
         self.assertEqual(timezone.datetime.fromisoformat(paused) - self.now, timedelta(seconds=120))
 
+    def test_each_run_sends_a_small_batch_so_the_daily_quota_spreads_over_the_day(self):
+        env = {'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '48', 'SOC_PORTAL_CROWDSEC_CTI_PER_RUN': '1'}
+        first = self.refresh(env=env)['cti']
+        second = self.refresh(env=env, now=self.now + timedelta(minutes=15))['cti']
+        self.assertEqual(([ip for ip, _ in first], [ip for ip, _ in second]), ([OTHER_ATTACKER], [ATTACKER]))
+        self.assertEqual(len(self.refresh(env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '48'},
+                                          now=self.now + timedelta(minutes=30))['cti']), 1, 'solo queda THIRD')
+        with mock.patch.dict('os.environ', {'SOC_PORTAL_CROWDSEC_CTI_PER_RUN': 'x'}):
+            self.assertEqual(reputation.cti_per_run(), 2)
+
     def test_retry_after_header_is_read(self):
         error = urlerror.HTTPError('u', 429, 'Too Many Requests', {'Retry-After': '30'}, io.BytesIO(b'{}'))
         opener = mock.Mock()
