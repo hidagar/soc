@@ -57,7 +57,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_report_freshness.py](../../core/test_report_freshness.py) | 3 |
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_report_versions.py](../../core/test_report_versions.py) | 5 |
-| [core/test_reputation.py](../../core/test_reputation.py) | 32 |
+| [core/test_reputation.py](../../core/test_reputation.py) | 34 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
 | [core/test_service_development.py](../../core/test_service_development.py) | 18 |

@@ -17,6 +17,17 @@ from .reputation import eligible, parse, parse_lapi
 
 LAPI_ONLY = {**reputation.CTI_EMPTY, 'cti_found': None}
 
+
+def setUpModule():
+    # Sin esperas reales entre consultas CTI en las pruebas; el ritmo se comprueba aparte.
+    global _pace
+    _pace = mock.patch.object(reputation, 'CTI_PACE', 0)
+    _pace.start()
+
+
+def tearDownModule():
+    _pace.stop()
+
 # IPs públicas (los rangos de documentación no son globales y nunca se consultarían).
 ATTACKER, OTHER_ATTACKER, CUSTOMER_PUBLIC = '45.155.205.233', '185.220.101.4', '81.47.12.10'
 THIRD = '193.32.162.31'
@@ -162,7 +173,7 @@ class RefreshTests(TestCase):
         self.assertIs(IpReputation.objects.get(ip=ATTACKER).cti_found, False)
 
     def test_quota_or_rejected_key_pauses_and_never_stores_the_key(self):
-        for error, text in ((reputation.QuotaExceeded(), 'cupo'), (reputation.KeyRejected(), 'clave')):
+        for error, text in ((reputation.QuotaExceeded(), '429'), (reputation.KeyRejected(), 'clave')):
             with self.subTest(text):
                 WorkerState.objects.filter(name='crowdsec-quota').delete()
 
@@ -393,13 +404,50 @@ class CombinedModeTests(TestCase):
         same_month = tomorrow.strftime('%Y-%m') == self.now.strftime('%Y-%m')
         self.assertEqual(len(self.refresh(env=env, now=tomorrow)['cti']), 0 if same_month else 1)
 
+    def test_cti_calls_are_paced_and_429_backs_off_progressively(self):
+        with mock.patch.object(reputation.time, 'sleep') as sleep:
+            calls = self.refresh()
+        self.assertEqual(len(calls['cti']), 2)
+        self.assertEqual(sleep.call_count, 1, 'una pausa entre dos consultas, ninguna antes de la primera')
+
+        def limited(ip):
+            raise reputation.QuotaExceeded()
+        waits = []
+        moment = self.now
+        IpReputation.objects.update(cti_expires_at=None)
+        for _ in range(4):
+            WorkerState.objects.filter(name='crowdsec-quota').update(details={})  # día nuevo: cupo libre
+            state = WorkerState.objects.get_or_create(name='crowdsec-quota')[0]
+            state.details = {'cti_limited': len(waits)}
+            state.save()
+            self.refresh(now=moment, cti=limited, env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '10'})
+            paused = WorkerState.objects.get(name='crowdsec-quota').details['paused_until']
+            waits.append(round((timezone.datetime.fromisoformat(paused) - moment).total_seconds() / 60))
+        self.assertEqual(waits, [15, 60, 360, 360])
+
+        def told(ip):
+            raise reputation.QuotaExceeded(retry_after=120)
+        WorkerState.objects.all().delete()
+        self.refresh(cti=told)
+        paused = WorkerState.objects.get(name='crowdsec-quota').details['paused_until']
+        self.assertEqual(timezone.datetime.fromisoformat(paused) - self.now, timedelta(seconds=120))
+
+    def test_retry_after_header_is_read(self):
+        error = urlerror.HTTPError('u', 429, 'Too Many Requests', {'Retry-After': '30'}, io.BytesIO(b'{}'))
+        opener = mock.Mock()
+        opener.open.side_effect = error
+        with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=opener), \
+                self.assertRaises(reputation.QuotaExceeded) as caught:
+            reputation.fetch(ATTACKER, 'k')
+        self.assertEqual(caught.exception.retry_after, 30)
+
     def test_cti_quota_or_key_problem_does_not_stop_lists_and_vice_versa(self):
         def no_quota(ip):
             raise reputation.QuotaExceeded()
         calls = self.refresh(cti=no_quota)
         self.assertEqual(len(calls['lists']), 3)
         state = WorkerState.objects.get(name='crowdsec-quota')
-        self.assertIn('cupo CTI', state.error)
+        self.assertIn('limitó las consultas CTI', state.error)
         self.assertIn('paused_until', state.details)
         self.assertNotIn('clave-cti', state.error + json.dumps(state.details))
         WorkerState.objects.all().delete()
