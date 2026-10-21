@@ -14,6 +14,8 @@ prioridad de una detección. No figurar en una lista no significa que la IP sea 
 import ipaddress
 import json
 import os
+import re
+from collections import Counter
 from datetime import timedelta
 from urllib import parse as urlparse
 from urllib import error as urlerror
@@ -31,6 +33,9 @@ LAPI_DEFAULT = 'http://127.0.0.1:8080'
 TTL = timedelta(days=3)
 LAPI_TTL = timedelta(hours=6)
 LAPI_RUN_LIMIT = 500
+LISTS_EVERY = timedelta(hours=1)
+LISTS_MAX_BYTES = 64 * 1024 * 1024
+SCENARIO = re.compile(rb'"scenario"\s{0,8}:\s{0,8}"((?:[^"\\]|\\.){0,200})"')
 WINDOW = timedelta(days=7)
 MAX_RESPONSE = 512 * 1024
 LABELS = {'malicious': 'Maliciosa', 'suspicious': 'Sospechosa', 'known': 'Conocida', 'benign': 'Benigna',
@@ -164,6 +169,50 @@ def fetch_lapi(ip, key, base=None):
     return data
 
 
+def count_decisions(key, base, origin):
+    """Cuenta las decisiones de un origen leyendo por bloques: memoria acotada aunque la lista sea grande."""
+    url = base + '/v1/decisions?' + urlparse.urlencode({'origins': origin})
+    req = urlrequest.Request(url, headers={'X-Api-Key': key, 'User-Agent': 'ib-red-SOC/1'})
+    scenarios, total, buffer = Counter(), 0, b''
+    try:
+        with urlrequest.build_opener(_NoRedirect()).open(req, timeout=30) as response:
+            while True:
+                chunk = response.read(256 * 1024)
+                total += len(chunk)
+                if total > LISTS_MAX_BYTES:
+                    raise ValueError('Lista demasiado grande para resumir')
+                buffer += chunk
+                # Una coincidencia que empieza antes del corte ya está completa (máximo ~420 bytes).
+                cut = len(buffer) if not chunk else max(0, len(buffer) - 512)
+                for match in SCENARIO.finditer(buffer, 0, len(buffer)):
+                    if match.start() >= cut:
+                        break
+                    scenarios[match.group(1).decode('utf-8', 'replace')[:120]] += 1
+                buffer = buffer[cut:]
+                if not chunk:
+                    break
+    except urlerror.HTTPError as exc:
+        if exc.code in (401, 403):
+            raise KeyRejected() from exc
+        raise
+    except (urlerror.URLError, ConnectionError, TimeoutError) as exc:
+        raise EngineUnavailable() from exc
+    return {'count': sum(scenarios.values()), 'top': scenarios.most_common(10)}
+
+
+def summarize_lists(key, base, now):
+    """Resumen horario de las listas del motor: solo recuentos y nombres de escenario o lista."""
+    origins = {}
+    for origin in ORIGINS:
+        try:
+            origins[origin] = count_decisions(key, base, origin)
+        except (KeyRejected, EngineUnavailable):
+            raise
+        except Exception:
+            origins[origin] = {'error': True}
+    return {'at': now.isoformat(), 'origins': origins}
+
+
 def parse_lapi(decisions):
     """Resumen de las decisiones: listas de origen, escenarios y rango. Nada más se guarda."""
     decisions = [d for d in decisions[:100] if isinstance(d, dict)]
@@ -271,6 +320,9 @@ def refresh(now=None):
         if current == 'lapi':
             key = os.environ['SOC_PORTAL_CROWDSEC_LAPI_KEY'].strip()
             base = lapi_url()
+            lists = details.get('lists') or {}
+            if lists.get('at', '') <= (now - LISTS_EVERY).isoformat():
+                details['lists'] = summarize_lists(key, base, now)
             for ip in candidates(now, LAPI_RUN_LIMIT, protected_addresses()):
                 details['used'] = details.get('used', 0) + 1
                 try:
@@ -336,10 +388,14 @@ def lookup(ip, now=None):
     return row
 
 
-def lookup_many(ips):
-    rows = {}
-    for row in IpReputation.objects.filter(ip__in={ip for ip in ips if ip}):
-        rows[row.ip] = _decorate(row)
+def lookup_many(ips, now=None):
+    """Lectura para la web de varias IPs, por bloques (límite de parámetros de SQLite)."""
+    now = now or timezone.now()
+    wanted, rows = sorted({ip for ip in ips if ip}), {}
+    for start in range(0, len(wanted), 1000):
+        for row in IpReputation.objects.filter(ip__in=wanted[start:start + 1000]):
+            _decorate(row).stale = row.expires_at <= now
+            rows[row.ip] = row
     return rows
 
 

@@ -251,7 +251,8 @@ class LapiTests(TestCase):
         variables = {'SOC_PORTAL_CROWDSEC_LAPI_KEY': 'clave-bouncer', 'SOC_PORTAL_CROWDSEC_KEY': 'clave-cti',
                      'SOC_PORTAL_CROWDSEC_LAPI_URL': '', **(env or {})}
         with mock.patch.dict('os.environ', variables), mock.patch.object(reputation, 'fetch_lapi', side_effect=fake), \
-                mock.patch.object(reputation, 'fetch') as cti:
+                mock.patch.object(reputation, 'fetch') as cti, \
+                mock.patch.object(reputation, 'summarize_lists', side_effect=lambda key, base, now: {'at': now.isoformat()}):
             updated = reputation.refresh(now or self.now)
         cti.assert_not_called()
         return updated, calls
@@ -268,6 +269,43 @@ class LapiTests(TestCase):
         self.assertEqual(self.run_lapi()[1], [])
         self.assertEqual(len(self.run_lapi(now=self.now + reputation.LAPI_TTL + timedelta(minutes=1))[1]), 2)
         self.assertEqual(WorkerState.objects.get(name='crowdsec-quota').details['mode'], 'lapi')
+
+    def test_lists_are_counted_in_bounded_chunks_including_split_entries(self):
+        decisions = [dict(DECISIONS[0], id=n, scenario='crowdsecurity/ssh-bf' if n % 3 else 'http:scan')
+                     for n in range(3000)]
+        body = json.dumps(decisions).encode()
+        response = io.BytesIO(body)
+        opener = self.opener()
+        opener.open.return_value.__enter__ = lambda s: response
+        reads = []
+        original = response.read
+        response.read = lambda size: reads.append(size) or original(min(size, 7777))  # cortes arbitrarios
+        with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=opener):
+            summary = reputation.count_decisions('k', 'http://127.0.0.1:8080', 'CAPI')
+        self.assertEqual(summary, {'count': 3000, 'top': [('crowdsecurity/ssh-bf', 2000), ('http:scan', 1000)]})
+        self.assertIn('origins=CAPI', opener.open.call_args[0][0].full_url)
+        self.assertTrue(all(size <= 256 * 1024 for size in reads))
+        with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(b'null')):
+            self.assertEqual(reputation.count_decisions('k', 'http://127.0.0.1:8080', 'lists'), {'count': 0, 'top': []})
+        with mock.patch.object(reputation, 'LISTS_MAX_BYTES', 100), self.assertRaises(ValueError), \
+                mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(body)):
+            reputation.count_decisions('k', 'http://127.0.0.1:8080', 'CAPI')
+
+    def test_list_summary_runs_hourly_and_one_failing_origin_does_not_stop_it(self):
+        def count(key, base, origin):
+            if origin == 'lists':
+                raise ValueError('demasiado grande')
+            return {'count': 5, 'top': [('x', 5)]}
+        variables = {'SOC_PORTAL_CROWDSEC_LAPI_KEY': 'clave-bouncer', 'SOC_PORTAL_CROWDSEC_LAPI_URL': ''}
+        with mock.patch.dict('os.environ', variables), mock.patch.object(reputation, 'fetch_lapi', return_value=[]), \
+                mock.patch.object(reputation, 'count_decisions', side_effect=count) as counted:
+            reputation.refresh(self.now)
+            reputation.refresh(self.now + timedelta(minutes=30))
+            self.assertEqual(counted.call_count, len(reputation.ORIGINS), 'una vez por hora')
+            reputation.refresh(self.now + timedelta(minutes=61))
+            self.assertEqual(counted.call_count, 2 * len(reputation.ORIGINS))
+        lists = WorkerState.objects.get(name='crowdsec-quota').details['lists']['origins']
+        self.assertEqual((lists['CAPI']['count'], lists['lists']), (5, {'error': True}))
 
     def test_engine_down_is_reported_and_retried_next_run(self):
         def down(ip):
@@ -340,6 +378,52 @@ class ReputationPagesTests(TestCase):
         absent = self.client.get(reverse('ip_investigation'), {'ip': OTHER_ATTACKER})
         self.assertContains(absent, 'No figurar no significa que sea benigna')
         self.assertContains(self.client.get(reverse('intelligence')), 'CrowdSec: En lista de bloqueo')
+
+    def test_crowdsec_page_shows_engine_state_and_only_listed_sources_in_scope(self):
+        other = Client.objects.create(name='Otra empresa', code='o')
+        other_device = Device.objects.create(site=Site.objects.create(client=other, name='S2', code='s2'),
+                                             name='FW2', vendor='opnsense')
+        SecurityEvidence.objects.create(uid='e' * 64, device=other_device, observed_at=timezone.now() - timedelta(hours=2),
+                                        engine='suricata', signature='Otra', source_ip=OTHER_ATTACKER,
+                                        destination_ip='10.1.0.5', action='allowed', level=3, client_scope_id=other.pk)
+        evidence = SecurityEvidence.objects.get(uid='a' * 64)
+        SecurityEvidence.objects.create(uid='f' * 64, device=evidence.device, observed_at=evidence.observed_at,
+                                        engine='suricata', signature='Permitida', source_ip=ATTACKER,
+                                        destination_ip='10.0.0.5', action='allowed', level=3,
+                                        client_scope_id=evidence.client_scope_id)
+        IpReputation.objects.filter(ip=ATTACKER).update(source='lapi', **parse_lapi(DECISIONS), confidence='', background_noise='')
+        IpReputation.objects.create(ip=OTHER_ATTACKER, source='lapi', expires_at=timezone.now() + timedelta(hours=1),
+                                    **parse_lapi(DECISIONS[:1]))
+        WorkerState.objects.create(name='crowdsec-quota', details={
+            'enabled': True, 'mode': 'lapi', 'lists': {'at': timezone.now().isoformat(), 'origins': {
+                'CAPI': {'count': 15000, 'top': [['crowdsecurity/ssh-bf', 9000]]}, 'lists': {'error': True}}}})
+        url = reverse('crowdsec_overview')
+        self.client.force_login(self.staff)
+        page = self.client.get(url)
+        self.assertContains(page, 'Motor local (gratuito)')
+        self.assertContains(page, '15000')
+        self.assertContains(page, 'No se pudo contar')
+        self.assertContains(page, ATTACKER)
+        self.assertContains(page, OTHER_ATTACKER)
+        self.assertContains(page, '1 permitida')
+        self.assertContains(page, 'Rango 45.155.205.0/24')
+        # Operador limitado a la primera empresa: no ve IPs ni nombres de otros clientes.
+        operator = get_user_model().objects.create_user('operador')
+        StaffAccess.objects.create(user=operator, role='operator').clients.add(evidence.client_scope_id)
+        self.client.force_login(operator)
+        scoped = self.client.get(url)
+        self.assertContains(scoped, ATTACKER)
+        self.assertNotContains(scoped, OTHER_ATTACKER)
+        self.assertNotContains(scoped, 'Otra empresa')
+        self.assertEqual(self.client.get(url, {'client': 'x'}).status_code, 404)
+        self.client.force_login(self.customer)
+        self.assertNotEqual(self.client.get(url).status_code, 200)
+
+    def test_crowdsec_page_without_configuration_explains_how_to_enable(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse('crowdsec_overview'))
+        self.assertContains(page, 'CrowdSec no está configurado')
+        self.assertContains(page, 'Sin configurar')
 
     def test_priority_list_highlights_and_filters_allowed_traffic_from_listed_sources(self):
         evidence = SecurityEvidence.objects.get()
