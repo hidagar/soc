@@ -155,3 +155,29 @@ class ReportVersion(models.Model):
     class Meta:
         ordering=['report','number']
         constraints=[models.UniqueConstraint(fields=['report','number'],name='unique_report_version_number')]
+
+class IpReputation(models.Model):
+    """Reputación CrowdSec de una IP pública externa (contexto, no detección).
+
+    Dato global de la IP, sin cliente: se consulta solo para orígenes de tráfico entrante y
+    solo lo ve el equipo SOC. `source` indica el modo: `lapi` (listas del motor local) o
+    `cti` (API de pago). `fetched_at` fecha el dato; caduca en `expires_at`.
+    """
+    ip=models.GenericIPAddressField(unique=True)
+    source=models.CharField(max_length=8,default='cti')
+    listed_range=models.CharField(max_length=64,blank=True)
+    found=models.BooleanField(default=True)
+    reputation=models.CharField(max_length=16,blank=True)
+    confidence=models.CharField(max_length=16,blank=True)
+    background_noise=models.CharField(max_length=16,blank=True)
+    background_noise_score=models.PositiveSmallIntegerField(null=True)
+    scores=models.JSONField(default=dict,blank=True)
+    behaviors=models.JSONField(default=list,blank=True)
+    classifications=models.JSONField(default=list,blank=True)
+    false_positives=models.JSONField(default=list,blank=True)
+    as_name=models.CharField(max_length=200,blank=True)
+    country=models.CharField(max_length=2,blank=True)
+    first_seen=models.CharField(max_length=40,blank=True)
+    last_seen=models.CharField(max_length=40,blank=True)
+    fetched_at=models.DateTimeField(default=timezone.now)
+    expires_at=models.DateTimeField()

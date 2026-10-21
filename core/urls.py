@@ -26,6 +26,7 @@ from . import operations_suite as suite,delivery_tracking as delivery
 from . import network_views
 from . import advanced_views
 from . import investigation, vpn_security
+from . import reputation_views
 from . import invitations
 from . import secure_logs
 
@@ -64,6 +65,7 @@ urlpatterns = [
     path('clients/<int:client_pk>/monthly/',service.monthly,name='monthly_summary'),
     path('devices/<int:pk>/history/',service.device_history,name='device_history'),
     path('operations/intelligence/',service.intelligence,name='intelligence'),
+    path('operations/crowdsec/',reputation_views.overview,name='crowdsec_overview'),
     path('operations/protection/',protection_views.protection_list,name='protection_list'),
     path('operations/protection/<int:pk>/',protection_views.protection_device,name='protection_device'),
     path('operations/exposure/',exposure_views.exposure_list,name='exposure_list'),

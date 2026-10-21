@@ -1,0 +1,1 @@
+{% if reputation %}<span class="pill reputation-{{ reputation.reputation|default:'unknown' }}" title="CrowdSec {% if reputation.source == 'lapi' %}· listas del motor local{% else %}CTI{% endif %} · dato del {{ reputation.fetched_at|date:'d/m/Y H:i' }}. Contexto de reputación; no confirma ataque ni compromiso.">CrowdSec: {{ reputation.label }}</span>{% endif %}

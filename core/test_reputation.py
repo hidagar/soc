@@ -1,0 +1,462 @@
+"""CrowdSec (fase 1), modos LAPI local y CTI: privacidad, cupo, errores, análisis y presentación. Respuestas simuladas."""
+import io
+import json
+from datetime import timedelta
+from unittest import mock
+from urllib import error as urlerror
+
+from django.contrib.auth import get_user_model
+from django.test import SimpleTestCase, TestCase, override_settings
+from django.urls import reverse
+from django.utils import timezone
+
+from . import reputation
+from .models import (Client, Device, ExportConfiguration, Incident, IpReputation, SecurityEvidence, Site,
+                     StaffAccess, WorkerState)
+from .reputation import eligible, parse, parse_lapi
+
+# IPs públicas (los rangos de documentación no son globales y nunca se consultarían).
+ATTACKER, OTHER_ATTACKER, CUSTOMER_PUBLIC = '45.155.205.233', '185.220.101.4', '81.47.12.10'
+SAMPLE = {
+    'ip': ATTACKER, 'reputation': 'malicious', 'confidence': 'high', 'background_noise': 'high',
+    'background_noise_score': 9, 'as_name': 'Ejemplo Hosting', 'location': {'country': 'NL', 'city': 'X'},
+    'history': {'first_seen': '2026-01-02T00:00:00', 'last_seen': '2026-10-19T00:00:00'},
+    'behaviors': [{'name': 'ssh:bruteforce', 'label': 'SSH Bruteforce', 'description': 'x'}],
+    'classifications': {'classifications': [{'name': 'scanner', 'label': 'Escáner'}], 'false_positives': []},
+    'scores': {'overall': {'aggressiveness': 4, 'threat': 5, 'trust': 3, 'anomaly': 1, 'total': 4, 'otro': 9}},
+    'cves': ['CVE-0000-0000'], 'references': [{'name': 'lista'}],
+}
+# Forma real de GET /v1/decisions?ip= del motor (comprobada con crowdsec 1.6).
+DECISIONS = [{'duration': '147h12m3s', 'id': 415, 'origin': 'CAPI', 'scenario': 'crowdsecurity/ssh-bf', 'scope': 'Ip',
+              'type': 'ban', 'value': ATTACKER},
+             {'duration': '20h', 'id': 9, 'origin': 'lists', 'scenario': 'lista:firehol', 'scope': 'Range',
+              'type': 'ban', 'value': '45.155.205.0/24'}]
+
+
+class EligibilityTests(SimpleTestCase):
+    def test_only_public_sources_entering_internal_networks_or_customer_ips(self):
+        protected = {CUSTOMER_PUBLIC}
+        self.assertTrue(eligible(ATTACKER, '10.0.0.5', protected))
+        self.assertTrue(eligible(ATTACKER, CUSTOMER_PUBLIC, protected))
+        self.assertFalse(eligible('10.0.0.5', ATTACKER, protected), 'conexión saliente: el destino revelaría navegación')
+        self.assertFalse(eligible('192.168.1.4', '10.0.0.5', protected), 'IP interna')
+        self.assertFalse(eligible(CUSTOMER_PUBLIC, '10.0.0.5', protected), 'IP del propio cliente')
+        self.assertFalse(eligible(ATTACKER, OTHER_ATTACKER, protected), 'tráfico entre terceros')
+        self.assertFalse(eligible('no-es-ip', '10.0.0.5', protected))
+        self.assertFalse(eligible('203.0.113.9', '10.0.0.5', protected), 'rango de documentación: no es público')
+
+
+class ParseTests(SimpleTestCase):
+    def test_keeps_only_displayed_fields_with_bounds(self):
+        values = parse(SAMPLE)
+        self.assertEqual(values['reputation'], 'malicious')
+        self.assertEqual(values['behaviors'], ['SSH Bruteforce'])
+        self.assertEqual(values['classifications'], ['Escáner'])
+        self.assertEqual(values['scores'], {'aggressiveness': 4, 'threat': 5, 'trust': 3, 'anomaly': 1, 'total': 4})
+        self.assertEqual(values['country'], 'NL')
+        self.assertNotIn('cves', values)
+
+    def test_unexpected_or_hostile_values_do_not_break_or_overflow(self):
+        values = parse({'reputation': 'evil<script>', 'behaviors': 'x', 'as_name': 'A' * 5000,
+                        'classifications': [], 'scores': {'overall': {'total': True, 'threat': 10 ** 9}},
+                        'background_noise_score': -1, 'history': 'x', 'location': None})
+        self.assertEqual(values['reputation'], 'unknown')
+        self.assertEqual(values['behaviors'], [])
+        self.assertEqual(len(values['as_name']), 200)
+        self.assertEqual(values['scores'], {})
+        self.assertIsNone(values['background_noise_score'])
+
+
+class FetchTests(SimpleTestCase):
+    def opener(self, response=None, error=None):
+        opener = mock.Mock()
+        if error:
+            opener.open.side_effect = error
+        else:
+            opener.open.return_value.__enter__ = lambda s: io.BytesIO(response)
+            opener.open.return_value.__exit__ = lambda *a: False
+        return opener
+
+    def http_error(self, code):
+        return urlerror.HTTPError(reputation.API + ATTACKER, code, 'x', {}, io.BytesIO(b''))
+
+    def test_request_uses_the_key_header_and_maps_provider_answers(self):
+        opener = self.opener(json.dumps(SAMPLE).encode())
+        with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=opener):
+            self.assertEqual(reputation.fetch(ATTACKER, 'clave')['reputation'], 'malicious')
+        sent = opener.open.call_args.args[0]
+        self.assertEqual(sent.full_url, 'https://cti.api.crowdsec.net/v2/smoke/' + ATTACKER)
+        self.assertEqual(sent.get_header('X-api-key'), 'clave')
+        for code, outcome in ((404, None), (429, reputation.QuotaExceeded), (403, reputation.KeyRejected)):
+            with self.subTest(code), mock.patch.object(reputation.urlrequest, 'build_opener',
+                                                       return_value=self.opener(error=self.http_error(code))):
+                if outcome is None:
+                    self.assertIsNone(reputation.fetch(ATTACKER, 'clave'))
+                else:
+                    with self.assertRaises(outcome):
+                        reputation.fetch(ATTACKER, 'clave')
+
+    def test_oversized_answer_is_rejected(self):
+        with mock.patch.object(reputation.urlrequest, 'build_opener',
+                               return_value=self.opener(b'{' + b' ' * reputation.MAX_RESPONSE + b'}')):
+            with self.assertRaises(ValueError):
+                reputation.fetch(ATTACKER, 'clave')
+
+
+class RefreshTests(TestCase):
+    def setUp(self):
+        self.now = timezone.now()
+        company = Client.objects.create(name='Empresa', code='e')
+        self.device = Device.objects.create(site=Site.objects.create(client=company, name='S', code='s'),
+                                            name='FW', vendor='opnsense')
+        ExportConfiguration.objects.create(device=self.device, source_ip=CUSTOMER_PUBLIC)
+        for index, (src, dst, action) in enumerate((
+                (ATTACKER, '10.0.0.5', 'blocked'), (OTHER_ATTACKER, '10.0.0.6', 'allowed'),
+                ('10.0.0.7', '151.101.1.69', 'allowed'), (CUSTOMER_PUBLIC, '10.0.0.8', 'allowed'))):
+            SecurityEvidence.objects.create(uid=f'{index:064x}', device=self.device, observed_at=self.now - timedelta(hours=1),
+                                            engine='suricata', signature='Firma', source_ip=src, destination_ip=dst,
+                                            action=action, level=8, client_scope_id=company.pk)
+
+    def run_refresh(self, fetch=None, env=None, now=None):
+        calls = []
+
+        def fake(ip, key):
+            calls.append((ip, key))
+            return fetch(ip) if fetch else dict(SAMPLE, ip=ip)
+        variables = {'SOC_PORTAL_CROWDSEC_KEY': 'clave-secreta', 'SOC_PORTAL_CROWDSEC_LAPI_KEY': '', **(env or {})}
+        with mock.patch.dict('os.environ', variables), mock.patch.object(reputation, 'fetch', side_effect=fake):
+            updated = reputation.refresh(now or self.now)
+        return updated, calls
+
+    def test_without_key_nothing_is_sent(self):
+        with mock.patch.object(reputation, 'fetch') as fetch, mock.patch.dict('os.environ', {'SOC_PORTAL_CROWDSEC_KEY': '', 'SOC_PORTAL_CROWDSEC_LAPI_KEY': ''}):
+            self.assertEqual(reputation.refresh(self.now), 0)
+        fetch.assert_not_called()
+        self.assertFalse(WorkerState.objects.get(name='crowdsec-quota').details['enabled'])
+
+    def test_only_eligible_sources_are_sent_allowed_first_and_cached(self):
+        updated, calls = self.run_refresh()
+        self.assertEqual([ip for ip, _ in calls], [OTHER_ATTACKER, ATTACKER])
+        self.assertEqual(updated, 2)
+        row = IpReputation.objects.get(ip=ATTACKER)
+        self.assertEqual((row.reputation, row.behaviors), ('malicious', ['SSH Bruteforce']))
+        _, again = self.run_refresh()
+        self.assertEqual(again, [], 'datos en caché vigentes: no se repite la consulta')
+        _, expired = self.run_refresh(now=self.now + reputation.TTL + timedelta(minutes=1))
+        self.assertEqual(len(expired), 2, 'dato caducado y evidencia aún reciente: se actualiza')
+        _, old = self.run_refresh(now=self.now + timedelta(days=8))
+        self.assertEqual(old, [], 'evidencias fuera de la ventana de 7 días: no se consulta')
+
+    def test_daily_limit_is_respected_across_runs_and_resets_next_day(self):
+        _, first = self.run_refresh(env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '1'})
+        _, second = self.run_refresh(env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '1'})
+        self.assertEqual((len(first), len(second)), (1, 0))
+        _, next_day = self.run_refresh(env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '1'}, now=self.now + timedelta(days=1))
+        self.assertEqual(len(next_day), 1)
+
+    def test_unknown_ip_is_cached_as_without_data(self):
+        self.run_refresh(fetch=lambda ip: None)
+        self.assertFalse(IpReputation.objects.get(ip=ATTACKER).found)
+
+    def test_quota_or_rejected_key_pauses_and_never_stores_the_key(self):
+        for error, text in ((reputation.QuotaExceeded(), 'cupo'), (reputation.KeyRejected(), 'clave')):
+            with self.subTest(text):
+                WorkerState.objects.filter(name='crowdsec-quota').delete()
+
+                def fail(ip, error=error):
+                    raise error
+                _, calls = self.run_refresh(fetch=fail)
+                self.assertEqual(len(calls), 1)
+                state = WorkerState.objects.get(name='crowdsec-quota')
+                self.assertIn(text, state.error)
+                self.assertNotIn('clave-secreta', json.dumps(state.details) + state.error)
+                _, paused = self.run_refresh()
+                self.assertEqual(paused, [])
+
+    def test_one_failing_ip_does_not_stop_the_rest_and_reputation_never_creates_incidents(self):
+        def flaky(ip):
+            if ip == OTHER_ATTACKER:
+                raise ValueError('fallo de red')
+            return dict(SAMPLE, ip=ip)
+        updated, calls = self.run_refresh(fetch=flaky)
+        self.assertEqual((updated, len(calls)), (1, 2))
+        self.assertFalse(Incident.objects.exists())
+
+
+class LapiTests(TestCase):
+    """Modo gratuito: decisiones del motor local (lista comunitaria y listas de la consola)."""
+    def setUp(self):
+        RefreshTests.setUp(self)
+
+    def opener(self, response=None, error=None):
+        opener = mock.Mock()
+        if error:
+            opener.open.side_effect = error
+        else:
+            opener.open.return_value.__enter__ = lambda s: io.BytesIO(response)
+            opener.open.return_value.__exit__ = lambda *a: False
+        return opener
+
+    def test_request_goes_to_the_local_engine_with_the_bouncer_key(self):
+        opener = self.opener(json.dumps(DECISIONS).encode())
+        with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=opener):
+            self.assertEqual(reputation.fetch_lapi(ATTACKER, 'clave-bouncer', 'http://127.0.0.1:8080'), DECISIONS)
+        request = opener.open.call_args[0][0]
+        self.assertEqual(request.full_url, f'http://127.0.0.1:8080/v1/decisions?ip={ATTACKER}')
+        self.assertEqual(request.get_header('X-api-key'), 'clave-bouncer')
+
+    def test_engine_answers_are_mapped(self):
+        for body, expected in ((b'null', []), (b'[]', [])):
+            with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(body)):
+                self.assertEqual(reputation.fetch_lapi(ATTACKER, 'k', 'http://127.0.0.1:8080'), expected)
+        forbidden = urlerror.HTTPError('u', 403, 'access forbidden', {}, io.BytesIO(b'{"message":"access forbidden"}'))
+        for error, exception in ((forbidden, reputation.KeyRejected),
+                                 (urlerror.URLError(ConnectionRefusedError()), reputation.EngineUnavailable)):
+            with self.subTest(exception), self.assertRaises(exception), \
+                    mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(error=error)):
+                reputation.fetch_lapi(ATTACKER, 'k', 'http://127.0.0.1:8080')
+        with self.assertRaises(ValueError), \
+                mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(b'{"a": 1}')):
+            reputation.fetch_lapi(ATTACKER, 'k', 'http://127.0.0.1:8080')
+
+    def test_key_never_travels_in_clear_outside_the_host(self):
+        for url, ok in (('', True), ('http://127.0.0.1:8080', True), ('http://localhost:8080/', True),
+                        ('https://crowdsec.interno:8080', True), ('http://10.0.0.9:8080', False),
+                        ('http://crowdsec.interno:8080', False), ('ftp://127.0.0.1', False),
+                        ('http://u:p@127.0.0.1:8080', False), ('http://127.0.0.1:8080/?x=1', False)):
+            with self.subTest(url), mock.patch.dict('os.environ', {'SOC_PORTAL_CROWDSEC_LAPI_URL': url}):
+                if ok:
+                    self.assertTrue(reputation.lapi_url().startswith('http'))
+                else:
+                    with self.assertRaises(ValueError):
+                        reputation.lapi_url()
+
+    def test_decisions_are_summarised_without_extra_fields(self):
+        values = parse_lapi(DECISIONS)
+        self.assertEqual(values, {'found': True, 'reputation': 'listed',
+                                  'behaviors': ['crowdsecurity/ssh-bf', 'lista:firehol'],
+                                  'classifications': ['Lista comunitaria', 'Lista de la consola'],
+                                  'listed_range': '45.155.205.0/24'})
+        self.assertEqual(parse_lapi([]), {'found': False, 'reputation': 'unknown'})
+        hostile = parse_lapi([{'origin': ['x'], 'scenario': 'x' * 999, 'scope': 'Range', 'value': 'no-es-red'}, 'basura'])
+        self.assertEqual((hostile['classifications'], len(hostile['behaviors'][0]), hostile['listed_range']),
+                         (['Otra fuente'], 120, ''))
+
+    def run_lapi(self, fetch=None, env=None, now=None):
+        calls = []
+
+        def fake(ip, key, base):
+            calls.append((ip, key, base))
+            return fetch(ip) if fetch else (DECISIONS if ip == ATTACKER else [])
+        variables = {'SOC_PORTAL_CROWDSEC_LAPI_KEY': 'clave-bouncer', 'SOC_PORTAL_CROWDSEC_KEY': 'clave-cti',
+                     'SOC_PORTAL_CROWDSEC_LAPI_URL': '', **(env or {})}
+        with mock.patch.dict('os.environ', variables), mock.patch.object(reputation, 'fetch_lapi', side_effect=fake), \
+                mock.patch.object(reputation, 'fetch') as cti, \
+                mock.patch.object(reputation, 'summarize_lists', side_effect=lambda key, base, now: {'at': now.isoformat()}):
+            updated = reputation.refresh(now or self.now)
+        cti.assert_not_called()
+        return updated, calls
+
+    def test_local_engine_is_preferred_without_daily_quota_and_with_short_cache(self):
+        updated, calls = self.run_lapi(env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '0'})
+        self.assertEqual([ip for ip, *_ in calls], [OTHER_ATTACKER, ATTACKER], 'mismo filtro de privacidad y orden')
+        self.assertEqual({(key, base) for _, key, base in calls}, {('clave-bouncer', 'http://127.0.0.1:8080')})
+        self.assertEqual(updated, 2)
+        listed, absent = IpReputation.objects.get(ip=ATTACKER), IpReputation.objects.get(ip=OTHER_ATTACKER)
+        self.assertEqual((listed.source, listed.reputation, listed.found), ('lapi', 'listed', True))
+        self.assertEqual((absent.source, absent.found), ('lapi', False))
+        self.assertEqual(listed.expires_at, self.now + reputation.LAPI_TTL)
+        self.assertEqual(self.run_lapi()[1], [])
+        self.assertEqual(len(self.run_lapi(now=self.now + reputation.LAPI_TTL + timedelta(minutes=1))[1]), 2)
+        self.assertEqual(WorkerState.objects.get(name='crowdsec-quota').details['mode'], 'lapi')
+
+    def test_lists_are_counted_in_bounded_chunks_including_split_entries(self):
+        decisions = [dict(DECISIONS[0], id=n, scenario='crowdsecurity/ssh-bf' if n % 3 else 'http:scan')
+                     for n in range(3000)]
+        body = json.dumps(decisions).encode()
+        response = io.BytesIO(body)
+        opener = self.opener()
+        opener.open.return_value.__enter__ = lambda s: response
+        reads = []
+        original = response.read
+        response.read = lambda size: reads.append(size) or original(min(size, 7777))  # cortes arbitrarios
+        with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=opener):
+            summary = reputation.count_decisions('k', 'http://127.0.0.1:8080', 'CAPI')
+        self.assertEqual(summary, {'count': 3000, 'top': [('crowdsecurity/ssh-bf', 2000), ('http:scan', 1000)]})
+        self.assertIn('origins=CAPI', opener.open.call_args[0][0].full_url)
+        self.assertTrue(all(size <= 256 * 1024 for size in reads))
+        with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(b'null')):
+            self.assertEqual(reputation.count_decisions('k', 'http://127.0.0.1:8080', 'lists'), {'count': 0, 'top': []})
+        with mock.patch.object(reputation, 'LISTS_MAX_BYTES', 100), self.assertRaises(ValueError), \
+                mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(body)):
+            reputation.count_decisions('k', 'http://127.0.0.1:8080', 'CAPI')
+
+    def test_list_summary_runs_hourly_and_one_failing_origin_does_not_stop_it(self):
+        def count(key, base, origin):
+            if origin == 'lists':
+                raise ValueError('demasiado grande')
+            return {'count': 5, 'top': [('x', 5)]}
+        variables = {'SOC_PORTAL_CROWDSEC_LAPI_KEY': 'clave-bouncer', 'SOC_PORTAL_CROWDSEC_LAPI_URL': ''}
+        with mock.patch.dict('os.environ', variables), mock.patch.object(reputation, 'fetch_lapi', return_value=[]), \
+                mock.patch.object(reputation, 'count_decisions', side_effect=count) as counted:
+            reputation.refresh(self.now)
+            reputation.refresh(self.now + timedelta(minutes=30))
+            self.assertEqual(counted.call_count, len(reputation.ORIGINS), 'una vez por hora')
+            reputation.refresh(self.now + timedelta(minutes=61))
+            self.assertEqual(counted.call_count, 2 * len(reputation.ORIGINS))
+        lists = WorkerState.objects.get(name='crowdsec-quota').details['lists']['origins']
+        self.assertEqual((lists['CAPI']['count'], lists['lists']), (5, {'error': True}))
+
+    def test_engine_down_is_reported_and_retried_next_run(self):
+        def down(ip):
+            raise reputation.EngineUnavailable()
+        _, calls = self.run_lapi(fetch=down)
+        self.assertEqual(len(calls), 1)
+        state = WorkerState.objects.get(name='crowdsec-quota')
+        self.assertIn('motor CrowdSec local', state.error)
+        self.assertNotIn('paused_until', state.details)
+        self.assertEqual(len(self.run_lapi()[1]), 2)
+        self.assertEqual(WorkerState.objects.get(name='crowdsec-quota').error, '')
+
+    def test_rejected_key_or_bad_url_never_exposes_the_key(self):
+        def rejected(ip):
+            raise reputation.KeyRejected()
+        self.run_lapi(fetch=rejected)
+        state = WorkerState.objects.get(name='crowdsec-quota')
+        self.assertIn('SOC_PORTAL_CROWDSEC_LAPI_KEY', state.error)
+        self.assertEqual(self.run_lapi()[1], [], 'en pausa')
+        WorkerState.objects.filter(name='crowdsec-quota').delete()
+        _, calls = self.run_lapi(env={'SOC_PORTAL_CROWDSEC_LAPI_URL': 'http://10.0.0.9:8080'})
+        self.assertEqual(calls, [])
+        state = WorkerState.objects.get(name='crowdsec-quota')
+        self.assertIn('HTTPS', state.error)
+        self.assertNotIn('clave-bouncer', json.dumps(state.details) + state.error)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
+class ReputationPagesTests(TestCase):
+    def setUp(self):
+        company = Client.objects.create(name='Empresa', code='e')
+        device = Device.objects.create(site=Site.objects.create(client=company, name='S', code='s'), name='FW', vendor='opnsense')
+        SecurityEvidence.objects.create(uid='a' * 64, device=device, observed_at=timezone.now() - timedelta(hours=1),
+                                        engine='suricata', signature='Firma de prueba', source_ip=ATTACKER,
+                                        destination_ip='10.0.0.5', action='blocked', level=12, client_scope_id=company.pk)
+        IpReputation.objects.create(ip=ATTACKER, expires_at=timezone.now() + timedelta(days=1),
+                                    **{k: v for k, v in parse(SAMPLE).items()})
+        self.staff = get_user_model().objects.create_superuser('admin', 'a@example.test', 'x')
+        self.customer = get_user_model().objects.create_user('cliente')
+        StaffAccess.objects.create(user=self.customer, role='customer').clients.add(company)
+
+    def test_soc_sees_reputation_as_context_in_investigation_and_priority_list(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse('ip_investigation'), {'ip': ATTACKER})
+        self.assertContains(page, 'Reputación (CrowdSec)')
+        self.assertContains(page, 'Maliciosa')
+        self.assertContains(page, 'SSH Bruteforce')
+        self.assertContains(page, 'confianza alta')
+        self.assertContains(page, 'no confirma que esta IP atacara')
+        self.assertContains(self.client.get(reverse('intelligence')), 'CrowdSec: Maliciosa')
+
+    def test_customers_never_reach_reputation_screens(self):
+        self.client.force_login(self.customer)
+        self.assertEqual(self.client.get(reverse('ip_investigation'), {'ip': ATTACKER}).status_code, 403)
+        self.assertNotContains(self.client.get(reverse('customer_home')), 'CrowdSec')
+
+    def test_local_engine_lists_are_explained_without_claiming_benign(self):
+        IpReputation.objects.filter(ip=ATTACKER).update(source='lapi', **parse_lapi(DECISIONS),
+                                                        confidence='', background_noise='')
+        IpReputation.objects.create(ip=OTHER_ATTACKER, source='lapi', expires_at=timezone.now() + timedelta(hours=1),
+                                    **parse_lapi([]))
+        evidence = SecurityEvidence.objects.get()
+        evidence.pk, evidence.uid, evidence.source_ip = None, 'b' * 64, OTHER_ATTACKER
+        evidence.save()
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse('ip_investigation'), {'ip': ATTACKER})
+        self.assertContains(page, 'En lista de bloqueo')
+        self.assertContains(page, 'Lista comunitaria, Lista de la consola')
+        self.assertContains(page, 'por el rango 45.155.205.0/24')
+        absent = self.client.get(reverse('ip_investigation'), {'ip': OTHER_ATTACKER})
+        self.assertContains(absent, 'No figurar no significa que sea benigna')
+        self.assertContains(self.client.get(reverse('intelligence')), 'CrowdSec: En lista de bloqueo')
+
+    def test_crowdsec_page_shows_engine_state_and_only_listed_sources_in_scope(self):
+        other = Client.objects.create(name='Otra empresa', code='o')
+        other_device = Device.objects.create(site=Site.objects.create(client=other, name='S2', code='s2'),
+                                             name='FW2', vendor='opnsense')
+        SecurityEvidence.objects.create(uid='e' * 64, device=other_device, observed_at=timezone.now() - timedelta(hours=2),
+                                        engine='suricata', signature='Otra', source_ip=OTHER_ATTACKER,
+                                        destination_ip='10.1.0.5', action='allowed', level=3, client_scope_id=other.pk)
+        evidence = SecurityEvidence.objects.get(uid='a' * 64)
+        SecurityEvidence.objects.create(uid='f' * 64, device=evidence.device, observed_at=evidence.observed_at,
+                                        engine='suricata', signature='Permitida', source_ip=ATTACKER,
+                                        destination_ip='10.0.0.5', action='allowed', level=3,
+                                        client_scope_id=evidence.client_scope_id)
+        IpReputation.objects.filter(ip=ATTACKER).update(source='lapi', **parse_lapi(DECISIONS), confidence='', background_noise='')
+        IpReputation.objects.create(ip=OTHER_ATTACKER, source='lapi', expires_at=timezone.now() + timedelta(hours=1),
+                                    **parse_lapi(DECISIONS[:1]))
+        WorkerState.objects.create(name='crowdsec-quota', details={
+            'enabled': True, 'mode': 'lapi', 'lists': {'at': timezone.now().isoformat(), 'origins': {
+                'CAPI': {'count': 15000, 'top': [['crowdsecurity/ssh-bf', 9000]]}, 'lists': {'error': True}}}})
+        url = reverse('crowdsec_overview')
+        self.client.force_login(self.staff)
+        page = self.client.get(url)
+        self.assertContains(page, 'Motor local (gratuito)')
+        self.assertContains(page, '15000')
+        self.assertContains(page, 'No se pudo contar')
+        self.assertContains(page, ATTACKER)
+        self.assertContains(page, OTHER_ATTACKER)
+        self.assertContains(page, '1 permitida')
+        self.assertContains(page, 'Rango 45.155.205.0/24')
+        # Operador limitado a la primera empresa: no ve IPs ni nombres de otros clientes.
+        operator = get_user_model().objects.create_user('operador')
+        StaffAccess.objects.create(user=operator, role='operator').clients.add(evidence.client_scope_id)
+        self.client.force_login(operator)
+        scoped = self.client.get(url)
+        self.assertContains(scoped, ATTACKER)
+        self.assertNotContains(scoped, OTHER_ATTACKER)
+        self.assertNotContains(scoped, 'Otra empresa')
+        self.assertEqual(self.client.get(url, {'client': 'x'}).status_code, 404)
+        self.client.force_login(self.customer)
+        self.assertNotEqual(self.client.get(url).status_code, 200)
+
+    def test_crowdsec_page_without_configuration_explains_how_to_enable(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse('crowdsec_overview'))
+        self.assertContains(page, 'CrowdSec no está configurado')
+        self.assertContains(page, 'Sin configurar')
+
+    def test_priority_list_highlights_and_filters_allowed_traffic_from_listed_sources(self):
+        evidence = SecurityEvidence.objects.get()
+        IpReputation.objects.filter(ip=ATTACKER).update(source='lapi', **parse_lapi(DECISIONS),
+                                                        confidence='', background_noise='')
+        for uid, source, action, signature in (('b', ATTACKER, 'allowed', 'Firma permitida'),
+                                               ('c', OTHER_ATTACKER, 'allowed', 'Firma sin lista'),
+                                               ('d', '203.0.113.50', 'allowed', 'Firma sin consultar')):
+            SecurityEvidence.objects.create(uid=uid * 64, device=evidence.device, observed_at=evidence.observed_at,
+                                            engine='suricata', signature=signature, source_ip=source,
+                                            destination_ip='10.0.0.5', action=action, level=3,
+                                            client_scope_id=evidence.client_scope_id)
+        IpReputation.objects.create(ip=OTHER_ATTACKER, source='lapi', expires_at=timezone.now() + timedelta(hours=1),
+                                    **parse_lapi([]))
+        self.client.force_login(self.staff)
+        url = reverse('intelligence')
+        everything = self.client.get(url)
+        self.assertContains(everything, '1 grupo de tráfico permitido desde IPs en listas')
+        self.assertContains(everything, 'Permitida desde IP en lista', count=1)
+        for signature in ('Firma de prueba', 'Firma permitida', 'Firma sin lista', 'Firma sin consultar'):
+            self.assertContains(everything, signature)
+        listed = self.client.get(url, {'reputacion': 'lista'})
+        self.assertContains(listed, 'Firma de prueba')
+        self.assertContains(listed, 'Firma permitida')
+        self.assertNotContains(listed, 'Firma sin lista')
+        self.assertNotContains(listed, 'Firma sin consultar')
+        allowed = self.client.get(url, {'reputacion': 'permitida'})
+        self.assertContains(allowed, 'Firma permitida')
+        self.assertNotContains(allowed, 'Firma de prueba')
+        self.assertEqual(self.client.get(url, {'reputacion': 'otra'}).status_code, 404)
+        # Solo contexto: la prioridad y los motivos no dependen de la reputación.
+        from .service_development import intelligence_rows
+        before = [(r['signature'], r['priority'], r['reasons']) for r in intelligence_rows()[0]]
+        IpReputation.objects.all().delete()
+        self.assertEqual(before, [(r['signature'], r['priority'], r['reasons']) for r in intelligence_rows()[0]])
+        self.assertFalse(Incident.objects.exists())

@@ -32,6 +32,7 @@ def _staff_groups(user, global_access):
             _item("Detecciones prioritarias", "intelligence"),
             _item("Investigar IP y eventos", "security_explore", ["ip_investigation"]),
             _item("Mapa de detecciones", "threat_map"),
+            _item("Reputación CrowdSec", "crowdsec_overview"),
             _item("Seguridad VPN", "vpn_security"),
             _item("SOC general en Wazuh", "wazuh_sso_enter", external=True, visible=wazuh_general),
         ]),

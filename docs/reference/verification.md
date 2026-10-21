@@ -18,7 +18,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_customer_task_history.py](../../core/test_customer_task_history.py) | 7 |
 | [core/test_dashboard_sources.py](../../core/test_dashboard_sources.py) | 1 |
-| [core/test_database_concurrency.py](../../core/test_database_concurrency.py) | 2 |
+| [core/test_database_concurrency.py](../../core/test_database_concurrency.py) | 3 |
 | [core/test_database_engine.py](../../core/test_database_engine.py) | 5 |
 | [core/test_database_transfer.py](../../core/test_database_transfer.py) | 5 |
 | [core/test_device_inventory.py](../../core/test_device_inventory.py) | 13 |
@@ -55,6 +55,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_report_freshness.py](../../core/test_report_freshness.py) | 3 |
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_report_versions.py](../../core/test_report_versions.py) | 5 |
+| [core/test_reputation.py](../../core/test_reputation.py) | 26 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
 | [core/test_service_development.py](../../core/test_service_development.py) | 18 |
@@ -126,3 +127,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0047_export_receiver_defaults.py](../../core/migrations/0047_export_receiver_defaults.py)
 - [core/migrations/0048_customer_task_history.py](../../core/migrations/0048_customer_task_history.py)
 - [core/migrations/0049_report_versions.py](../../core/migrations/0049_report_versions.py)
+- [core/migrations/0050_ip_reputation.py](../../core/migrations/0050_ip_reputation.py)

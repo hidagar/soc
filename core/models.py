@@ -447,7 +447,7 @@ from .improvement_models import (RunbookStep,ProtectionValidation,CustomerTask,C
 from .network_models import NetworkCheck, NetworkCoverage
 from .operations_models import AttributionCatalog
 from .improvement_models import ZenarmorExportRequest
-from .improvement_models import ReportVersion
+from .improvement_models import ReportVersion, IpReputation
 from .improvement_models import AdvancedReview
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

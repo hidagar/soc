@@ -24,6 +24,10 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: 4A/C1 en revisión (21/10/2026)
+
+Reputación CrowdSec implementada con caché, fecha del dato y filtro de privacidad, solo para el equipo SOC y sin remediación. Modo gratuito preferente: listas del motor local (lista comunitaria y de la consola), comprobado contra un motor real; la API CTI de pago queda como alternativa con cupo. Pendiente: instalar e inscribir el motor en la VM y decidir si comparte señales (lista completa o «Lite»); mostrarla en incidencias, mapa o informes requiere decidir qué se publica al cliente (y, en informes, congelarla con la versión publicada).
+
 ## Actualización: 3B servidor desplegado (20/10/2026)
 
 Bandeja cifrada, confirmación por mensaje del motor nativo, identidad estable en el índice y deduplicación de evidencias/contadores. Pruebas de cortes, reinicio y repetición en laboratorio, y servicios privados comprobados con systemd. El Syslog anterior conserva su recorrido.

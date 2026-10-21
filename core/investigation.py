@@ -95,7 +95,8 @@ def ip_detail(request):
         key=timezone.localtime(now-timedelta(days=i)).strftime('%Y-%m-%d')
         chart.append({'date':key,'count':timeline[key],'height':max(3,round(timeline[key]/max(1,*timeline.values())*90))})
     from .asn import lookup as asn_lookup
-    return render(request,'ip_investigation.html',{'asn':asn_lookup(address),'address':address,'public':ipaddress.ip_address(address).is_global,'selected':client,'days':days,
+    from .reputation import lookup as reputation_lookup
+    return render(request,'ip_investigation.html',{'asn':asn_lookup(address),'reputation':reputation_lookup(address),'address':address,'public':ipaddress.ip_address(address).is_global,'selected':client,'days':days,
         'metrics':summarize(qs),'limited':count>LIMIT,'sample':len(rows),'first':qs.order_by('observed_at').first().observed_at,'last':rows[0].observed_at,
         'events':rows[:100],'targets':sorted(targets.values(),key=lambda x:-x['count'])[:50],'timeline':chart,'ports':ports.most_common(12),
         'engines':engines.most_common(),'countries':list(countries),'recommendations':[r for r,_ in recommendations.most_common(3)]})

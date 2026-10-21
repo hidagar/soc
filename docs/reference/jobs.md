@@ -37,6 +37,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | `health` | 60 | Salud de la plataforma |
 | `notifications` | 60 | Avisos operativos |
 | `housekeeping` | 3600 | Conservación y limpieza |
+| `reputation` | 900 | Reputación CrowdSec |
 
 ## Unidades incluidas
 

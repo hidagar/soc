@@ -50,6 +50,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `clients/<int:client_pk>/monthly/` | `monthly_summary` | `service.monthly` |
 | `devices/<int:pk>/history/` | `device_history` | `service.device_history` |
 | `operations/intelligence/` | `intelligence` | `service.intelligence` |
+| `operations/crowdsec/` | `crowdsec_overview` | `reputation_views.overview` |
 | `operations/protection/` | `protection_list` | `protection_views.protection_list` |
 | `operations/protection/<int:pk>/` | `protection_device` | `protection_views.protection_device` |
 | `operations/exposure/` | `exposure_list` | `exposure_views.exposure_list` |
