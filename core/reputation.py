@@ -1,9 +1,11 @@
 """Reputación de IPs con CrowdSec (hoja de ruta 4A/C1): contexto, nunca detección.
 
-Dos modos, elegidos por las claves del entorno:
-- `lapi` (gratuito, preferente): consulta las decisiones del motor CrowdSec local, que
-  recibe la lista comunitaria y las listas de la consola. La IP no sale de la VM.
-- `cti` (de pago): consulta la API CTI de CrowdSec con cupo diario.
+Dos fuentes, activas según las claves del entorno y combinables:
+- listas (gratuitas, `SOC_PORTAL_CROWDSEC_LAPI_KEY`): decisiones del motor CrowdSec local,
+  que recibe la lista comunitaria y las listas de la consola. La IP no sale de la VM.
+- API CTI (de pago, `SOC_PORTAL_CROWDSEC_KEY`): reputación detallada, con cupo diario y
+  mensual. Con las dos, la CTI se reserva para lo prioritario: tráfico permitido, IPs ya
+  en lista, nivel alto y repetición.
 
 Solo el trabajo protegido `reputation` consulta, con caché fechada; la web únicamente
 lee la caché. Privacidad: se consultan solo orígenes públicos de tráfico entrante hacia
@@ -38,6 +40,11 @@ LISTS_MAX_BYTES = 64 * 1024 * 1024
 SCENARIO = re.compile(rb'"scenario"\s{0,8}:\s{0,8}"((?:[^"\\]|\\.){0,200})"')
 WINDOW = timedelta(days=7)
 MAX_RESPONSE = 512 * 1024
+BAD = ('malicious', 'suspicious')
+MODES = {'lapi+cti': 'Motor local + API CTI', 'lapi': 'Motor local (gratuito)', 'cti': 'API CTI (de pago)', '': 'Sin configurar'}
+CTI_EMPTY = {'reputation': '', 'confidence': '', 'background_noise': '', 'background_noise_score': None, 'scores': {},
+             'behaviors': [], 'classifications': [], 'false_positives': [], 'as_name': '', 'country': '',
+             'first_seen': '', 'last_seen': ''}
 LABELS = {'malicious': 'Maliciosa', 'suspicious': 'Sospechosa', 'known': 'Conocida', 'benign': 'Benigna',
           'safe': 'Segura', 'unknown': 'Sin datos', 'listed': 'En lista de bloqueo'}
 # Origen de una decisión del motor local, en palabras del SOC.
@@ -71,6 +78,15 @@ def daily_limit():
         return 30
 
 
+def monthly_limit():
+    """Cupo mensual del plan CTI; None si no se ha declarado."""
+    try:
+        value = int(os.environ.get('SOC_PORTAL_CROWDSEC_MONTHLY_LIMIT', '0'))
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def lapi_url():
     """URL base del motor local. HTTP solo hacia el propio equipo: la clave no viaja en claro por la red."""
     url = os.environ.get('SOC_PORTAL_CROWDSEC_LAPI_URL', '').strip().rstrip('/') or LAPI_DEFAULT
@@ -88,12 +104,10 @@ def lapi_url():
 
 
 def mode():
-    """`lapi` si hay clave de bouncer, `cti` si hay clave de la API de pago; si no, ''. """
-    if os.environ.get('SOC_PORTAL_CROWDSEC_LAPI_KEY', '').strip():
-        return 'lapi'
-    if os.environ.get('SOC_PORTAL_CROWDSEC_KEY', '').strip():
-        return 'cti'
-    return ''
+    """Fuentes configuradas: 'lapi+cti', 'lapi', 'cti' o ''."""
+    sources = [name for name, variable in (('lapi', 'SOC_PORTAL_CROWDSEC_LAPI_KEY'), ('cti', 'SOC_PORTAL_CROWDSEC_KEY'))
+               if os.environ.get(variable, '').strip()]
+    return '+'.join(sources)
 
 
 def protected_addresses():
@@ -123,11 +137,15 @@ def eligible(source, destination, protected):
     return not dst.is_global or str(dst) in protected
 
 
-def candidates(now, limit, protected):
-    """Orígenes a consultar, de mayor a menor interés: permitidos, nivel alto y repetición."""
+def candidates(now, limit, protected, source='lists'):
+    """Orígenes a consultar para una fuente, de mayor a menor interés.
+
+    Permitidos primero; para la CTI, después los que ya figuran en una lista; luego nivel y repetición.
+    """
     if limit <= 0:
         return []
-    fresh = set(IpReputation.objects.filter(expires_at__gt=now).values_list('ip', flat=True))
+    fresh = set(IpReputation.objects.filter(**{source + '_expires_at__gt': now}).values_list('ip', flat=True))
+    listed = set(IpReputation.objects.filter(listed=True).values_list('ip', flat=True)) if source == 'cti' else set()
     rows = (SecurityEvidence._base_manager.filter(observed_at__gte=now - WINDOW, source_ip__isnull=False)
             .exclude(destination_ip=None).values('source_ip', 'destination_ip', 'action')
             .annotate(level=Max('level'), count=Count('uid')))
@@ -136,7 +154,7 @@ def candidates(now, limit, protected):
         ip = row['source_ip']
         if ip in fresh or not eligible(ip, row['destination_ip'], protected):
             continue
-        key = (ACTION_ORDER.get(row['action'], 1), -row['level'], -row['count'])
+        key = (ACTION_ORDER.get(row['action'], 1), ip not in listed, -row['level'], -row['count'])
         if ip not in best or key < best[ip]:
             best[ip] = key
     return [ip for ip, _ in sorted(best.items(), key=lambda item: (item[1], item[0]))[:limit]]
@@ -217,7 +235,7 @@ def parse_lapi(decisions):
     """Resumen de las decisiones: listas de origen, escenarios y rango. Nada más se guarda."""
     decisions = [d for d in decisions[:100] if isinstance(d, dict)]
     if not decisions:
-        return {'found': False, 'reputation': 'unknown'}
+        return {'listed': False, 'list_origins': [], 'list_scenarios': [], 'listed_range': ''}
     origins, scenarios, ranges = [], [], []
     for decision in decisions:
         origin = ORIGINS.get(decision.get('origin'), 'Otra fuente') if isinstance(decision.get('origin'), str) else 'Otra fuente'
@@ -231,7 +249,7 @@ def parse_lapi(decisions):
                 ranges.append(str(ipaddress.ip_network(_text(decision.get('value'), 64), strict=False)))
             except ValueError:
                 pass
-    return {'found': True, 'reputation': 'listed', 'behaviors': scenarios[:20], 'classifications': origins[:10],
+    return {'listed': True, 'list_origins': origins[:10], 'list_scenarios': scenarios[:20],
             'listed_range': ranges[0] if ranges else ''}
 
 
@@ -274,9 +292,9 @@ def parse(data):
     overall = (data.get('scores') or {}).get('overall') if isinstance(data.get('scores'), dict) else {}
     history = data.get('history') if isinstance(data.get('history'), dict) else {}
     location = data.get('location') if isinstance(data.get('location'), dict) else {}
-    reputation = data.get('reputation') if data.get('reputation') in LABELS else 'unknown'
+    reputation = data.get('reputation') if data.get('reputation') in LABELS and data.get('reputation') != 'listed' else 'unknown'
     return {
-        'found': True, 'reputation': reputation, 'confidence': _text(data.get('confidence'), 16),
+        'cti_found': True, 'reputation': reputation, 'confidence': _text(data.get('confidence'), 16),
         'background_noise': _text(data.get('background_noise'), 16),
         'background_noise_score': _small(data.get('background_noise_score')),
         'scores': {k: v for k, v in (overall or {}).items()
@@ -288,19 +306,81 @@ def parse(data):
     }
 
 
-def _store(ip, values, source, now, ttl):
-    defaults = {field.name: field.get_default() for field in IpReputation._meta.concrete_fields
-                if field.name not in ('id', 'ip', 'fetched_at', 'expires_at')}
+def _store(ip, values, now):
+    """Guarda los campos de una sola fuente; la otra conserva su dato y su fecha."""
     with transaction.atomic():
         # Escribir antes de leer: update_or_create lee primero y en SQLite falla con
         # "database is locked" si otro trabajo escribe a la vez (invariante 7).
         WorkerState.reserve('reputation-cache-lock')
-        IpReputation.objects.update_or_create(ip=ip, defaults={**defaults, **values, 'source': source,
-                                                               'fetched_at': now, 'expires_at': now + ttl})
+        IpReputation.objects.update_or_create(ip=ip, defaults={**values, 'fetched_at': now})
+
+
+def _refresh_lists(now, details, protected, errors):
+    if details.get('lists_paused_until', '') > now.isoformat():
+        return 0
+    updated = 0
+    try:
+        key = os.environ['SOC_PORTAL_CROWDSEC_LAPI_KEY'].strip()
+        base = lapi_url()
+        lists = details.get('lists') or {}
+        if lists.get('at', '') <= (now - LISTS_EVERY).isoformat():
+            details['lists'] = summarize_lists(key, base, now)
+        for ip in candidates(now, LAPI_RUN_LIMIT, protected, 'lists'):
+            try:
+                decisions = fetch_lapi(ip, key, base)
+            except (KeyRejected, EngineUnavailable):
+                raise
+            except Exception:
+                continue  # Un fallo de una IP no detiene el resto.
+            _store(ip, {**parse_lapi(decisions), 'lists_checked_at': now, 'lists_expires_at': now + LAPI_TTL}, now)
+            updated += 1
+    except ValueError as exc:
+        errors.append(str(exc))  # Configuración no válida (URL del motor); no contiene la clave.
+    except EngineUnavailable:
+        errors.append('No se puede contactar con el motor CrowdSec local; se reintentará en la próxima ejecución.')
+    except KeyRejected:
+        details['lists_paused_until'] = (now + timedelta(hours=6)).isoformat()
+        errors.append('El motor CrowdSec rechazó la clave. Revisa SOC_PORTAL_CROWDSEC_LAPI_KEY.')
+    return updated
+
+
+def cti_allowance(details):
+    """Consultas CTI que quedan hoy, sin pasar del cupo mensual si se ha declarado."""
+    left = daily_limit() - details.get('used', 0)
+    month = monthly_limit()
+    return max(0, min(left, month - details.get('month_used', 0)) if month else left)
+
+
+def _refresh_cti(now, details, protected, errors):
+    if details.get('paused_until', '') > now.isoformat():
+        return 0
+    updated = 0
+    key = os.environ['SOC_PORTAL_CROWDSEC_KEY'].strip()
+    try:
+        for ip in candidates(now, cti_allowance(details), protected, 'cti'):
+            # Se cuenta antes de llamar: un fallo también consume cupo en el proveedor.
+            details['used'] = details.get('used', 0) + 1
+            details['month_used'] = details.get('month_used', 0) + 1
+            try:
+                data = fetch(ip, key)
+            except (QuotaExceeded, KeyRejected):
+                raise
+            except Exception:
+                continue  # Un fallo de una IP no detiene el resto; se reintentará cuando caduque.
+            values = parse(data) if data is not None else {**CTI_EMPTY, 'cti_found': False}
+            _store(ip, {**values, 'cti_checked_at': now, 'cti_expires_at': now + TTL}, now)
+            updated += 1
+    except QuotaExceeded:
+        details['paused_until'] = (now + timedelta(hours=6)).isoformat()
+        errors.append('CrowdSec indicó cupo CTI agotado; consultas CTI en pausa seis horas.')
+    except KeyRejected:
+        details['paused_until'] = (now + timedelta(hours=6)).isoformat()
+        errors.append('CrowdSec rechazó la clave de la API CTI. Revisa SOC_PORTAL_CROWDSEC_KEY.')
+    return updated
 
 
 def refresh(now=None):
-    """Trabajo `reputation`: consulta los candidatos según el modo. Devuelve IPs actualizadas."""
+    """Trabajo `reputation`: listas del motor y, si hay clave, API CTI. Devuelve actualizaciones."""
     now = now or timezone.now()
     state, _ = WorkerState.objects.get_or_create(name='crowdsec-quota')
     current = mode()
@@ -309,55 +389,20 @@ def refresh(now=None):
         state.details = {**state.details, 'enabled': False, 'mode': ''}
         state.save(update_fields=['error', 'details'])
         return 0
-    today = now.date().isoformat()
-    details = state.details if state.details.get('day') == today and state.details.get('mode') == current \
-        else {'day': today, 'used': 0}
+    details = dict(state.details)
+    today, month = now.date().isoformat(), now.strftime('%Y-%m')
+    if details.get('day') != today:
+        details.update(day=today, used=0)
+    if details.get('month') != month:
+        details.update(month=month, month_used=0)
     details.update(enabled=True, mode=current)
-    if details.get('paused_until', '') > now.isoformat():
-        return 0
-    updated = 0
-    try:
-        if current == 'lapi':
-            key = os.environ['SOC_PORTAL_CROWDSEC_LAPI_KEY'].strip()
-            base = lapi_url()
-            lists = details.get('lists') or {}
-            if lists.get('at', '') <= (now - LISTS_EVERY).isoformat():
-                details['lists'] = summarize_lists(key, base, now)
-            for ip in candidates(now, LAPI_RUN_LIMIT, protected_addresses()):
-                details['used'] = details.get('used', 0) + 1
-                try:
-                    decisions = fetch_lapi(ip, key, base)
-                except (KeyRejected, EngineUnavailable):
-                    raise
-                except Exception:
-                    continue
-                _store(ip, parse_lapi(decisions), 'lapi', now, LAPI_TTL)
-                updated += 1
-        else:
-            key = os.environ['SOC_PORTAL_CROWDSEC_KEY'].strip()
-            for ip in candidates(now, daily_limit() - details.get('used', 0), protected_addresses()):
-                # Se cuenta antes de llamar: un fallo también consume cupo en el proveedor.
-                details['used'] = details.get('used', 0) + 1
-                try:
-                    data = fetch(ip, key)
-                except (QuotaExceeded, KeyRejected):
-                    raise
-                except Exception:
-                    continue  # Un fallo de una IP no detiene el resto; se reintentará cuando caduque.
-                _store(ip, parse(data) if data is not None else {'found': False, 'reputation': 'unknown'}, 'cti', now, TTL)
-                updated += 1
-        state.error = ''
-    except ValueError as exc:
-        state.error = str(exc)  # Configuración no válida (URL del motor); no contiene la clave.
-    except EngineUnavailable:
-        state.error = 'No se puede contactar con el motor CrowdSec local; se reintentará en la próxima ejecución.'
-    except QuotaExceeded:
-        details['paused_until'] = (now + timedelta(hours=6)).isoformat()
-        state.error = 'CrowdSec indicó cupo agotado; consultas en pausa seis horas.'
-    except KeyRejected:
-        details['paused_until'] = (now + timedelta(hours=6)).isoformat()
-        variable = 'SOC_PORTAL_CROWDSEC_LAPI_KEY' if current == 'lapi' else 'SOC_PORTAL_CROWDSEC_KEY'
-        state.error = f'CrowdSec rechazó la clave. Revisa {variable}.'
+    errors, updated, protected = [], 0, protected_addresses()
+    # Primero las listas: la CTI prioriza después las IPs que ya figuran en ellas.
+    if 'lapi' in current:
+        updated += _refresh_lists(now, details, protected, errors)
+    if 'cti' in current:
+        updated += _refresh_cti(now, details, protected, errors)
+    state.error = ' '.join(errors)[:240]
     state.details = details
     state.last_run_at = now
     if not state.error:
@@ -366,13 +411,24 @@ def refresh(now=None):
     return updated
 
 
-def _decorate(row):
-    if row.found:
+def _decorate(row, now):
+    """Etiquetas para la web. La CTI, si existe, describe la IP; las listas la complementan."""
+    if row.cti_found:
         row.label = LABELS.get(row.reputation, 'Sin datos')
+        row.css = row.reputation or 'unknown'
+    elif row.listed:
+        row.label, row.css = LABELS['listed'], 'listed'
+    elif row.listed is False:
+        row.label, row.css = 'No figura en las listas', 'unknown'
     else:
-        row.label = 'No figura en las listas' if row.source == 'lapi' else 'Sin datos en CrowdSec'
+        row.label, row.css = 'Sin datos en CrowdSec', 'unknown'
+    row.flagged = row.listed is True or (row.cti_found is True and row.reputation in BAD)
+    row.noise = row.cti_found is True and (row.background_noise == 'high' or bool(row.false_positives))
     row.confidence_label = LEVELS.get(row.confidence, row.confidence)
     row.noise_label = LEVELS.get(row.background_noise, row.background_noise)
+    row.lists_stale = bool(row.lists_expires_at and row.lists_expires_at <= now)
+    row.cti_stale = bool(row.cti_expires_at and row.cti_expires_at <= now)
+    row.stale = row.lists_stale or row.cti_stale
     return row
 
 
@@ -383,9 +439,7 @@ def lookup(ip, now=None):
     except (TypeError, ValueError):
         return None
     row = IpReputation.objects.filter(ip=ip).first()
-    if row:
-        _decorate(row).stale = row.expires_at <= (now or timezone.now())
-    return row
+    return _decorate(row, now or timezone.now()) if row else None
 
 
 def lookup_many(ips, now=None):
@@ -394,8 +448,7 @@ def lookup_many(ips, now=None):
     wanted, rows = sorted({ip for ip in ips if ip}), {}
     for start in range(0, len(wanted), 1000):
         for row in IpReputation.objects.filter(ip__in=wanted[start:start + 1000]):
-            _decorate(row).stale = row.expires_at <= now
-            rows[row.ip] = row
+            rows[row.ip] = _decorate(row, now)
     return rows
 
 

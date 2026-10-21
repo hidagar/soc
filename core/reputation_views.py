@@ -17,10 +17,9 @@ from django.views.decorators.http import require_GET
 
 from .investigation import evidence_queryset, ip_url, selection
 from .models import Client, WorkerState
-from .reputation import LABELS, ORIGINS, lookup_many
+from .reputation import MODES, ORIGINS, daily_limit, lookup_many, monthly_limit
 
 ROWS = 200
-MODES = {'lapi': 'Motor local (gratuito)', 'cti': 'API CTI (de pago)', '': 'Sin configurar'}
 
 
 def engine_status():
@@ -34,8 +33,11 @@ def engine_status():
     return {'mode': MODES.get(details.get('mode', ''), MODES['']), 'enabled': details.get('enabled', False),
             'error': (state.error if state else '') or (job.error if job else ''),
             'last_run': job.last_run_at if job else None, 'last_success': job.last_success_at if job else None,
-            'paused_until': parse_datetime(details.get('paused_until') or ''), 'lists_at': parse_datetime(lists.get('at') or ''),
-            'origins': origins}
+            'paused_until': parse_datetime(details.get('paused_until') or ''),
+            'lists_paused_until': parse_datetime(details.get('lists_paused_until') or ''),
+            'lists_at': parse_datetime(lists.get('at') or ''), 'origins': origins,
+            'cti': 'cti' in details.get('mode', ''), 'cti_today': details.get('used', 0), 'cti_daily': daily_limit(),
+            'cti_month': details.get('month_used', 0), 'cti_monthly': monthly_limit()}
 
 
 @login_required
@@ -58,20 +60,22 @@ def overview(request):
     listed, by_reason, by_client = [], Counter(), Counter()
     for ip, item in sources.items():
         reputation = reputations.get(ip)
-        if not reputation or not reputation.found:
+        if not reputation or not reputation.flagged:
             continue
         clients = sorted(names.get(pk, '—') for pk in item['clients'])
-        by_reason.update(reputation.behaviors or ['Sin motivo informado'])
+        by_reason.update(reputation.list_scenarios or reputation.behaviors or ['Sin motivo informado'])
         by_client.update(clients)
         listed.append({'ip': ip, 'reputation': reputation, 'clients': clients, 'count': item['count'],
                        'allowed': item['allowed'], 'last': item['last'],
                        'url': ip_url(ip, client.pk if client else None, days)})
     listed.sort(key=lambda r: (-r['allowed'], -r['count'], r['ip']))
     metrics = {'sources': len(sources), 'checked': len(reputations), 'listed': len(listed),
-               'listed_allowed': sum(1 for r in listed if r['allowed'])}
+               'listed_allowed': sum(1 for r in listed if r['allowed']),
+               'cti': sum(1 for r in reputations.values() if r.cti_found is not None),
+               'noise': sum(1 for r in listed if r['reputation'].noise)}
     allowed_url = reverse('intelligence') + '?reputacion=permitida' + (f'&client={client.pk}' if client else '')
     return render(request, 'crowdsec.html', {
         'status': engine_status(), 'metrics': metrics, 'rows': listed[:ROWS], 'limited': len(listed) > ROWS,
         'by_reason': by_reason.most_common(10), 'by_client': by_client.most_common(10), 'selected': client,
-        'clients': Client.objects.all(), 'days': days, 'allowed_url': allowed_url, 'listed_label': LABELS['listed'],
+        'clients': Client.objects.all(), 'days': days, 'allowed_url': allowed_url,
         'now': timezone.now()})

@@ -269,9 +269,13 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | Campo | Tipo | Relación / atributos declarados |
 |---|---|---|
 | `ip` | GenericIPAddressField | unique=True |
-| `source` | CharField | max_length=8 |
+| `listed` | BooleanField | null=True |
+| `list_origins` | JSONField | blank=True |
+| `list_scenarios` | JSONField | blank=True |
 | `listed_range` | CharField | max_length=64; blank=True |
-| `found` | BooleanField |  |
+| `lists_checked_at` | DateTimeField | null=True; blank=True |
+| `lists_expires_at` | DateTimeField | null=True; blank=True |
+| `cti_found` | BooleanField | null=True |
 | `reputation` | CharField | max_length=16; blank=True |
 | `confidence` | CharField | max_length=16; blank=True |
 | `background_noise` | CharField | max_length=16; blank=True |
@@ -284,8 +288,9 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `country` | CharField | max_length=2; blank=True |
 | `first_seen` | CharField | max_length=40; blank=True |
 | `last_seen` | CharField | max_length=40; blank=True |
+| `cti_checked_at` | DateTimeField | null=True; blank=True |
+| `cti_expires_at` | DateTimeField | null=True; blank=True |
 | `fetched_at` | DateTimeField |  |
-| `expires_at` | DateTimeField |  |
 ## Client
 
 Fuente: [core/models.py](../../core/models.py).

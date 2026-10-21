@@ -35,8 +35,9 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_PORTAL_DB_TEST_NAME | Ruta de base SQLite de archivo para pruebas | Solo para los ensayos de concurrencia; nunca la base real. |
 | SOC_PORTAL_CROWDSEC_LAPI_KEY | Clave de bouncer del motor CrowdSec local | Opcional; modo gratuito y preferente (lista comunitaria y listas de la consola). Secreto: solo en el archivo protegido. Ver [integraciones](integrations.md). |
 | SOC_PORTAL_CROWDSEC_LAPI_URL | URL | API local del motor; `http://127.0.0.1:8080` por defecto. HTTP solo hacia el propio equipo; en otro equipo, HTTPS. |
-| SOC_PORTAL_CROWDSEC_KEY | Clave de la API CTI de CrowdSec (de pago) | Opcional; solo se usa si no hay clave de bouncer. Sin ninguna de las dos no se consulta nada. Secreto. |
-| SOC_PORTAL_CROWDSEC_DAILY_LIMIT | Entero | Consultas CTI al día (30 por defecto). Ajustar al cupo del plan contratado. No aplica al motor local. |
+| SOC_PORTAL_CROWDSEC_KEY | Clave de la API CTI de CrowdSec (de pago) | Opcional; se combina con las listas del motor si también hay clave de bouncer. Sin ninguna de las dos no se consulta nada. Secreto. |
+| SOC_PORTAL_CROWDSEC_DAILY_LIMIT | Entero | Consultas CTI al día (30 por defecto). Con plan mensual, el cupo mensual entre 31. No aplica al motor local. |
+| SOC_PORTAL_CROWDSEC_MONTHLY_LIMIT | Entero | Cupo CTI mensual del plan; vacío o 0 = sin tope mensual propio (solo el diario). |
 | SOC_NATIVE_ENGINE_GATE | `1` solo para ensayo optativo | Nunca activarlo en servicios de producción. |
 
 La [referencia generada](reference/environment.md) enlaza cada variable a sus lectores reales. Existen rutas fijas y configuración en base de datos que **no** se cambian con estas variables; ver código antes de trasladar la instalación.

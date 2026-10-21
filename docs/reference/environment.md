@@ -13,9 +13,8 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_NATIVE_ENGINE_GATE` | [core/test_native_pipeline.py](../../core/test_native_pipeline.py) |
 | `SOC_PORTAL_ALLOWED_HOSTS` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_CROWDSEC_DAILY_LIMIT` | [core/reputation.py](../../core/reputation.py) |
-| `SOC_PORTAL_CROWDSEC_KEY` | [core/reputation.py](../../core/reputation.py) |
-| `SOC_PORTAL_CROWDSEC_LAPI_KEY` | [core/reputation.py](../../core/reputation.py) |
 | `SOC_PORTAL_CROWDSEC_LAPI_URL` | [core/reputation.py](../../core/reputation.py) |
+| `SOC_PORTAL_CROWDSEC_MONTHLY_LIMIT` | [core/reputation.py](../../core/reputation.py) |
 | `SOC_PORTAL_CSRF_ORIGINS` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_DB_ENGINE` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_DB_HOST` | [socportal/settings.py](../../socportal/settings.py) |

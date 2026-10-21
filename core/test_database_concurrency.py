@@ -84,7 +84,7 @@ class ConcurrentWritersTests(TransactionTestCase):
         def write(index):
             if index % 2:
                 return audit('concurrency.check', details={'count': index}).pk
-            return reputation._store('45.155.205.233', reputation.parse_lapi([]), 'lapi', now, reputation.LAPI_TTL)
+            return reputation._store('45.155.205.233', reputation.parse_lapi([]), now)
 
         _, errors = run_concurrently(write)
         self.assertEqual(errors, [])
