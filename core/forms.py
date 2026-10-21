@@ -17,7 +17,7 @@ class StyledModelForm(forms.ModelForm):
 class ClientForm(StyledModelForm):
     class Meta:
         model = Client
-        fields = ["name", "code", "contact_email", "report_email", "weekly_reports_enabled", "customer_live_map_enabled", "urgent_email", "urgent_alerts_enabled", "urgent_availability_enabled", "active", "notes"]
+        fields = ["name", "code", "contact_email", "report_email", "weekly_reports_enabled", "customer_live_map_enabled", "customer_portal_detail_enabled", "urgent_email", "urgent_alerts_enabled", "urgent_availability_enabled", "active", "notes"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

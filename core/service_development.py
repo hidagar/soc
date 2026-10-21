@@ -83,7 +83,10 @@ def customer_report_context(report):
 def customer_home(request):
     client=customer_client(request)
     from .investigation import customer_security_summary
-    return render(request,'customer_home.html',{'client':client,'security_summary':customer_security_summary(client) if client.customer_live_map_enabled else None,
+    from .customer_portal import firewall_rows,wazuh_ready
+    live=client.customer_live_map_enabled or client.customer_portal_detail_enabled
+    return render(request,'customer_home.html',{'client':client,'security_summary':customer_security_summary(client) if live else None,
+        'portal_section':'home','wazuh_ready':wazuh_ready(client),'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
         # Todas las pendientes, sin límite; las cerradas aparte para que no las desplacen.
         'tasks':CustomerTask.objects.filter(incident__client=client,visible=True,status__in=OPEN_TASK_STATUSES).order_by(F('due_at').asc(nulls_last=True),'pk'),
         'closed_tasks':CustomerTask.objects.filter(incident__client=client,visible=True).exclude(status__in=OPEN_TASK_STATUSES).order_by(F('reviewed_at').desc(nulls_last=True),'-pk')[:20],
@@ -106,8 +109,10 @@ def customer_geography(request):
 @login_required
 @require_GET
 def customer_map(request):
+    from .customer_portal import wazuh_ready
     client,payload,days,action,direction=customer_geography(request)
-    return render(request,'threat_map.html',{'customer_map':True,'map_base':'customer_report_base.html',
+    return render(request,'threat_map.html',{'customer_map':True,'map_base':'customer_report_base.html','portal_section':'map',
+        'wazuh_ready':wazuh_ready(client),
         'client':client,'map_client':client,'days':days,'action':action,'direction':direction,'map_payload':payload})
 
 @login_required
