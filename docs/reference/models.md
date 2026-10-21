@@ -291,6 +291,29 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `cti_checked_at` | DateTimeField | null=True; blank=True |
 | `cti_expires_at` | DateTimeField | null=True; blank=True |
 | `fetched_at` | DateTimeField |  |
+## BlocklistFeed
+
+Fuente: [core/improvement_models.py](../../core/improvement_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | OneToOneField | → 'core.Client'; on_delete=models.CASCADE |
+| `enabled` | BooleanField |  |
+| `stopped` | BooleanField |  |
+| `stopped_at` | DateTimeField | null=True; blank=True |
+| `include_lists` | BooleanField |  |
+| `include_cti` | BooleanField |  |
+| `allowlist` | TextField | blank=True |
+| `max_entries` | PositiveIntegerField |  |
+| `token_hash` | CharField | max_length=64; blank=True |
+| `encrypted_token` | TextField | blank=True |
+| `entries` | JSONField | blank=True |
+| `generated_at` | DateTimeField | null=True; blank=True |
+| `last_fetch_at` | DateTimeField | null=True; blank=True |
+| `observation` | JSONField | blank=True |
+| `updated_at` | DateTimeField |  |
 ## Client
 
 Fuente: [core/models.py](../../core/models.py).

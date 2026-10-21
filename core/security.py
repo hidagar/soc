@@ -177,7 +177,7 @@ class SocSecurityMiddleware:
             return HttpResponseForbidden('Tu perfil no permite esta operación.')
 
     def __call__(self, request):
-        public = request.path.startswith(('/reports/','/activate/','/ingest/'))
+        public = request.path.startswith(('/reports/','/activate/','/ingest/','/feeds/'))
         # A pre-existing session is not evidence that this login POST succeeded.
         request.soc_password_login_user = None
         if request.method == 'POST' and request.path in ('/login/', '/admin/login/'):

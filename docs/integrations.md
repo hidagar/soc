@@ -37,6 +37,25 @@ Cada fuente guarda sus campos con su propia fecha y caducidad (`listed`, `list_*
 - **Página «Reputación CrowdSec»** (Detección e investigación, `core/reputation_views.py`): modo y estado del trabajo; recuento por origen de las listas del motor (comunitaria, consola, detección local, manual) con sus principales motivos, que el trabajo calcula cada hora leyendo `/v1/decisions?origins=` por bloques, con memoria acotada y un máximo de 64 MiB por origen; y las IPs de origen en lista del periodo con listas, motivo, rango, clientes, detecciones y permitidas. Las detecciones se filtran con el ámbito de cliente del usuario; la web solo lee la caché y el estado, nunca consulta al motor.
 - **Qué no hace:** no crea incidencias, no cambia acción, prioridad ni motivos de una detección y no bloquea nada. Estar en una lista o «ruido de fondo» alto no prueba un ataque dirigido al cliente.
 
+## Listas de bloqueo del SOC (7A/C2, fase 1)
+
+El SOC hace de puente entre CrowdSec y los firewalls de cada cliente (`core/blocklist.py`, «Detección e investigación → Listas de bloqueo», permiso `manage_operations`). Se activa cliente a cliente; empezar con un piloto.
+
+1. **Qué entra en la lista:** IPs que han atacado a **algún cliente del SOC** en los últimos 7 días y que CrowdSec tiene en una lista (dato de menos de 24 h) o la CTI califica de **maliciosas** (dato vigente). «Sospechosa» no basta.
+   - **Nunca entran:** el ruido de fondo y los posibles falsos positivos según la CTI, las direcciones no públicas, las IPs de clientes y del SOC (las mismas que protege la reputación) ni las **excepciones del cliente** (IPs o CIDR, una por línea).
+   - **Orden y tope:** primero las que atacaron a este cliente, luego las que atacaron a más clientes (protección preventiva) y luego las de más detecciones, con un máximo configurable (2000 por defecto).
+   - El trabajo `blocklists` la recalcula cada 15 minutos. Con excepciones no válidas conserva la última lista buena y lo avisa.
+2. **Observación:** sin tocar el firewall, la página calcula qué habría bloqueado con las detecciones reales del cliente: IPs, detecciones y, sobre todo, cuántas fueron **permitidas** (tráfico malicioso que hoy entra).
+3. **Publicación:** `GET /feeds/bloqueo/<cliente>/<token>/` devuelve una IP por línea (`text/plain`). Funciona sin sesión, porque la llama el firewall. El token es propio del cliente, se guarda cifrado y como hash, y se rota desde la página (permiso `manage_connections` y MFA reciente). Un token incorrecto da 404. La URL usa `SOC_PUBLIC_ORIGIN`: el firewall debe poder alcanzarla por HTTPS.
+4. **Freno de emergencia:** «vaciar la lista» hace que la URL sirva una lista vacía y el firewall deja de bloquear en su siguiente descarga (aprox. 1 h). Para no retrasar una emergencia, detener no exige repetir el MFA; reanudar sí. Revertir la regla desde el control de cambios la retira del todo.
+5. **Bloqueo en OPNsense (plantilla «Bloqueo CrowdSec del SOC»):** desde la página del cliente, con `manage_connections`, se crea un plan en «Plantillas y cambios» con:
+   - un alias `SOC_CROWDSEC_<plan>` de tipo URL table que descarga la lista (actualización aprox. cada hora);
+   - una regla `block` de entrada en WAN, IPv4 e IPv6, con registro, creada **desactivada**.
+
+   Activarla sigue el flujo existente: aprobación con MFA y nombre del equipo, savepoint, verificación del acceso de gestión y confirmación, o reversión automática. El plan no guarda el token. Revertir con borrado elimina primero la regla y después el alias, y nunca reutiliza un alias con el mismo nombre que no sea suyo.
+
+Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: bloqueos manuales del analista con caducidad, bloqueo saliente (C2), UniFi y Hillstone, y la medición de eficacia con los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
+
 ### Instalar el motor local (modo gratuito)
 
 En la VM del portal (o en otra, con HTTPS), según la documentación oficial de CrowdSec:

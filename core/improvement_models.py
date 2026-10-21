@@ -188,3 +188,27 @@ class IpReputation(models.Model):
     cti_checked_at=models.DateTimeField(null=True,blank=True)
     cti_expires_at=models.DateTimeField(null=True,blank=True)
     fetched_at=models.DateTimeField(default=timezone.now)
+
+class BlocklistFeed(models.Model):
+    """Lista de bloqueo del SOC para un cliente (hoja de ruta 7A/C2), servida a sus firewalls.
+
+    El trabajo `blocklists` la calcula a partir de la reputación CrowdSec de orígenes que han
+    atacado a algún cliente; el firewall la descarga con un token propio. `stopped` es el
+    freno de emergencia: la URL sirve una lista vacía y el firewall deja de bloquear.
+    """
+    client=models.OneToOneField('core.Client',on_delete=models.CASCADE,related_name='blocklist_feed')
+    enabled=models.BooleanField('Publicar la lista para los firewalls',default=False)
+    stopped=models.BooleanField(default=False)
+    stopped_at=models.DateTimeField(null=True,blank=True)
+    include_lists=models.BooleanField('Incluir IPs en listas de CrowdSec',default=True)
+    include_cti=models.BooleanField('Incluir IPs maliciosas según la API CTI',default=True)
+    allowlist=models.TextField('Excepciones (nunca bloquear)',blank=True,help_text='Una IP o red CIDR por línea: proveedores, socios, oficinas remotas.')
+    max_entries=models.PositiveIntegerField('Máximo de entradas',default=2000)
+    token_hash=models.CharField(max_length=64,blank=True)
+    encrypted_token=models.TextField(blank=True)
+    entries=models.JSONField(default=list,blank=True)
+    generated_at=models.DateTimeField(null=True,blank=True)
+    last_fetch_at=models.DateTimeField(null=True,blank=True)
+    observation=models.JSONField(default=dict,blank=True)
+    updated_at=models.DateTimeField(auto_now=True)
+    objects=ScopedManager();customer_lookup='client_id'

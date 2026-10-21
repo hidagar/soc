@@ -17,7 +17,8 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/asset_identity.py](../../core/asset_identity.py) | Bounded discovery and event-time identity; IP ownership is not permanent. — `identity_snapshot`, `update_identity`, `discover_dhcp` |
 | [core/audit_presentation.py](../../core/audit_presentation.py) | Readable audit projection. Signed records are never rewritten. — `object_labels`, `detail_lines`, `present` |
 | [core/background_jobs.py](../../core/background_jobs.py) | Whitelisted jobs, each executed in a separate time-limited systemd process. — `reconcile_sources`, `execute`, `run_job`, `dispatch`, `check_health` |
-| [core/change_control.py](../../core/change_control.py) | Versioned review plans. Remote changes are disabled drafts until explicit approval. — `preview`, `api`, `snapshot`, `digest`, `completed`, `stage_ids`, `stage_zenarmor`, `stage`, `rollback`, `enable`, `process_queue` |
+| [core/blocklist.py](../../core/blocklist.py) | Listas de bloqueo del SOC para los firewalls de cada cliente (hoja de ruta 7A/C2, fase 1). — `parse_allowlist`, `qualifying`, `activity`, `build`, `observation`, `refresh_feeds`, `rotate_token`, `feed_url`, `serve`, `alias_name`, `plan_preview`, `overview`, `detail` |
+| [core/change_control.py](../../core/change_control.py) | Versioned review plans. Remote changes are disabled drafts until explicit approval. — `preview`, `api`, `snapshot`, `digest`, `completed`, `stage_ids`, `stage_zenarmor`, `stage_blocklist_alias`, `stage`, `rollback`, `enable`, `process_queue` |
 | [core/configuration_archives.py](../../core/configuration_archives.py) | Root-only encrypted OPNsense backups and a redacted change summary. — `fetch_configuration`, `summarize_xml`, `archive_device`, `refresh_archives` |
 | [core/connection_help.py](../../core/connection_help.py) | Operator guidance using the same destinations as actual provisioning. — `connection_guide` |
 | [core/context_processors.py](../../core/context_processors.py) | `connection_permissions` |
@@ -42,7 +43,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/hillstone_api.py](../../core/hillstone_api.py) | StoneOS REST login and bounded inventory discovery; no configuration writes. — `HillstoneApiError`, `NoRedirect`, `validate_url`, `validate_ca`, `encrypt`, `decrypt`, `username`, `inventory`, `check_connection` |
 | [core/hillstone_events.py](../../core/hillstone_events.py) | Threat@FLOW layout contrasted with actual StoneOS logs (19 October 2026). — `action`, `flow`, `legacy_action_regexp` |
 | [core/hillstone_views.py](../../core/hillstone_views.py) | `ConnectionForm`, `hillstone_api` |
-| [core/improvement_models.py](../../core/improvement_models.py) | `RunbookStep`, `ProtectionValidation`, `ZenarmorExportRequest`, `CustomerTask`, `CustomerTaskEntry`, `DeliverySettings`, `AdvancedReview`, `MailDispatch`, `MailEvent`, `ConfigurationArchive`, `ReportVersion`, `IpReputation` |
+| [core/improvement_models.py](../../core/improvement_models.py) | `RunbookStep`, `ProtectionValidation`, `ZenarmorExportRequest`, `CustomerTask`, `CustomerTaskEntry`, `DeliverySettings`, `AdvancedReview`, `MailDispatch`, `MailEvent`, `ConfigurationArchive`, `ReportVersion`, `IpReputation`, `BlocklistFeed` |
 | [core/incident_episodes.py](../../core/incident_episodes.py) | `attach_episode` |
 | [core/indexer_admin.py](../../core/indexer_admin.py) | Privileged provisioning/recovery only. Reporting uses a separate reader. — `admin_request` |
 | [core/indexer_results.py](../../core/indexer_results.py) | Reject partial searches before changing reports or durable cursors. — `complete`, `count`, `total`, `hits` |

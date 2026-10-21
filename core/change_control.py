@@ -115,6 +115,30 @@ def stage_zenarmor(plan,c):
         if isinstance(v.get('configs'),dict): v['configs'].pop('sort_number',None)
     if digest(default)!=digest(after): raise ValueError('La política existente cambió. Revisar manualmente.')
 
+def stage_blocklist_alias(plan,c):
+    """Tabla de IPs que el firewall descarga de la lista del SOC. Sin regla activa no bloquea nada."""
+    from .blocklist import alias_name,feed_url
+    from .models import BlocklistFeed
+    feed=BlocklistFeed.objects.filter(client_id=plan.parameters.get('client'),enabled=True).first()
+    if not feed or feed.client_id!=plan.device.site.client_id: raise ValueError('La lista del cliente no está activada.')
+    name=alias_name(plan);description=f'SOC PLAN {plan.pk} alias'
+    desired={'enabled':'1','name':name,'type':'urltable','content':feed_url(feed),
+        'updatefreq':plan.preview['alias']['updatefreq'],'description':description}
+    rows=api(c,'/api/firewall/alias/search_item?rowCount=-1').get('rows',[])
+    found=next((r for r in rows if r.get('name')==name),None)
+    if found:
+        if found.get('description')!=description: raise ValueError('Ya existe un alias con ese nombre que no pertenece a esta propuesta.')
+        uid=found['uuid']
+    else:
+        response=api(c,'/api/firewall/alias/add_item',{'alias':desired})
+        if response.get('result')!='saved' or not response.get('uuid'): raise ValueError('Creación del alias rechazada.')
+        uid=response['uuid']
+    if not any(o['uuid']==uid for o in plan.remote_objects):
+        # El token va solo en el firewall; el plan guarda la identidad del objeto, no la URL.
+        plan.remote_objects.append({'kind':'alias','uuid':uid,'rule':{'description':description,'name':name}})
+        plan.save(update_fields=['remote_objects'])
+    if not completed(api(c,'/api/firewall/alias/reconfigure',{})): raise ValueError('No se confirmó la carga del alias.')
+
 def stage(plan):
     if plan.device.vendor != Device.Vendor.OPNSENSE or plan.device.management_method!='api':
         plan.status='manual'; plan.result='Guía preparada. Este equipo requiere aplicar y verificar la plantilla desde su consola.'; plan.save(); return
@@ -124,8 +148,13 @@ def stage(plan):
     plan.baseline_hash=digest(baseline)
     plan.status='staging'; plan.save()
     try:
+        crowdsec=plan.template=='crowdsec'
+        if crowdsec: stage_blocklist_alias(plan,c)
         for index,desired in enumerate(plan.preview['rules']):
             rule={**desired,'description':f'SOC PLAN {plan.pk} v{plan.template_version} {index+1}'}
+            if crowdsec:
+                from .blocklist import alias_name
+                rule['source_net']=alias_name(plan)
             # The description is an idempotency key, including recovery after a process interruption.
             rows=snapshot(c).get('rows',[])
             found=next((r for r in rows if r.get('description')==rule['description']),None)
@@ -140,8 +169,9 @@ def stage(plan):
             observed=api(c,'/api/firewall/filter/get_rule/'+uid).get('rule',{})
             if str(observed.get('enabled'))!='0' or observed.get('description')!=rule['description']:
                 raise ValueError('La regla no está desactivada o su identidad difiere.')
-        stage_ids(plan,c)
-        if plan.device.zenarmor_enabled: stage_zenarmor(plan,c)
+        if not crowdsec:
+            stage_ids(plan,c)
+            if plan.device.zenarmor_enabled: stage_zenarmor(plan,c)
         plan.status='staged'; plan.result='Borradores desactivados verificados. La activación desde este panel corresponde a las reglas de firewall; revisa las políticas de inspección en la consola antes de activarlas.'
         audit('change.staged',plan,{'count':len(plan.remote_objects),'template':plan.template})
     except Exception:
@@ -152,8 +182,16 @@ def stage(plan):
 
 def rollback(plan,delete=False):
     c=plan.device.opnsense_api
-    for obj in plan.remote_objects:
+    # Las reglas antes que el alias: OPNsense no borra un alias en uso.
+    for obj in sorted(plan.remote_objects,key=lambda o:o.get('kind')=='alias'):
         kind=obj.get('kind','firewall')
+        if kind=='alias':
+            current=api(c,'/api/firewall/alias/get_item/'+obj['uuid']).get('alias',{})
+            if current.get('description')!=obj['rule']['description']: raise ValueError('El alias cambió de propietario; intervención manual requerida.')
+            if delete:
+                response=api(c,'/api/firewall/alias/del_item/'+obj['uuid'],{})
+                if response.get('result') not in ('deleted','saved','ok'): raise ValueError('No se pudo retirar el alias.')
+            continue
         if kind=='suricata':
             current=api(c,'/api/ids/settings/get_policy/'+obj['uuid']).get('policy',{})
             if current.get('description')!=obj['rule']['description']: raise ValueError('La política IDS cambió de propietario.')

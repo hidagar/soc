@@ -14,6 +14,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_asn.py](../../core/test_asn.py) | 5 |
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
+| [core/test_blocklist.py](../../core/test_blocklist.py) | 10 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_customer_portal.py](../../core/test_customer_portal.py) | 7 |
@@ -131,3 +132,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0050_ip_reputation.py](../../core/migrations/0050_ip_reputation.py)
 - [core/migrations/0051_customer_portal_detail.py](../../core/migrations/0051_customer_portal_detail.py)
 - [core/migrations/0052_ip_reputation_sources.py](../../core/migrations/0052_ip_reputation_sources.py)
+- [core/migrations/0053_blocklist_feed.py](../../core/migrations/0053_blocklist_feed.py)
