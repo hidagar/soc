@@ -14,6 +14,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_asn.py](../../core/test_asn.py) | 5 |
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
+| [core/test_blocklist.py](../../core/test_blocklist.py) | 10 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_customer_portal.py](../../core/test_customer_portal.py) | 7 |
@@ -56,7 +57,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_report_freshness.py](../../core/test_report_freshness.py) | 3 |
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_report_versions.py](../../core/test_report_versions.py) | 5 |
-| [core/test_reputation.py](../../core/test_reputation.py) | 32 |
+| [core/test_reputation.py](../../core/test_reputation.py) | 35 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
 | [core/test_service_development.py](../../core/test_service_development.py) | 18 |
@@ -131,3 +132,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0050_ip_reputation.py](../../core/migrations/0050_ip_reputation.py)
 - [core/migrations/0051_customer_portal_detail.py](../../core/migrations/0051_customer_portal_detail.py)
 - [core/migrations/0052_ip_reputation_sources.py](../../core/migrations/0052_ip_reputation_sources.py)
+- [core/migrations/0053_blocklist_feed.py](../../core/migrations/0053_blocklist_feed.py)

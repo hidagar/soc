@@ -25,6 +25,7 @@ JOBS={
     'notifications':(60,'Avisos operativos'),
     'housekeeping':(3600,'Conservación y limpieza'),
     'reputation':(900,'Reputación CrowdSec'),
+    'blocklists':(900,'Listas de bloqueo del SOC'),
 }
 BUDGET=180
 
@@ -128,6 +129,9 @@ def execute(name):
     if name=='reputation':
         from .reputation import refresh
         return refresh()
+    if name=='blocklists':
+        from .blocklist import refresh_feeds
+        return refresh_feeds()
     raise ValueError('Trabajo no permitido.')
 
 def run_job(name):

@@ -37,6 +37,7 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_PORTAL_CROWDSEC_LAPI_URL | URL | API local del motor; `http://127.0.0.1:8080` por defecto. HTTP solo hacia el propio equipo; en otro equipo, HTTPS. |
 | SOC_PORTAL_CROWDSEC_KEY | Clave de la API CTI de CrowdSec (de pago) | Opcional; se combina con las listas del motor si también hay clave de bouncer. Sin ninguna de las dos no se consulta nada. Secreto. |
 | SOC_PORTAL_CROWDSEC_DAILY_LIMIT | Entero | Consultas CTI al día (30 por defecto). Con plan mensual, el cupo mensual entre 31. No aplica al motor local. |
+| SOC_PORTAL_CROWDSEC_CTI_PER_RUN | Entero (1–20) | Consultas CTI por ejecución del trabajo, cada 15 minutos (2 por defecto). Subirlo solo si CrowdSec no responde 429. |
 | SOC_PORTAL_CROWDSEC_MONTHLY_LIMIT | Entero | Cupo CTI mensual del plan; vacío o 0 = sin tope mensual propio (solo el diario). |
 | SOC_NATIVE_ENGINE_GATE | `1` solo para ensayo optativo | Nunca activarlo en servicios de producción. |
 

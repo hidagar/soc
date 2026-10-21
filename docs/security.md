@@ -41,6 +41,8 @@ Para clientes, usar la proyección publicable de `service_development.py`, inclu
 
 Reputación CrowdSec: en el modo gratuito (motor local) la consulta no sale de la VM; el motor descarga las listas y, si se activa, comparte con CrowdSec las IPs que él mismo detecta atacando a la VM. En el modo CTI de pago, CrowdSec recibe direcciones IP. En ambos solo se consultan orígenes públicos de tráfico entrante hacia clientes; nunca IPs internas, de clientes o del SOC ni destinos de conexiones salientes. Ningún otro dato del evento o del cliente sale del SOC. Limitación conocida: si un motor registra como origen la respuesta de un servidor externo visitado (por ejemplo, una alerta sobre contenido descargado), esa IP puede consultarse. La clave de bouncer solo viaja por HTTP hacia el propio equipo; hacia otro equipo se exige HTTPS.
 
+Listas de bloqueo para firewalls (`/feeds/bloqueo/`): ruta pública sin sesión, autorizada solo por un token por cliente (guardado como hash y cifrado, comparación en tiempo constante, rotación con `manage_connections` y MFA reciente). Va en la URL porque los alias de OPNsense no admiten cabeceras: no registrar la ruta completa en logs compartidos y rotarlo si se expone. La lista vacía es el estado seguro (desactivada, detenida o cliente inactivo). La regla en el firewall solo se crea y activa con el control de cambios.
+
 ## Proxy y SSO Wazuh
 
 Nginx consulta `/security/wazuh/check/` con un secreto interno. El backend comprueba sesión, MFA, permisos y ámbito listo; devuelve identidad/rol controlados. El proxy debe sustituir cabeceras de identidad del navegador y proteger la ruta interna. No es un token administrador reutilizable en el frontend. La configuración viva está fuera de Git.

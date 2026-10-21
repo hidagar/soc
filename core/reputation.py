@@ -17,6 +17,7 @@ import ipaddress
 import json
 import os
 import re
+import time
 from collections import Counter
 from datetime import timedelta
 from urllib import parse as urlparse
@@ -40,6 +41,8 @@ LISTS_MAX_BYTES = 64 * 1024 * 1024
 SCENARIO = re.compile(rb'"scenario"\s{0,8}:\s{0,8}"((?:[^"\\]|\\.){0,200})"')
 WINDOW = timedelta(days=7)
 MAX_RESPONSE = 512 * 1024
+CTI_PACE = 15  # segundos entre consultas CTI: la API responde 429 a consultas casi seguidas
+CTI_BACKOFF = (timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6))
 BAD = ('malicious', 'suspicious')
 MODES = {'lapi+cti': 'Motor local + API CTI', 'lapi': 'Motor local (gratuito)', 'cti': 'API CTI (de pago)', '': 'Sin configurar'}
 CTI_EMPTY = {'reputation': '', 'confidence': '', 'background_noise': '', 'background_noise_score': None, 'scores': {},
@@ -55,7 +58,10 @@ ACTION_ORDER = {'allowed': 0, 'unknown': 1, 'blocked': 2}
 
 
 class QuotaExceeded(Exception):
-    pass
+    """429 de la API CTI: límite de ritmo o cupo. `retry_after` en segundos si CrowdSec lo indica."""
+    def __init__(self, retry_after=None):
+        super().__init__()
+        self.retry_after = retry_after
 
 
 class KeyRejected(Exception):
@@ -262,7 +268,8 @@ def fetch(ip, key):
         if exc.code == 404:
             return None
         if exc.code == 429:
-            raise QuotaExceeded() from exc
+            value = (exc.headers or {}).get('Retry-After', '') if exc.headers is not None else ''
+            raise QuotaExceeded(int(value) if str(value).isdigit() else None) from exc
         if exc.code in (401, 403):
             raise KeyRejected() from exc
         raise
@@ -344,11 +351,19 @@ def _refresh_lists(now, details, protected, errors):
     return updated
 
 
+def cti_per_run():
+    """Consultas CTI por ejecución (cada 15 min): pocas y espaciadas para no provocar el límite de ritmo."""
+    try:
+        return max(1, min(20, int(os.environ.get('SOC_PORTAL_CROWDSEC_CTI_PER_RUN', '2'))))
+    except ValueError:
+        return 2
+
+
 def cti_allowance(details):
-    """Consultas CTI que quedan hoy, sin pasar del cupo mensual si se ha declarado."""
+    """Consultas CTI de esta ejecución: las del lote, sin pasar del cupo diario ni del mensual."""
     left = daily_limit() - details.get('used', 0)
     month = monthly_limit()
-    return max(0, min(left, month - details.get('month_used', 0)) if month else left)
+    return max(0, min(cti_per_run(), left, month - details.get('month_used', 0) if month else left))
 
 
 def _refresh_cti(now, details, protected, errors):
@@ -357,7 +372,9 @@ def _refresh_cti(now, details, protected, errors):
     updated = 0
     key = os.environ['SOC_PORTAL_CROWDSEC_KEY'].strip()
     try:
-        for ip in candidates(now, cti_allowance(details), protected, 'cti'):
+        for index, ip in enumerate(candidates(now, cti_allowance(details), protected, 'cti')):
+            if index:
+                time.sleep(CTI_PACE)
             # Se cuenta antes de llamar: un fallo también consume cupo en el proveedor.
             details['used'] = details.get('used', 0) + 1
             details['month_used'] = details.get('month_used', 0) + 1
@@ -370,9 +387,16 @@ def _refresh_cti(now, details, protected, errors):
             values = parse(data) if data is not None else {**CTI_EMPTY, 'cti_found': False}
             _store(ip, {**values, 'cti_checked_at': now, 'cti_expires_at': now + TTL}, now)
             updated += 1
-    except QuotaExceeded:
-        details['paused_until'] = (now + timedelta(hours=6)).isoformat()
-        errors.append('CrowdSec indicó cupo CTI agotado; consultas CTI en pausa seis horas.')
+            details['cti_limited'] = 0
+    except QuotaExceeded as exc:
+        # Pausa según Retry-After si llega; si no, creciente: 15 min, 1 h y 6 h si se repite.
+        strikes = details.get('cti_limited', 0)
+        wait = (timedelta(seconds=min(max(exc.retry_after, 60), 6 * 3600)) if exc.retry_after
+                else CTI_BACKOFF[min(strikes, len(CTI_BACKOFF) - 1)])
+        details['cti_limited'] = strikes + 1
+        details['paused_until'] = (now + wait).isoformat()
+        errors.append('CrowdSec limitó las consultas CTI (429: ritmo o cupo); se reintentará a las '
+                      + timezone.localtime(now + wait).strftime('%H:%M') + '.')
     except KeyRejected:
         details['paused_until'] = (now + timedelta(hours=6)).isoformat()
         errors.append('CrowdSec rechazó la clave de la API CTI. Revisa SOC_PORTAL_CROWDSEC_KEY.')

@@ -28,6 +28,7 @@ from . import advanced_views
 from . import investigation, vpn_security
 from . import reputation_views
 from . import customer_portal
+from . import blocklist
 from . import invitations
 from . import secure_logs
 
@@ -69,6 +70,9 @@ urlpatterns = [
     path('devices/<int:pk>/history/',service.device_history,name='device_history'),
     path('operations/intelligence/',service.intelligence,name='intelligence'),
     path('operations/crowdsec/',reputation_views.overview,name='crowdsec_overview'),
+    path('operations/blocklists/',blocklist.overview,name='blocklists'),
+    path('operations/blocklists/<int:client_pk>/',blocklist.detail,name='blocklist_detail'),
+    path('feeds/bloqueo/<int:client_pk>/<str:token>/',blocklist.serve,name='blocklist_serve'),
     path('operations/protection/',protection_views.protection_list,name='protection_list'),
     path('operations/protection/<int:pk>/',protection_views.protection_device,name='protection_device'),
     path('operations/exposure/',exposure_views.exposure_list,name='exposure_list'),

@@ -38,6 +38,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | `notifications` | 60 | Avisos operativos |
 | `housekeeping` | 3600 | Conservación y limpieza |
 | `reputation` | 900 | Reputación CrowdSec |
+| `blocklists` | 900 | Listas de bloqueo del SOC |
 
 ## Unidades incluidas
 
