@@ -157,12 +157,15 @@ class ReportVersion(models.Model):
         constraints=[models.UniqueConstraint(fields=['report','number'],name='unique_report_version_number')]
 
 class IpReputation(models.Model):
-    """Reputación CrowdSec CTI de una IP pública externa (contexto, no detección).
+    """Reputación CrowdSec de una IP pública externa (contexto, no detección).
 
     Dato global de la IP, sin cliente: se consulta solo para orígenes de tráfico entrante y
-    solo lo ve el equipo SOC. `fetched_at` fecha el dato; caduca en `expires_at`.
+    solo lo ve el equipo SOC. `source` indica el modo: `lapi` (listas del motor local) o
+    `cti` (API de pago). `fetched_at` fecha el dato; caduca en `expires_at`.
     """
     ip=models.GenericIPAddressField(unique=True)
+    source=models.CharField(max_length=8,default='cti')
+    listed_range=models.CharField(max_length=64,blank=True)
     found=models.BooleanField(default=True)
     reputation=models.CharField(max_length=16,blank=True)
     confidence=models.CharField(max_length=16,blank=True)

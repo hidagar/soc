@@ -39,7 +39,7 @@ Para clientes, usar la proyección publicable de `service_development.py`, inclu
 
 ## Terceros con datos de IP
 
-CrowdSec CTI recibe direcciones IP para obtener su reputación. Solo se envían orígenes públicos de tráfico entrante hacia clientes; nunca IPs internas, de clientes o del SOC ni destinos de conexiones salientes. Ningún otro dato del evento o del cliente sale del SOC. Limitación conocida: si un motor registra como origen la respuesta de un servidor externo visitado (por ejemplo, una alerta sobre contenido descargado), esa IP puede consultarse.
+Reputación CrowdSec: en el modo gratuito (motor local) la consulta no sale de la VM; el motor descarga las listas y, si se activa, comparte con CrowdSec las IPs que él mismo detecta atacando a la VM. En el modo CTI de pago, CrowdSec recibe direcciones IP. En ambos solo se consultan orígenes públicos de tráfico entrante hacia clientes; nunca IPs internas, de clientes o del SOC ni destinos de conexiones salientes. Ningún otro dato del evento o del cliente sale del SOC. Limitación conocida: si un motor registra como origen la respuesta de un servidor externo visitado (por ejemplo, una alerta sobre contenido descargado), esa IP puede consultarse. La clave de bouncer solo viaja por HTTP hacia el propio equipo; hacia otro equipo se exige HTTPS.
 
 ## Proxy y SSO Wazuh
 

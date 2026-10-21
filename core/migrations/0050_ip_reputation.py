@@ -24,6 +24,8 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("ip", models.GenericIPAddressField(unique=True)),
+                ("source", models.CharField(default="cti", max_length=8)),
+                ("listed_range", models.CharField(blank=True, max_length=64)),
                 ("found", models.BooleanField(default=True)),
                 ("reputation", models.CharField(blank=True, max_length=16)),
                 ("confidence", models.CharField(blank=True, max_length=16)),

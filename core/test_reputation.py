@@ -1,4 +1,4 @@
-"""CrowdSec CTI (fase 1): privacidad, cupo, errores, análisis y presentación. API simulada."""
+"""CrowdSec (fase 1), modos LAPI local y CTI: privacidad, cupo, errores, análisis y presentación. Respuestas simuladas."""
 import io
 import json
 from datetime import timedelta
@@ -13,7 +13,7 @@ from django.utils import timezone
 from . import reputation
 from .models import (Client, Device, ExportConfiguration, Incident, IpReputation, SecurityEvidence, Site,
                      StaffAccess, WorkerState)
-from .reputation import eligible, parse
+from .reputation import eligible, parse, parse_lapi
 
 # IPs públicas (los rangos de documentación no son globales y nunca se consultarían).
 ATTACKER, OTHER_ATTACKER, CUSTOMER_PUBLIC = '45.155.205.233', '185.220.101.4', '81.47.12.10'
@@ -26,6 +26,11 @@ SAMPLE = {
     'scores': {'overall': {'aggressiveness': 4, 'threat': 5, 'trust': 3, 'anomaly': 1, 'total': 4, 'otro': 9}},
     'cves': ['CVE-0000-0000'], 'references': [{'name': 'lista'}],
 }
+# Forma real de GET /v1/decisions?ip= del motor (comprobada con crowdsec 1.6).
+DECISIONS = [{'duration': '147h12m3s', 'id': 415, 'origin': 'CAPI', 'scenario': 'crowdsecurity/ssh-bf', 'scope': 'Ip',
+              'type': 'ban', 'value': ATTACKER},
+             {'duration': '20h', 'id': 9, 'origin': 'lists', 'scenario': 'lista:firehol', 'scope': 'Range',
+              'type': 'ban', 'value': '45.155.205.0/24'}]
 
 
 class EligibilityTests(SimpleTestCase):
@@ -118,13 +123,13 @@ class RefreshTests(TestCase):
         def fake(ip, key):
             calls.append((ip, key))
             return fetch(ip) if fetch else dict(SAMPLE, ip=ip)
-        variables = {'SOC_PORTAL_CROWDSEC_KEY': 'clave-secreta', **(env or {})}
+        variables = {'SOC_PORTAL_CROWDSEC_KEY': 'clave-secreta', 'SOC_PORTAL_CROWDSEC_LAPI_KEY': '', **(env or {})}
         with mock.patch.dict('os.environ', variables), mock.patch.object(reputation, 'fetch', side_effect=fake):
             updated = reputation.refresh(now or self.now)
         return updated, calls
 
     def test_without_key_nothing_is_sent(self):
-        with mock.patch.object(reputation, 'fetch') as fetch, mock.patch.dict('os.environ', {'SOC_PORTAL_CROWDSEC_KEY': ''}):
+        with mock.patch.object(reputation, 'fetch') as fetch, mock.patch.dict('os.environ', {'SOC_PORTAL_CROWDSEC_KEY': '', 'SOC_PORTAL_CROWDSEC_LAPI_KEY': ''}):
             self.assertEqual(reputation.refresh(self.now), 0)
         fetch.assert_not_called()
         self.assertFalse(WorkerState.objects.get(name='crowdsec-quota').details['enabled'])
@@ -178,6 +183,118 @@ class RefreshTests(TestCase):
         self.assertFalse(Incident.objects.exists())
 
 
+class LapiTests(TestCase):
+    """Modo gratuito: decisiones del motor local (lista comunitaria y listas de la consola)."""
+    def setUp(self):
+        RefreshTests.setUp(self)
+
+    def opener(self, response=None, error=None):
+        opener = mock.Mock()
+        if error:
+            opener.open.side_effect = error
+        else:
+            opener.open.return_value.__enter__ = lambda s: io.BytesIO(response)
+            opener.open.return_value.__exit__ = lambda *a: False
+        return opener
+
+    def test_request_goes_to_the_local_engine_with_the_bouncer_key(self):
+        opener = self.opener(json.dumps(DECISIONS).encode())
+        with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=opener):
+            self.assertEqual(reputation.fetch_lapi(ATTACKER, 'clave-bouncer', 'http://127.0.0.1:8080'), DECISIONS)
+        request = opener.open.call_args[0][0]
+        self.assertEqual(request.full_url, f'http://127.0.0.1:8080/v1/decisions?ip={ATTACKER}')
+        self.assertEqual(request.get_header('X-api-key'), 'clave-bouncer')
+
+    def test_engine_answers_are_mapped(self):
+        for body, expected in ((b'null', []), (b'[]', [])):
+            with mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(body)):
+                self.assertEqual(reputation.fetch_lapi(ATTACKER, 'k', 'http://127.0.0.1:8080'), expected)
+        forbidden = urlerror.HTTPError('u', 403, 'access forbidden', {}, io.BytesIO(b'{"message":"access forbidden"}'))
+        for error, exception in ((forbidden, reputation.KeyRejected),
+                                 (urlerror.URLError(ConnectionRefusedError()), reputation.EngineUnavailable)):
+            with self.subTest(exception), self.assertRaises(exception), \
+                    mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(error=error)):
+                reputation.fetch_lapi(ATTACKER, 'k', 'http://127.0.0.1:8080')
+        with self.assertRaises(ValueError), \
+                mock.patch.object(reputation.urlrequest, 'build_opener', return_value=self.opener(b'{"a": 1}')):
+            reputation.fetch_lapi(ATTACKER, 'k', 'http://127.0.0.1:8080')
+
+    def test_key_never_travels_in_clear_outside_the_host(self):
+        for url, ok in (('', True), ('http://127.0.0.1:8080', True), ('http://localhost:8080/', True),
+                        ('https://crowdsec.interno:8080', True), ('http://10.0.0.9:8080', False),
+                        ('http://crowdsec.interno:8080', False), ('ftp://127.0.0.1', False),
+                        ('http://u:p@127.0.0.1:8080', False), ('http://127.0.0.1:8080/?x=1', False)):
+            with self.subTest(url), mock.patch.dict('os.environ', {'SOC_PORTAL_CROWDSEC_LAPI_URL': url}):
+                if ok:
+                    self.assertTrue(reputation.lapi_url().startswith('http'))
+                else:
+                    with self.assertRaises(ValueError):
+                        reputation.lapi_url()
+
+    def test_decisions_are_summarised_without_extra_fields(self):
+        values = parse_lapi(DECISIONS)
+        self.assertEqual(values, {'found': True, 'reputation': 'listed',
+                                  'behaviors': ['crowdsecurity/ssh-bf', 'lista:firehol'],
+                                  'classifications': ['Lista comunitaria', 'Lista de la consola'],
+                                  'listed_range': '45.155.205.0/24'})
+        self.assertEqual(parse_lapi([]), {'found': False, 'reputation': 'unknown'})
+        hostile = parse_lapi([{'origin': ['x'], 'scenario': 'x' * 999, 'scope': 'Range', 'value': 'no-es-red'}, 'basura'])
+        self.assertEqual((hostile['classifications'], len(hostile['behaviors'][0]), hostile['listed_range']),
+                         (['Otra fuente'], 120, ''))
+
+    def run_lapi(self, fetch=None, env=None, now=None):
+        calls = []
+
+        def fake(ip, key, base):
+            calls.append((ip, key, base))
+            return fetch(ip) if fetch else (DECISIONS if ip == ATTACKER else [])
+        variables = {'SOC_PORTAL_CROWDSEC_LAPI_KEY': 'clave-bouncer', 'SOC_PORTAL_CROWDSEC_KEY': 'clave-cti',
+                     'SOC_PORTAL_CROWDSEC_LAPI_URL': '', **(env or {})}
+        with mock.patch.dict('os.environ', variables), mock.patch.object(reputation, 'fetch_lapi', side_effect=fake), \
+                mock.patch.object(reputation, 'fetch') as cti:
+            updated = reputation.refresh(now or self.now)
+        cti.assert_not_called()
+        return updated, calls
+
+    def test_local_engine_is_preferred_without_daily_quota_and_with_short_cache(self):
+        updated, calls = self.run_lapi(env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '0'})
+        self.assertEqual([ip for ip, *_ in calls], [OTHER_ATTACKER, ATTACKER], 'mismo filtro de privacidad y orden')
+        self.assertEqual({(key, base) for _, key, base in calls}, {('clave-bouncer', 'http://127.0.0.1:8080')})
+        self.assertEqual(updated, 2)
+        listed, absent = IpReputation.objects.get(ip=ATTACKER), IpReputation.objects.get(ip=OTHER_ATTACKER)
+        self.assertEqual((listed.source, listed.reputation, listed.found), ('lapi', 'listed', True))
+        self.assertEqual((absent.source, absent.found), ('lapi', False))
+        self.assertEqual(listed.expires_at, self.now + reputation.LAPI_TTL)
+        self.assertEqual(self.run_lapi()[1], [])
+        self.assertEqual(len(self.run_lapi(now=self.now + reputation.LAPI_TTL + timedelta(minutes=1))[1]), 2)
+        self.assertEqual(WorkerState.objects.get(name='crowdsec-quota').details['mode'], 'lapi')
+
+    def test_engine_down_is_reported_and_retried_next_run(self):
+        def down(ip):
+            raise reputation.EngineUnavailable()
+        _, calls = self.run_lapi(fetch=down)
+        self.assertEqual(len(calls), 1)
+        state = WorkerState.objects.get(name='crowdsec-quota')
+        self.assertIn('motor CrowdSec local', state.error)
+        self.assertNotIn('paused_until', state.details)
+        self.assertEqual(len(self.run_lapi()[1]), 2)
+        self.assertEqual(WorkerState.objects.get(name='crowdsec-quota').error, '')
+
+    def test_rejected_key_or_bad_url_never_exposes_the_key(self):
+        def rejected(ip):
+            raise reputation.KeyRejected()
+        self.run_lapi(fetch=rejected)
+        state = WorkerState.objects.get(name='crowdsec-quota')
+        self.assertIn('SOC_PORTAL_CROWDSEC_LAPI_KEY', state.error)
+        self.assertEqual(self.run_lapi()[1], [], 'en pausa')
+        WorkerState.objects.filter(name='crowdsec-quota').delete()
+        _, calls = self.run_lapi(env={'SOC_PORTAL_CROWDSEC_LAPI_URL': 'http://10.0.0.9:8080'})
+        self.assertEqual(calls, [])
+        state = WorkerState.objects.get(name='crowdsec-quota')
+        self.assertIn('HTTPS', state.error)
+        self.assertNotIn('clave-bouncer', json.dumps(state.details) + state.error)
+
+
 @override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
 class ReputationPagesTests(TestCase):
     def setUp(self):
@@ -206,3 +323,20 @@ class ReputationPagesTests(TestCase):
         self.client.force_login(self.customer)
         self.assertEqual(self.client.get(reverse('ip_investigation'), {'ip': ATTACKER}).status_code, 403)
         self.assertNotContains(self.client.get(reverse('customer_home')), 'CrowdSec')
+
+    def test_local_engine_lists_are_explained_without_claiming_benign(self):
+        IpReputation.objects.filter(ip=ATTACKER).update(source='lapi', **parse_lapi(DECISIONS),
+                                                        confidence='', background_noise='')
+        IpReputation.objects.create(ip=OTHER_ATTACKER, source='lapi', expires_at=timezone.now() + timedelta(hours=1),
+                                    **parse_lapi([]))
+        evidence = SecurityEvidence.objects.get()
+        evidence.pk, evidence.uid, evidence.source_ip = None, 'b' * 64, OTHER_ATTACKER
+        evidence.save()
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse('ip_investigation'), {'ip': ATTACKER})
+        self.assertContains(page, 'En lista de bloqueo')
+        self.assertContains(page, 'Lista comunitaria, Lista de la consola')
+        self.assertContains(page, 'por el rango 45.155.205.0/24')
+        absent = self.client.get(reverse('ip_investigation'), {'ip': OTHER_ATTACKER})
+        self.assertContains(absent, 'No figurar no significa que sea benigna')
+        self.assertContains(self.client.get(reverse('intelligence')), 'CrowdSec: En lista de bloqueo')

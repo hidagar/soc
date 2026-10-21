@@ -269,6 +269,8 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | Campo | Tipo | Relación / atributos declarados |
 |---|---|---|
 | `ip` | GenericIPAddressField | unique=True |
+| `source` | CharField | max_length=8 |
+| `listed_range` | CharField | max_length=64; blank=True |
 | `found` | BooleanField |  |
 | `reputation` | CharField | max_length=16; blank=True |
 | `confidence` | CharField | max_length=16; blank=True |
