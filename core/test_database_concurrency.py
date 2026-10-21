@@ -11,7 +11,10 @@ from django.db import connection, connections
 from django.test import Client as HttpClient, TransactionTestCase, override_settings
 from django.urls import reverse
 
-from .models import AuditEvent, Client, Device, SecureLogReceipt, Site
+from django.utils import timezone
+
+from . import reputation
+from .models import AuditEvent, Client, Device, IpReputation, SecureLogReceipt, Site
 from .secure_logs import prepare
 from .security import audit, audit_integrity, decrypt
 
@@ -74,3 +77,16 @@ class ConcurrentWritersTests(TransactionTestCase):
         self.assertEqual(sorted(status for status, _ in results), [202] * WRITERS)
         self.assertEqual(sum(1 for _, duplicate in results if not duplicate), 1)
         self.assertEqual(SecureLogReceipt.objects.filter(channel=channel).count(), 1)
+
+    def test_reputation_cache_writes_while_other_jobs_write(self):
+        now = timezone.now()
+
+        def write(index):
+            if index % 2:
+                return audit('concurrency.check', details={'count': index}).pk
+            return reputation._store('45.155.205.233', reputation.parse_lapi([]), 'lapi', now, reputation.LAPI_TTL)
+
+        _, errors = run_concurrently(write)
+        self.assertEqual(errors, [])
+        self.assertEqual(IpReputation.objects.filter(ip='45.155.205.233').count(), 1)
+        self.assertTrue(audit_integrity())

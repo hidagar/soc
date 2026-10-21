@@ -19,6 +19,7 @@ from urllib import parse as urlparse
 from urllib import error as urlerror
 from urllib import request as urlrequest
 
+from django.db import transaction
 from django.db.models import Count, Max, Q
 from django.utils import timezone
 
@@ -241,8 +242,12 @@ def parse(data):
 def _store(ip, values, source, now, ttl):
     defaults = {field.name: field.get_default() for field in IpReputation._meta.concrete_fields
                 if field.name not in ('id', 'ip', 'fetched_at', 'expires_at')}
-    IpReputation.objects.update_or_create(ip=ip, defaults={**defaults, **values, 'source': source, 'fetched_at': now,
-                                                           'expires_at': now + ttl})
+    with transaction.atomic():
+        # Escribir antes de leer: update_or_create lee primero y en SQLite falla con
+        # "database is locked" si otro trabajo escribe a la vez (invariante 7).
+        WorkerState.reserve('reputation-cache-lock')
+        IpReputation.objects.update_or_create(ip=ip, defaults={**defaults, **values, 'source': source,
+                                                               'fetched_at': now, 'expires_at': now + ttl})
 
 
 def refresh(now=None):
