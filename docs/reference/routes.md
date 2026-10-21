@@ -41,6 +41,8 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `operations/work/` | `work_queue` | `work_queue.work_queue` |
 | `incidents/<int:pk>/claim/` | `claim_incident` | `work_queue.claim_incident` |
 | `cliente/mapa/` | `customer_map` | `service.customer_map` |
+| `cliente/firewalls/` | `customer_firewalls` | `customer_portal.firewalls` |
+| `cliente/detecciones/` | `customer_detections` | `customer_portal.detections` |
 | `cliente/mapa/data/` | `customer_map_data` | `service.customer_map_data` |
 | `operations/exposure/device/<int:pk>/interfaces/` | `exposure_interfaces` | `exposure_views.exposure_interfaces` |
 | `cliente/` | `customer_home` | `service.customer_home` |

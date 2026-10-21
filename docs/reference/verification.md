@@ -16,6 +16,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
+| [core/test_customer_portal.py](../../core/test_customer_portal.py) | 7 |
 | [core/test_customer_task_history.py](../../core/test_customer_task_history.py) | 7 |
 | [core/test_dashboard_sources.py](../../core/test_dashboard_sources.py) | 1 |
 | [core/test_database_concurrency.py](../../core/test_database_concurrency.py) | 3 |
@@ -128,3 +129,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0048_customer_task_history.py](../../core/migrations/0048_customer_task_history.py)
 - [core/migrations/0049_report_versions.py](../../core/migrations/0049_report_versions.py)
 - [core/migrations/0050_ip_reputation.py](../../core/migrations/0050_ip_reputation.py)
+- [core/migrations/0051_customer_portal_detail.py](../../core/migrations/0051_customer_portal_detail.py)

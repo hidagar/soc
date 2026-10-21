@@ -17,6 +17,14 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
 
 Recibe invitación para establecer contraseña. La cuenta pertenece exactamente a su empresa; puede consultar comunicaciones e informes publicados, responder tareas permitidas y acceder a su dashboard Wazuh si el ámbito está preparado. El mapa agregado es opcional. No accede a notas/secretos del operador ni a incidentes internos por el hecho de existir.
 
+Con «Mostrar firewalls y detecciones en el portal del cliente» activado en la ficha del cliente (desactivado por defecto), el portal añade:
+
+- **Firewalls:** por equipo, sede, fabricante, modelo, versión, estado resumido («Protegido y monitorizado», «Comprobaciones en curso», «En revisión por el SOC», mantenimiento o pausa), último registro recibido, motores de protección con su estado y modo IPS/IDS, aviso de actualizaciones disponibles y detecciones de los últimos 7 días. No muestra los textos de las brechas del SOC, errores de gestión ni datos de conexión.
+- **Detecciones:** periodo de 24 h, 7 o 30 días, con filtros por firewall y acción; totales, evolución diaria, tipo de detección, países de origen, firmas más frecuentes, IPs públicas de origen más activas y registro paginado con fecha, firewall, firma, categoría, origen, país, destino, puerto y acción. Son los mismos campos que la proyección del índice Wazuh del cliente.
+- **Menú del portal** (Resumen, Firewalls, Detecciones, Mapa si está activado, Informes, Actuaciones) y enlace «Panel avanzado (Wazuh)» solo cuando su ámbito Wazuh está verificado.
+
+Nunca se muestran notas internas, recomendaciones del SOC, identificadores de Wazuh, identidades de equipos, incidencias no publicadas ni reputación CrowdSec. Las detecciones se limitan al propietario histórico de la evidencia (`client_scope_id`) que coincide con el cliente actual del equipo, como en el resto de vistas.
+
 El correo semanal enlaza al informe web, desde donde puede descargar PDF. No se adjunta PDF. Un enlace firmado está limitado a ese informe y puede caducar/revocarse; no da acceso al panel entero.
 
 ## Pantallas y significado

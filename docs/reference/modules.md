@@ -22,6 +22,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/connection_help.py](../../core/connection_help.py) | Operator guidance using the same destinations as actual provisioning. — `connection_guide` |
 | [core/context_processors.py](../../core/context_processors.py) | `connection_permissions` |
 | [core/control_views.py](../../core/control_views.py) | `global_permission`, `TemplateForm`, `changes`, `change_detail`, `vpn_sites`, `vpn_download`, `RecoveryForm`, `recovery` |
+| [core/customer_portal.py](../../core/customer_portal.py) | Portal del cliente: firewalls y detecciones con proyección explícita (invariante 3). — `wazuh_ready`, `portal_client`, `detection_row`, `firewall_rows`, `detection_summary`, `firewalls`, `detections` |
 | [core/database_transfer.py](../../core/database_transfer.py) | Traslado verificado de la base del portal de SQLite a PostgreSQL (bloque 4, paso 4). — `TransferError`, `close_source`, `open_source`, `transfer_models`, `applied_migrations`, `check_target`, `preflight`, `field_problem`, `preserved_timestamps`, `normalized`, `fingerprint`, `copy_rows`, `transfer` |
 | [core/delivery_provider.py](../../core/delivery_provider.py) | Readonly, bounded diagnosis of this service's SendGrid webhook. — `fingerprint`, `diagnose` |
 | [core/delivery_tracking.py](../../core/delivery_tracking.py) | Signed provider events; primary recipients only, immutable dispatch correlation. — `verification_key`, `delivery_webhook`, `DeliveryForm`, `delivery_settings`, `delivery_status`, `escalate_unacknowledged` |

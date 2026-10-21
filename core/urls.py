@@ -27,6 +27,7 @@ from . import network_views
 from . import advanced_views
 from . import investigation, vpn_security
 from . import reputation_views
+from . import customer_portal
 from . import invitations
 from . import secure_logs
 
@@ -56,6 +57,8 @@ urlpatterns = [
     path('operations/work/', work_queue.work_queue, name='work_queue'),
     path('incidents/<int:pk>/claim/', work_queue.claim_incident, name='claim_incident'),
     path('cliente/mapa/',service.customer_map,name='customer_map'),
+    path('cliente/firewalls/',customer_portal.firewalls,name='customer_firewalls'),
+    path('cliente/detecciones/',customer_portal.detections,name='customer_detections'),
     path('cliente/mapa/data/',service.customer_map_data,name='customer_map_data'),
     path('operations/exposure/device/<int:pk>/interfaces/',exposure_views.exposure_interfaces,name='exposure_interfaces'),
     path('cliente/',service.customer_home,name='customer_home'),

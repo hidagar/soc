@@ -300,6 +300,7 @@ Fuente: [core/models.py](../../core/models.py).
 | `report_email` | EmailField | blank=True |
 | `weekly_reports_enabled` | BooleanField |  |
 | `customer_live_map_enabled` | BooleanField |  |
+| `customer_portal_detail_enabled` | BooleanField |  |
 | `urgent_email` | EmailField | blank=True |
 | `urgent_alerts_enabled` | BooleanField |  |
 | `urgent_availability_enabled` | BooleanField |  |
