@@ -18,6 +18,18 @@ API/SSH son opcionales cuando basta Syslog guiado. Inventario intenta descubrir 
 | GCC / GDMS | OAuth por región, selección remota/MAC, inventario | Syslog guiado y comprobación de recepción | No hay escritura documentada de Syslog implementada en el cliente cloud. Proxy web no es API estable. Amenaza real pendiente. |
 | ClamAV | Cobertura cuando hay datos | Contemplado por contrato | Corpus v1 sin muestra real; no afirmar validación completa. |
 
+## Reputación CrowdSec (CTI, solo lectura)
+
+Contexto de reputación de IPs externas (hoja de ruta 4A/C1), en `core/reputation.py`. El trabajo protegido `reputation` (cada 15 minutos) consulta `GET https://cti.api.crowdsec.net/v2/smoke/<ip>` con la cabecera `x-api-key`; la web solo lee la caché `IpReputation`.
+
+- **Qué IPs se consultan:** solo orígenes **públicos** de evidencias de los últimos 7 días cuyo destino es una red interna o una IP pública de un cliente. Nunca IPs internas, IPs de clientes o del SOC (orígenes Syslog, propiedad de fuentes, transporte HTTPS, IP pública Syslog) ni destinos de conexiones salientes, que revelarían la navegación de los clientes. Orden: tráfico permitido, nivel más alto y repetición.
+- **Cupo:** `SOC_PORTAL_CROWDSEC_DAILY_LIMIT` consultas al día (30 por defecto; ajustar al plan). Cada respuesta vale 3 días. 429 (cupo) o 401/403 (clave) pausan seis horas y quedan en «Salud del SOC» sin exponer la clave. Un fallo de una IP no detiene el resto. 404 se guarda como «sin datos».
+- **Qué se guarda:** reputación, confianza, ruido de fondo, puntuaciones generales, comportamientos, clasificaciones, posibles falsos positivos, ASN, país y fechas de la comunidad, con la fecha del dato. Nada más de la respuesta. Se purga a los 90 días.
+- **Dónde se ve:** «Investigar IP» y «Detecciones prioritarias», solo personal del SOC. No se muestra a clientes ni se usa en informes.
+- **Qué no hace:** no crea incidencias, no cambia acción, prioridad ni motivos de una detección y no bloquea nada. «Ruido de fondo» alto indica escaneo masivo de Internet, no un ataque dirigido.
+
+Sin `SOC_PORTAL_CROWDSEC_KEY` el trabajo no consulta nada. Comprobado contra la API real que una clave inválida devuelve 403; el resto del contrato está probado con respuestas simuladas según la documentación de CrowdSec y debe confirmarse con la clave real.
+
 ## Archivos
 
 - OPNsense: `opnsense_api.py`, `provisioning.py`, `ssh_connection.py`, `protection.py`, `network_coverage.py`, `configuration_archives.py`.

@@ -37,6 +37,10 @@ Para clientes, usar la proyección publicable de `service_development.py`, inclu
 - Root/mTLS del indexador pertenece al worker protegido; el reader usa una credencial limitada distinta.
 - No registrar cuerpos, tokens, credenciales o respuestas completas de fabricante. Auditoría usa una allowlist.
 
+## Terceros con datos de IP
+
+CrowdSec CTI recibe direcciones IP para obtener su reputación. Solo se envían orígenes públicos de tráfico entrante hacia clientes; nunca IPs internas, de clientes o del SOC ni destinos de conexiones salientes. Ningún otro dato del evento o del cliente sale del SOC. Limitación conocida: si un motor registra como origen la respuesta de un servidor externo visitado (por ejemplo, una alerta sobre contenido descargado), esa IP puede consultarse.
+
 ## Proxy y SSO Wazuh
 
 Nginx consulta `/security/wazuh/check/` con un secreto interno. El backend comprueba sesión, MFA, permisos y ámbito listo; devuelve identidad/rol controlados. El proxy debe sustituir cabeceras de identidad del navegador y proteger la ruta interna. No es un token administrador reutilizable en el frontend. La configuración viva está fuera de Git.

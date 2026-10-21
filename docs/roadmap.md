@@ -24,6 +24,10 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: 4A/C1 en revisión (21/10/2026)
+
+Reputación CrowdSec CTI implementada con caché, cupo, fecha del dato y filtro de privacidad, solo para el equipo SOC y sin remediación. Pendiente: probar con la clave real y el cupo del plan; mostrarla en incidencias, mapa o informes requiere decidir qué se publica al cliente (y, en informes, congelarla con la versión publicada).
+
 ## Actualización: 3B servidor desplegado (20/10/2026)
 
 Bandeja cifrada, confirmación por mensaje del motor nativo, identidad estable en el índice y deduplicación de evidencias/contadores. Pruebas de cortes, reinicio y repetición en laboratorio, y servicios privados comprobados con systemd. El Syslog anterior conserva su recorrido.

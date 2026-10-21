@@ -228,6 +228,10 @@ def intelligence(request):
         if not selected.isdigit():raise Http404
         client=get_object_or_404(Client,pk=selected)
     rows,limited=intelligence_rows(client.pk if client else None)
+    # Reputación CrowdSec: solo contexto junto al origen; no altera prioridad ni motivos.
+    from .reputation import lookup_many
+    reputations=lookup_many(row['source_ip'] for row in rows)
+    for row in rows:row['reputation']=reputations.get(row['source_ip'])
     return render(request,'intelligence.html',{'rows':rows,'limited':limited,'clients':Client.objects.all(),'selected':selected})
 
 def monthly_context(client,month,now=None):

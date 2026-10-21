@@ -24,6 +24,7 @@ JOBS={
     'health':(60,'Salud de la plataforma'),
     'notifications':(60,'Avisos operativos'),
     'housekeeping':(3600,'Conservación y limpieza'),
+    'reputation':(900,'Reputación CrowdSec'),
 }
 BUDGET=180
 
@@ -121,7 +122,12 @@ def execute(name):
         UserInvitation.objects.filter(status='sending',attempted_at__lt=now-timedelta(minutes=10)).update(status='uncertain',error='El proceso se interrumpió; revisar antes de reenviar.')
         UserInvitation.objects.filter(expires_at__lte=now).exclude(encrypted_token='').update(encrypted_token='')
         prune_logs(now)
+        from .reputation import prune
+        prune(now)
         return cleanup(now)
+    if name=='reputation':
+        from .reputation import refresh
+        return refresh()
     raise ValueError('Trabajo no permitido.')
 
 def run_job(name):

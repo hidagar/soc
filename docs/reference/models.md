@@ -262,6 +262,28 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `reason` | TextField | blank=True |
 | `created_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
 | `created_at` | DateTimeField |  |
+## IpReputation
+
+Fuente: [core/improvement_models.py](../../core/improvement_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `ip` | GenericIPAddressField | unique=True |
+| `found` | BooleanField |  |
+| `reputation` | CharField | max_length=16; blank=True |
+| `confidence` | CharField | max_length=16; blank=True |
+| `background_noise` | CharField | max_length=16; blank=True |
+| `background_noise_score` | PositiveSmallIntegerField | null=True |
+| `scores` | JSONField | blank=True |
+| `behaviors` | JSONField | blank=True |
+| `classifications` | JSONField | blank=True |
+| `false_positives` | JSONField | blank=True |
+| `as_name` | CharField | max_length=200; blank=True |
+| `country` | CharField | max_length=2; blank=True |
+| `first_seen` | CharField | max_length=40; blank=True |
+| `last_seen` | CharField | max_length=40; blank=True |
+| `fetched_at` | DateTimeField |  |
+| `expires_at` | DateTimeField |  |
 ## Client
 
 Fuente: [core/models.py](../../core/models.py).
