@@ -56,7 +56,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_report_freshness.py](../../core/test_report_freshness.py) | 3 |
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_report_versions.py](../../core/test_report_versions.py) | 5 |
-| [core/test_reputation.py](../../core/test_reputation.py) | 26 |
+| [core/test_reputation.py](../../core/test_reputation.py) | 32 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
 | [core/test_service_development.py](../../core/test_service_development.py) | 18 |
@@ -130,3 +130,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0049_report_versions.py](../../core/migrations/0049_report_versions.py)
 - [core/migrations/0050_ip_reputation.py](../../core/migrations/0050_ip_reputation.py)
 - [core/migrations/0051_customer_portal_detail.py](../../core/migrations/0051_customer_portal_detail.py)
+- [core/migrations/0052_ip_reputation_sources.py](../../core/migrations/0052_ip_reputation_sources.py)

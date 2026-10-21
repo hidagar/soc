@@ -233,17 +233,19 @@ def intelligence(request):
         if not selected.isdigit():raise Http404
         client=get_object_or_404(Client,pk=selected)
     view=request.GET.get('reputacion','')
-    if view not in ('','lista','permitida'):raise Http404
+    if view not in ('','lista','permitida','sin_ruido'):raise Http404
     rows,limited=intelligence_rows(client.pk if client else None)
     # Reputación CrowdSec: contexto y filtro de revisión; no altera prioridad, motivos ni orden.
     from .reputation import lookup_many
     reputations=lookup_many(row['source_ip'] for row in rows)
     for row in rows:
         row['reputation']=reputation=reputations.get(row['source_ip'])
-        row['listed']=bool(reputation and reputation.found)
+        row['listed']=bool(reputation and reputation.flagged)
+        row['noise']=bool(reputation and reputation.noise)
         row['listed_allowed']=row['listed'] and row['action']=='allowed'
     counts={'listed':sum(row['listed'] for row in rows),'listed_allowed':sum(row['listed_allowed'] for row in rows)}
-    if view:rows=[row for row in rows if row['listed_allowed' if view=='permitida' else 'listed']]
+    if view=='sin_ruido':rows=[row for row in rows if not row['noise']]
+    elif view:rows=[row for row in rows if row['listed_allowed' if view=='permitida' else 'listed']]
     return render(request,'intelligence.html',{'rows':rows,'limited':limited,'clients':Client.objects.all(),'selected':selected,
         'view':view,'counts':counts})
 

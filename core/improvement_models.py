@@ -160,13 +160,19 @@ class IpReputation(models.Model):
     """Reputación CrowdSec de una IP pública externa (contexto, no detección).
 
     Dato global de la IP, sin cliente: se consulta solo para orígenes de tráfico entrante y
-    solo lo ve el equipo SOC. `source` indica el modo: `lapi` (listas del motor local) o
-    `cti` (API de pago). `fetched_at` fecha el dato; caduca en `expires_at`.
+    solo lo ve el equipo SOC. Dos fuentes con su propia fecha y caducidad:
+    - listas del motor local (gratuitas): `listed` y siguientes; None = sin comprobar;
+    - API CTI (de pago): `cti_found` y los campos de reputación; None = sin consultar.
+    `fetched_at` es la última actualización de cualquiera de las dos.
     """
     ip=models.GenericIPAddressField(unique=True)
-    source=models.CharField(max_length=8,default='cti')
+    listed=models.BooleanField(null=True)
+    list_origins=models.JSONField(default=list,blank=True)
+    list_scenarios=models.JSONField(default=list,blank=True)
     listed_range=models.CharField(max_length=64,blank=True)
-    found=models.BooleanField(default=True)
+    lists_checked_at=models.DateTimeField(null=True,blank=True)
+    lists_expires_at=models.DateTimeField(null=True,blank=True)
+    cti_found=models.BooleanField(null=True)
     reputation=models.CharField(max_length=16,blank=True)
     confidence=models.CharField(max_length=16,blank=True)
     background_noise=models.CharField(max_length=16,blank=True)
@@ -179,5 +185,6 @@ class IpReputation(models.Model):
     country=models.CharField(max_length=2,blank=True)
     first_seen=models.CharField(max_length=40,blank=True)
     last_seen=models.CharField(max_length=40,blank=True)
+    cti_checked_at=models.DateTimeField(null=True,blank=True)
+    cti_expires_at=models.DateTimeField(null=True,blank=True)
     fetched_at=models.DateTimeField(default=timezone.now)
-    expires_at=models.DateTimeField()
