@@ -59,7 +59,7 @@ Cerrar cuando existan evidencias de migración, concurrencia, recuperación, ais
 - Zenarmor oficina: exportación Syslog sujeta a licencia/capacidad real; la activación SOHO/Business se dejó pendiente.
 - SendGrid: activación del webhook firmado de entrega pendiente por decisión del usuario. Aceptado por SendGrid no significa entregado.
 - SLA y conversación/histórico de tareas, publicaciones HTML/PDF inmutables y rectificaciones, matrices de cobertura y pruebas completas de continuidad: bloques 5–8.
-- CrowdSec: motor local instalado en la VM con lista comunitaria; reputación combinada listas + API CTI de pago (cupo diario y mensual), página propia y filtro de ruido de fondo. 7A/C2 fase 1 en revisión: listas de bloqueo por cliente con observación, freno de emergencia y plantilla OPNsense; piloto previsto: Conservas Roselló. VictoriaLogs: piloto condicional, sin sustituir Wazuh ni dar por cerrada la ingesta.
+- CrowdSec: motor local instalado en la VM con lista comunitaria; reputación combinada listas + API CTI de pago (cupo diario y mensual), página propia y filtro de ruido de fondo. 7A/C2 fase 1 en revisión: listas de bloqueo por cliente con observación, freno de emergencia y plantilla OPNsense; piloto previsto: Conservas Roselló. Recomendador de listas de CrowdSec (Service API) medido con los ataques reales, con suscripción en cola y modo automático opcional. VictoriaLogs: piloto condicional, sin sustituir Wazuh ni dar por cerrada la ingesta.
 - Rotación de SECRET_KEY (auditoría y firmas) y anclaje externo de auditoría. La cadena local no acredita por sí sola que no se borrara su tramo final.
 
 ## Para retomar sin historia del chat

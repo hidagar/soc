@@ -314,6 +314,35 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `last_fetch_at` | DateTimeField | null=True; blank=True |
 | `observation` | JSONField | blank=True |
 | `updated_at` | DateTimeField |  |
+## CrowdsecBlocklist
+
+Fuente: [core/improvement_models.py](../../core/improvement_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `blocklist_id` | CharField | max_length=40; unique=True |
+| `name` | CharField | max_length=200 |
+| `label` | CharField | max_length=200; blank=True |
+| `description` | CharField | max_length=500; blank=True |
+| `pricing_tier` | CharField | max_length=16; blank=True |
+| `source` | CharField | max_length=16; blank=True |
+| `categories` | JSONField | blank=True |
+| `size` | PositiveIntegerField |  |
+| `false_positives` | PositiveIntegerField |  |
+| `top_scenarios` | JSONField | blank=True |
+| `subscribed` | BooleanField |  |
+| `subscribed_by` | CharField | max_length=16; blank=True |
+| `pending_action` | CharField | max_length=16; blank=True |
+| `requested_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `access` | CharField | max_length=16 |
+| `hits` | PositiveIntegerField |  |
+| `new_hits` | PositiveIntegerField |  |
+| `allowed_hits` | PositiveIntegerField |  |
+| `clients` | PositiveIntegerField |  |
+| `score` | FloatField |  |
+| `evaluated_at` | DateTimeField | null=True; blank=True |
+| `seen_at` | DateTimeField |  |
+| `error` | CharField | max_length=240; blank=True |
 ## Client
 
 Fuente: [core/models.py](../../core/models.py).
