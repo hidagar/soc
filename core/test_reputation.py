@@ -340,3 +340,39 @@ class ReputationPagesTests(TestCase):
         absent = self.client.get(reverse('ip_investigation'), {'ip': OTHER_ATTACKER})
         self.assertContains(absent, 'No figurar no significa que sea benigna')
         self.assertContains(self.client.get(reverse('intelligence')), 'CrowdSec: En lista de bloqueo')
+
+    def test_priority_list_highlights_and_filters_allowed_traffic_from_listed_sources(self):
+        evidence = SecurityEvidence.objects.get()
+        IpReputation.objects.filter(ip=ATTACKER).update(source='lapi', **parse_lapi(DECISIONS),
+                                                        confidence='', background_noise='')
+        for uid, source, action, signature in (('b', ATTACKER, 'allowed', 'Firma permitida'),
+                                               ('c', OTHER_ATTACKER, 'allowed', 'Firma sin lista'),
+                                               ('d', '203.0.113.50', 'allowed', 'Firma sin consultar')):
+            SecurityEvidence.objects.create(uid=uid * 64, device=evidence.device, observed_at=evidence.observed_at,
+                                            engine='suricata', signature=signature, source_ip=source,
+                                            destination_ip='10.0.0.5', action=action, level=3,
+                                            client_scope_id=evidence.client_scope_id)
+        IpReputation.objects.create(ip=OTHER_ATTACKER, source='lapi', expires_at=timezone.now() + timedelta(hours=1),
+                                    **parse_lapi([]))
+        self.client.force_login(self.staff)
+        url = reverse('intelligence')
+        everything = self.client.get(url)
+        self.assertContains(everything, '1 grupo de tráfico permitido desde IPs en listas')
+        self.assertContains(everything, 'Permitida desde IP en lista', count=1)
+        for signature in ('Firma de prueba', 'Firma permitida', 'Firma sin lista', 'Firma sin consultar'):
+            self.assertContains(everything, signature)
+        listed = self.client.get(url, {'reputacion': 'lista'})
+        self.assertContains(listed, 'Firma de prueba')
+        self.assertContains(listed, 'Firma permitida')
+        self.assertNotContains(listed, 'Firma sin lista')
+        self.assertNotContains(listed, 'Firma sin consultar')
+        allowed = self.client.get(url, {'reputacion': 'permitida'})
+        self.assertContains(allowed, 'Firma permitida')
+        self.assertNotContains(allowed, 'Firma de prueba')
+        self.assertEqual(self.client.get(url, {'reputacion': 'otra'}).status_code, 404)
+        # Solo contexto: la prioridad y los motivos no dependen de la reputación.
+        from .service_development import intelligence_rows
+        before = [(r['signature'], r['priority'], r['reasons']) for r in intelligence_rows()[0]]
+        IpReputation.objects.all().delete()
+        self.assertEqual(before, [(r['signature'], r['priority'], r['reasons']) for r in intelligence_rows()[0]])
+        self.assertFalse(Incident.objects.exists())
