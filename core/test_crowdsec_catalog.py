@@ -28,26 +28,39 @@ CONTENT = {'good': f'{A_ALLOWED}\n{A_OTHER}\n91.92.0.0/16\n{A_COVERED}\n# coment
 
 
 class FakeService:
-    def __init__(self, engines=None):
+    def __init__(self, engines=None, engines_allowed=True):
         self.calls = []
+        self.engines_allowed = engines_allowed
         self.engines = engines or [{'id': 'engine-1', 'blocklists': [{'id': 'subscribed', 'remediation': 'ban'}]}]
+        self.subscribers = {'subscribed': [{'id': 'engine-1', 'entity_type': 'engine', 'remediation': 'ban'}]}
         self.lists = [blocklist('good'), blocklist('subscribed'), blocklist('noisy', 'premium', size=100, fp=50),
                       blocklist('platinum', 'platinum'), blocklist('empty')]
 
     def __call__(self, key, path, method='GET', body=None, raw=False):
         self.calls.append((method, path, body))
         if path.startswith('/engines'):
+            if not self.engines_allowed:
+                raise catalog.ServiceError('clave rechazada o sin acceso con este plan')
             return {'items': self.engines, 'pages': 1}
         if path.startswith('/blocklists?'):
+            if 'subscribed_only=true' in path:
+                return {'items': [b for b in self.lists if self.subscribers.get(b['id'])], 'pages': 1}
             return {'items': self.lists, 'pages': 1}
         if path.endswith('/download'):
             identifier = path.split('/')[2]
             if identifier == 'platinum':
                 raise catalog.ServiceError('sin acceso con este plan')
             return io.BytesIO(CONTENT[identifier].encode())
+        identifier = path.split('/')[2].split('?')[0]
         if path.endswith('/subscribers') and method == 'POST':
-            return {'updated': body['ids'], 'errors': []}
+            entity = {'id': body['ids'][0] if body.get('ids') else 'org-1', 'entity_type': body['entity_type']}
+            self.subscribers.setdefault(identifier, []).append(entity)
+            return {'updated': [entity['id']], 'errors': []}
+        if '/subscribers?' in path:
+            return {'items': self.subscribers.get(identifier, []), 'pages': 1}
         if '/subscribers/' in path and method == 'DELETE':
+            target = path.rsplit('/', 1)[1]
+            self.subscribers[identifier] = [e for e in self.subscribers.get(identifier, []) if e['id'] != target]
             return {}
         raise AssertionError(path)
 
@@ -109,7 +122,8 @@ class RefreshTests(CatalogTestCase):
         self.assertFalse(any(method == 'POST' for method, _, _ in self.service.calls), 'sin modo automático no suscribe')
         downloads = [p for _, p, _ in self.service.calls if p.endswith('/download')]
         self.assertEqual(len(downloads), 4)
-        self.assertEqual(len([p for _, p, _ in self.service.calls if p.startswith('/blocklists?')]), 1, 'catálogo diario')
+        catalog_calls = [p for _, p, _ in self.service.calls if p.startswith('/blocklists?')]
+        self.assertEqual((len(catalog_calls), sum('subscribed_only' in p for p in catalog_calls)), (2, 1), 'catálogo diario')
 
     def test_download_budget_and_reevaluation_interval(self):
         self.run_job(env={'SOC_PORTAL_CROWDSEC_LIST_DOWNLOADS': '2'}, runs=3)
@@ -131,6 +145,19 @@ class RefreshTests(CatalogTestCase):
         self.assertTrue(AuditEvent.objects.filter(action='crowdsec.subscribe').exists())
         self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '1'})
         self.assertEqual(len([1 for m, _, _ in self.service.calls if m == 'POST']), 1, 'límite alcanzado')
+
+    def test_key_without_engine_permission_subscribes_the_organisation(self):
+        self.service = FakeService(engines_allowed=False)
+        state = self.run_job(runs=2)
+        self.assertEqual((state.error, state.details['engine_id']), ('', ''))
+        self.assertTrue(CrowdsecBlocklist.objects.get(blocklist_id='subscribed').subscribed)
+        self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '1'})
+        self.assertIn(('POST', '/blocklists/good/subscribers', {'entity_type': 'org', 'remediation': 'ban'}), self.service.calls)
+        good = CrowdsecBlocklist.objects.get(blocklist_id='good')
+        CrowdsecBlocklist.objects.filter(pk=good.pk).update(pending_action='unsubscribe')
+        self.run_job()
+        self.assertIn(('DELETE', '/blocklists/good/subscribers/org-1', None), self.service.calls)
+        self.assertFalse(CrowdsecBlocklist.objects.get(pk=good.pk).subscribed)
 
     def test_several_engines_require_explicit_engine_id(self):
         self.service.engines = [{'id': 'engine-1'}, {'id': 'engine-2'}]

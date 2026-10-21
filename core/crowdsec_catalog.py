@@ -95,17 +95,40 @@ def call(key, path, method='GET', body=None, raw=False):
 
 
 def engine_id(key, details):
-    """Motor a suscribir: el configurado o, si la organización tiene uno solo, ese."""
+    """Motor a suscribir: el configurado o, si la organización tiene uno solo, ese.
+
+    Devuelve '' si la clave no tiene permiso para ver motores: entonces se suscribe la
+    organización entera, equivalente con un único motor (los nuevos motores también recibirían la lista).
+    """
     configured = os.environ.get('SOC_PORTAL_CROWDSEC_ENGINE_ID', '').strip()
     if configured:
         return configured
-    if details.get('engine_id'):
+    if 'engine_id' in details:
         return details['engine_id']
-    engines = call(key, '/engines?size=100').get('items') or []
+    try:
+        engines = call(key, '/engines?size=100').get('items') or []
+    except ServiceError as exc:
+        if 'acceso' not in str(exc):
+            raise
+        details['engine_id'] = ''
+        return ''
     if len(engines) != 1:
         raise ServiceError(f'la organización tiene {len(engines)} motores; fija SOC_PORTAL_CROWDSEC_ENGINE_ID')
     details['engine_id'] = str(engines[0].get('id', ''))[:80]
     return details['engine_id']
+
+
+def subscribed_lists(key):
+    """Listas con alguna suscripción de la organización; no necesita permiso sobre motores."""
+    found, page = set(), 1
+    while page <= 50:
+        data = call(key, '/blocklists?' + urlparse.urlencode({'page': page, 'size': 100, 'include_filter': 'all',
+                                                              'subscribed_only': 'true'}))
+        found |= {str(item.get('id')) for item in data.get('items') or [] if isinstance(item, dict)}
+        if page >= int(data.get('pages') or 1):
+            return found
+        page += 1
+    return found
 
 
 def _text(value, size):
@@ -114,11 +137,8 @@ def _text(value, size):
 
 def refresh_catalog(key, details, now):
     """Catálogo visible para la organización y qué listas tiene ya el motor."""
-    engine = engine_id(key, details)
-    subscribed = set()
-    for item in call(key, '/engines?size=100').get('items') or []:
-        if str(item.get('id')) == engine:
-            subscribed = {str(b.get('id')) for b in item.get('blocklists') or [] if isinstance(b, dict)}
+    engine_id(key, details)
+    subscribed = subscribed_lists(key)
     page, seen = 1, set()
     while page <= 50:
         query = urlparse.urlencode({'page': page, 'size': 100, 'include_filter': 'all'})
@@ -236,13 +256,21 @@ def recommended(queryset=None):
 
 
 def _subscribe(key, row, engine, action):
+    """Alta del motor (o de la organización si no hay motor identificado) o baja de sus suscripciones."""
     if action == 'subscribe':
-        result = call(key, f'/blocklists/{row.blocklist_id}/subscribers', 'POST',
-                      {'entity_type': 'engine', 'ids': [engine], 'remediation': 'ban'})
-        if engine not in [str(i) for i in result.get('updated') or []]:
+        body = ({'entity_type': 'engine', 'ids': [engine], 'remediation': 'ban'} if engine
+                else {'entity_type': 'org', 'remediation': 'ban'})
+        result = call(key, f'/blocklists/{row.blocklist_id}/subscribers', 'POST', body)
+        if result.get('errors') or (engine and engine not in [str(i) for i in result.get('updated') or []]):
             raise ServiceError('CrowdSec no confirmó la suscripción')
-    else:
-        call(key, f'/blocklists/{row.blocklist_id}/subscribers/{engine}', 'DELETE')
+        return
+    entities = call(key, f'/blocklists/{row.blocklist_id}/subscribers?size=100').get('items') or []
+    targets = [str(e.get('id')) for e in entities if isinstance(e, dict) and e.get('id')
+               and (e.get('entity_type') == 'org' or str(e.get('id')) == engine or not engine)]
+    if not targets:
+        raise ServiceError('no hay suscripción de la organización que retirar')
+    for target in targets:
+        call(key, f'/blocklists/{row.blocklist_id}/subscribers/{urlparse.quote(target, safe="")}', 'DELETE')
 
 
 def process_actions(key, details, now):
