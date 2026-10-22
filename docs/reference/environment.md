@@ -14,8 +14,10 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_ALLOWED_HOSTS` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_CROWDSEC_CTI_PER_RUN` | [core/reputation.py](../../core/reputation.py) |
 | `SOC_PORTAL_CROWDSEC_DAILY_LIMIT` | [core/reputation.py](../../core/reputation.py) |
+| `SOC_PORTAL_CROWDSEC_ENGINE_ID` | [core/crowdsec_catalog.py](../../core/crowdsec_catalog.py) |
 | `SOC_PORTAL_CROWDSEC_LAPI_URL` | [core/reputation.py](../../core/reputation.py) |
 | `SOC_PORTAL_CROWDSEC_MONTHLY_LIMIT` | [core/reputation.py](../../core/reputation.py) |
+| `SOC_PORTAL_CROWDSEC_SERVICE_KEY` | [core/crowdsec_catalog.py](../../core/crowdsec_catalog.py) |
 | `SOC_PORTAL_CSRF_ORIGINS` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_DB_ENGINE` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_DB_HOST` | [socportal/settings.py](../../socportal/settings.py) |

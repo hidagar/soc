@@ -181,6 +181,7 @@ class IpReputation(models.Model):
     behaviors=models.JSONField(default=list,blank=True)
     classifications=models.JSONField(default=list,blank=True)
     false_positives=models.JSONField(default=list,blank=True)
+    cti_lists=models.JSONField(default=list,blank=True)
     as_name=models.CharField(max_length=200,blank=True)
     country=models.CharField(max_length=2,blank=True)
     first_seen=models.CharField(max_length=40,blank=True)
@@ -212,3 +213,38 @@ class BlocklistFeed(models.Model):
     observation=models.JSONField(default=dict,blank=True)
     updated_at=models.DateTimeField(auto_now=True)
     objects=ScopedManager();customer_lookup='client_id'
+
+class CrowdsecBlocklist(models.Model):
+    """Lista del catálogo de CrowdSec (Service API) y su utilidad medida con los atacantes reales.
+
+    `hits`: atacantes de los clientes (30 días) que contiene; `new_hits`: lo que aporta (si está
+    suscrita, los que solo cubre ella; si no, los que no cubre ninguna otra); `allowed_hits`: los que
+    tuvieron tráfico permitido. `method`: `motor` (exacto, decisiones del motor) o `cti` (estimado
+    sobre `sample` atacantes consultados en la API CTI, que indica en qué listas está cada IP). Las altas y
+    bajas se piden aquí (`pending_action`) y las ejecuta el trabajo protegido `crowdsec_lists`.
+    """
+    blocklist_id=models.CharField(max_length=40,unique=True)
+    name=models.CharField(max_length=200)
+    label=models.CharField(max_length=200,blank=True)
+    description=models.CharField(max_length=500,blank=True)
+    pricing_tier=models.CharField(max_length=16,blank=True)
+    source=models.CharField(max_length=16,blank=True)
+    categories=models.JSONField(default=list,blank=True)
+    size=models.PositiveIntegerField(default=0)
+    false_positives=models.PositiveIntegerField(default=0)
+    top_scenarios=models.JSONField(default=list,blank=True)
+    subscribed=models.BooleanField(default=False)
+    subscribed_by=models.CharField(max_length=16,blank=True)
+    pending_action=models.CharField(max_length=16,blank=True)
+    requested_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True,blank=True,related_name='+')
+    access=models.CharField(max_length=16,default='pending')
+    hits=models.PositiveIntegerField(default=0)
+    new_hits=models.PositiveIntegerField(default=0)
+    allowed_hits=models.PositiveIntegerField(default=0)
+    clients=models.PositiveIntegerField(default=0)
+    method=models.CharField(max_length=8,blank=True)
+    sample=models.PositiveIntegerField(default=0)
+    score=models.FloatField(default=0)
+    evaluated_at=models.DateTimeField(null=True,blank=True)
+    seen_at=models.DateTimeField(default=timezone.now)
+    error=models.CharField(max_length=240,blank=True)

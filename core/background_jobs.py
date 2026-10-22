@@ -26,6 +26,7 @@ JOBS={
     'housekeeping':(3600,'Conservación y limpieza'),
     'reputation':(900,'Reputación CrowdSec'),
     'blocklists':(900,'Listas de bloqueo del SOC'),
+    'crowdsec_lists':(300,'Listas de CrowdSec'),
 }
 BUDGET=180
 
@@ -132,6 +133,9 @@ def execute(name):
     if name=='blocklists':
         from .blocklist import refresh_feeds
         return refresh_feeds()
+    if name=='crowdsec_lists':
+        from .crowdsec_catalog import refresh as refresh_lists
+        return refresh_lists()
     raise ValueError('Trabajo no permitido.')
 
 def run_job(name):

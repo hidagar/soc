@@ -39,6 +39,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | `housekeeping` | 3600 | Conservación y limpieza |
 | `reputation` | 900 | Reputación CrowdSec |
 | `blocklists` | 900 | Listas de bloqueo del SOC |
+| `crowdsec_lists` | 300 | Listas de CrowdSec |
 
 ## Unidades incluidas
 

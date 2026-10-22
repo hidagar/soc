@@ -17,6 +17,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_blocklist.py](../../core/test_blocklist.py) | 10 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
+| [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 8 |
 | [core/test_customer_portal.py](../../core/test_customer_portal.py) | 7 |
 | [core/test_customer_task_history.py](../../core/test_customer_task_history.py) | 7 |
 | [core/test_dashboard_sources.py](../../core/test_dashboard_sources.py) | 1 |
@@ -133,3 +134,5 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0051_customer_portal_detail.py](../../core/migrations/0051_customer_portal_detail.py)
 - [core/migrations/0052_ip_reputation_sources.py](../../core/migrations/0052_ip_reputation_sources.py)
 - [core/migrations/0053_blocklist_feed.py](../../core/migrations/0053_blocklist_feed.py)
+- [core/migrations/0054_crowdsec_blocklists.py](../../core/migrations/0054_crowdsec_blocklists.py)
+- [core/migrations/0055_crowdsec_list_sources.py](../../core/migrations/0055_crowdsec_list_sources.py)

@@ -46,7 +46,7 @@ CTI_BACKOFF = (timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6))
 BAD = ('malicious', 'suspicious')
 MODES = {'lapi+cti': 'Motor local + API CTI', 'lapi': 'Motor local (gratuito)', 'cti': 'API CTI (de pago)', '': 'Sin configurar'}
 CTI_EMPTY = {'reputation': '', 'confidence': '', 'background_noise': '', 'background_noise_score': None, 'scores': {},
-             'behaviors': [], 'classifications': [], 'false_positives': [], 'as_name': '', 'country': '',
+             'behaviors': [], 'classifications': [], 'false_positives': [], 'cti_lists': [], 'as_name': '', 'country': '',
              'first_seen': '', 'last_seen': ''}
 LABELS = {'malicious': 'Maliciosa', 'suspicious': 'Sospechosa', 'known': 'Conocida', 'benign': 'Benigna',
           'safe': 'Segura', 'unknown': 'Sin datos', 'listed': 'En lista de bloqueo'}
@@ -308,6 +308,9 @@ def parse(data):
                    if k in ('aggressiveness', 'threat', 'trust', 'anomaly', 'total') and _small(v) is not None},
         'behaviors': _labels(data.get('behaviors')), 'classifications': _labels(classifications.get('classifications')),
         'false_positives': _labels(classifications.get('false_positives')),
+        # Listas de CrowdSec que contienen la IP («list:<nombre>»), también las no suscritas.
+        'cti_lists': [_text(r.get('name'), 120)[5:] for r in (data.get('references') or [])[:30]
+                      if isinstance(r, dict) and isinstance(r.get('name'), str) and r['name'].startswith('list:')],
         'as_name': _text(data.get('as_name'), 200), 'country': _text(location.get('country'), 2),
         'first_seen': _text(history.get('first_seen'), 40), 'last_seen': _text(history.get('last_seen'), 40),
     }

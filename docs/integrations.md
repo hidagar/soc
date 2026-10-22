@@ -56,6 +56,22 @@ El SOC hace de puente entre CrowdSec y los firewalls de cada cliente (`core/bloc
 
 Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: bloqueos manuales del analista con caducidad, bloqueo saliente (C2), UniFi y Hillstone, y la medición de eficacia con los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
 
+## Listas de CrowdSec guiadas por los ataques reales (Service API)
+
+`core/crowdsec_catalog.py` y la página «Detección e investigación → Listas de CrowdSec» (permiso `manage_operations`; altas y bajas con `manage_connections` y MFA reciente). El trabajo protegido `crowdsec_lists` (cada 5 minutos) usa `SOC_PORTAL_CROWDSEC_SERVICE_KEY` contra `https://admin.api.crowdsec.net/v1` con la cabecera `x-api-key`.
+
+1. **Catálogo diario:** `GET /blocklists?include_filter=all` (paginado) y, con `subscribed_only=true`, las listas que ya tiene la organización. Las Service API Keys no ofrecen permiso sobre motores (`GET /engines` da 403, comprobado con una clave real con todos los permisos de la consola), así que por defecto se suscribe la **organización** (`entity_type: org`), equivalente con un único motor; si la clave puede ver motores o se fija `SOC_PORTAL_CROWDSEC_ENGINE_ID`, se suscribe ese motor. La baja retira las suscripciones que liste `GET …/subscribers`.
+2. **Evaluación con los ataques reales, sin descargas:** CrowdSec no deja descargar listas no suscritas (403) y las suscritas devolvieron 204 en la VM, así que cada hora se mide en local con datos ya obtenidos, contra los orígenes públicos de tráfico entrante de los clientes en 30 días:
+   - **Listas suscritas — exacto (motor):** las decisiones del motor llevan como motivo el nombre de la lista (`crowdsec_wordpress`, `firehol_greensnow`…). Su aporte son los atacantes que solo cubre esa lista (ni la comunitaria ni otra).
+   - **Resto — estimado (CTI):** la API CTI indica en `references` (`list:<nombre>`) en qué listas está cada IP consultada, también las no suscritas. Su aporte son los atacantes de la muestra que hoy no cubre ninguna lista. La página indica sobre cuántos atacantes consultados se estima; la muestra crece con las consultas CTI priorizadas.
+   - **Puntuación:** aporte + 4 × atacantes con tráfico permitido + 0,5 × clientes, y 0 si CrowdSec declara más de un 1 % de falsos positivos.
+   - No hay llamadas externas en la evaluación ni se envían IPs de clientes por esta vía.
+3. **Recomendadas:** listas gratuitas o premium sin suscribir que aportan al menos 3 atacantes y tienen puntuación > 0. Las platino no se proponen.
+4. **Suscripción:** «Suscribir» o «Dar de baja» deja la petición en cola. El trabajo la ejecuta (`POST /blocklists/{id}/subscribers` con `remediation: ban`, o `DELETE …/subscribers/{entidad}`) y lo audita con el usuario que la pidió.
+5. **Modo automático** (`SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE=N`, 0 por defecto): el SOC suscribe por su cuenta las mejores recomendadas hasta N listas, marcadas «Suscrita por el SOC» y auditadas. Nunca da de baja por su cuenta.
+
+Las listas suscritas llegan al motor local (origen `lists`) y, desde ahí, a la reputación y a las listas de bloqueo de los clientes, que solo incluyen IPs que han atacado a algún cliente. Probado con una Service API simulada según su especificación OpenAPI. Comprobado en la VM: clave inválida → 403, catálogo y suscripciones con la clave real, nombres de lista en las decisiones del motor y en `references` de la CTI.
+
 ### Instalar el motor local (modo gratuito)
 
 En la VM del portal (o en otra, con HTTPS), según la documentación oficial de CrowdSec:
