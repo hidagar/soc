@@ -1,15 +1,16 @@
 """Catálogo de listas de CrowdSec y suscripción guiada por los ataques reales (Service API).
 
-El SOC conoce a quién atacan y desde dónde. Con esa información mide cada lista del catálogo:
-cuántos atacantes de los clientes (30 días) contiene, cuántos aún no cubre ninguna lista
-suscrita y cuántos tuvieron tráfico permitido. Recomienda las que aportan y, si se activa el
-modo automático, suscribe el motor a las mejores dentro de un máximo.
+El SOC conoce a quién atacan y desde dónde. Con esa información mide cada lista del catálogo
+sin descargarla (CrowdSec no permite descargar listas no suscritas, comprobado en la VM):
+- listas suscritas: exacto, con las decisiones del motor local, que llevan el nombre de la lista;
+- resto: estimado con la API CTI, que indica en qué listas está cada IP consultada.
+Cuenta atacantes de los clientes (30 días), cuántos aporta cada lista y cuántos tuvieron tráfico
+permitido. Recomienda las que aportan y, si se activa el modo automático, suscribe las mejores.
 
 Solo el trabajo protegido `crowdsec_lists` usa la clave (`SOC_PORTAL_CROWDSEC_SERVICE_KEY`);
-la web lee el catálogo y deja peticiones de alta o baja en cola. Las descargas están acotadas
-en número diario y tamaño. Ninguna IP de clientes sale del SOC: la comparación es local.
+la web lee el catálogo y deja peticiones de alta o baja en cola. Ninguna IP de clientes se
+envía por esta vía: la comparación es local con datos ya obtenidos.
 """
-import ipaddress
 import json
 import os
 from collections import defaultdict
@@ -34,9 +35,8 @@ API = 'https://admin.api.crowdsec.net/v1'
 STATE = 'crowdsec-catalog'
 WINDOW = timedelta(days=30)
 CATALOG_EVERY = timedelta(hours=24)
-REEVALUATE = timedelta(days=7)
+EVALUATE_EVERY = timedelta(hours=1)
 MAX_JSON = 4 * 1024 * 1024
-MAX_LIST = 64 * 1024 * 1024
 MAX_FALSE_POSITIVE = 0.01
 MIN_NEW_HITS = 3
 TIERS = ('free', 'premium')
@@ -62,31 +62,25 @@ def _int_env(name, default, low, high):
         return default
 
 
-def daily_downloads():
-    return _int_env('SOC_PORTAL_CROWDSEC_LIST_DOWNLOADS', 10, 0, 100)
-
-
 def auto_subscribe_limit():
     """Máximo de listas que el SOC suscribe por su cuenta; 0 = solo recomendar."""
     return _int_env('SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE', 0, 0, 50)
 
 
-def call(key, path, method='GET', body=None, raw=False):
+def call(key, path, method='GET', body=None):
     """Petición a la Service API. Errores sin contenido del proveedor ni la clave."""
     data = json.dumps(body).encode() if body is not None else None
-    headers = {'x-api-key': key, 'User-Agent': 'ib-red-SOC/1', 'Accept': 'text/plain' if raw else 'application/json'}
+    headers = {'x-api-key': key, 'User-Agent': 'ib-red-SOC/1', 'Accept': 'application/json'}
     if data is not None:
         headers['Content-Type'] = 'application/json'
     req = urlrequest.Request(API + path, data=data, headers=headers, method=method)
     try:
-        response = urlrequest.build_opener(_NoRedirect()).open(req, timeout=60 if raw else 20)
+        response = urlrequest.build_opener(_NoRedirect()).open(req, timeout=20)
     except urlerror.HTTPError as exc:
         raise ServiceError({401: 'clave rechazada', 403: 'clave rechazada o sin acceso con este plan', 404: 'no encontrada',
                             429: 'límite de la API'}.get(exc.code, f'HTTP {exc.code}')) from None
     except (urlerror.URLError, TimeoutError, ConnectionError):
         raise ServiceError('sin conexión con la API de CrowdSec') from None
-    if raw:
-        return response
     with response:
         payload = response.read(MAX_JSON + 1)
     if len(payload) > MAX_JSON:
@@ -191,61 +185,52 @@ def attackers(now):
     return dict(result)
 
 
-def matches(lines, targets):
-    """IPs de `targets` contenidas en la lista (IPs sueltas o redes), leyendo línea a línea."""
-    exact, networks = set(), []
-    for line in lines:
-        value = line.strip().split('#', 1)[0].strip()
-        if not value:
-            continue
-        try:
-            if '/' in value:
-                network = ipaddress.ip_network(value, strict=False)
-                if network.num_addresses == 1:
-                    exact.add(str(network.network_address))
-                else:
-                    networks.append(network)
-            else:
-                exact.add(str(ipaddress.ip_address(value)))
-        except ValueError:
-            continue
-    found = {ip for ip in targets if ip in exact}
-    if networks:
-        for ip in targets.keys() - found:
-            address = ipaddress.ip_address(ip)
-            if any(address in network for network in networks if network.version == address.version):
-                found.add(ip)
-    return found
+def membership(targets):
+    """Por atacante: listas del catálogo según el motor (exacto) y según la CTI, y si ya está cubierto."""
+    engine, cti = defaultdict(set), defaultdict(set)
+    covered, community, sampled, per_ip = set(), set(), set(), defaultdict(set)
+    wanted = sorted(targets)
+    for start in range(0, len(wanted), 1000):
+        rows = IpReputation.objects.filter(ip__in=wanted[start:start + 1000]).only(
+            'ip', 'listed', 'list_origins', 'list_scenarios', 'cti_found', 'cti_lists')
+        for row in rows:
+            if row.listed:
+                covered.add(row.ip)
+                if 'Lista comunitaria' in (row.list_origins or []):
+                    community.add(row.ip)
+                for name in row.list_scenarios or []:
+                    engine[name].add(row.ip)
+                    per_ip[row.ip].add(name)
+            if row.cti_found is not None:
+                sampled.add(row.ip)
+            for name in (row.cti_lists or []) if row.cti_found else []:
+                cti[name].add(row.ip)
+    return {'engine': engine, 'cti': cti, 'covered': covered, 'community': community, 'sampled': sampled,
+            'per_ip': per_ip}
 
 
-def _download(key, blocklist_id):
-    response = call(key, f'/blocklists/{blocklist_id}/download', raw=True)
-    total = 0
-    with response:
-        for raw in response:
-            total += len(raw)
-            if total > MAX_LIST:
-                raise ServiceError('lista demasiado grande para evaluarla')
-            yield raw.decode('utf-8', 'replace')
-
-
-def evaluate(key, row, targets, covered, now):
-    try:
-        found = matches(_download(key, row.blocklist_id), targets)
-    except ServiceError as exc:
-        row.access = 'denied' if 'acceso' in str(exc) else 'error'
-        row.error, row.evaluated_at = str(exc)[:240], now
+def evaluate_all(targets, now):
+    """Mide todas las listas del catálogo con los atacantes reales; sin llamadas externas."""
+    data = membership(targets)
+    for row in CrowdsecBlocklist.objects.all():
+        if row.subscribed and data['engine'].get(row.name):
+            found = data['engine'][row.name]
+            # Aporte de una lista suscrita: atacantes que solo cubre ella (ni la comunitaria ni otra).
+            new = {ip for ip in found if ip not in data['community'] and data['per_ip'][ip] == {row.name}}
+            row.method, row.sample = 'motor', len(targets)
+        else:
+            found = data['cti'].get(row.name, set())
+            new = found - data['covered']
+            row.method, row.sample = 'cti', len(data['sampled'])
+        row.hits, row.new_hits = len(found), len(new)
+        row.allowed_hits = sum(1 for ip in found if targets[ip]['allowed'])
+        row.clients = len(set().union(*(targets[ip]['clients'] for ip in found))) if found else 0
+        ratio = row.false_positives / row.size if row.size else 0
+        # Aporte nuevo, sobre todo si dejó pasar tráfico; penaliza listas con falsos positivos.
+        row.score = 0 if ratio > MAX_FALSE_POSITIVE else round(row.new_hits + 4 * row.allowed_hits + 0.5 * row.clients, 2)
+        row.access, row.error, row.evaluated_at = 'ok', '', now
         row.save()
-        return
-    new = found - covered
-    row.hits, row.new_hits = len(found), len(new)
-    row.allowed_hits = sum(1 for ip in found if targets[ip]['allowed'])
-    row.clients = len(set().union(*(targets[ip]['clients'] for ip in found))) if found else 0
-    ratio = row.false_positives / row.size if row.size else 0
-    # Aporte nuevo, sobre todo si dejó pasar tráfico; penaliza listas con falsos positivos.
-    row.score = 0 if ratio > MAX_FALSE_POSITIVE else round(row.new_hits + 4 * row.allowed_hits + 0.5 * row.clients, 2)
-    row.access, row.error, row.evaluated_at = 'ok', '', now
-    row.save()
+    return len(data['sampled'])
 
 
 def recommended(queryset=None):
@@ -317,26 +302,14 @@ def refresh(now=None):
         state.save(update_fields=['error', 'details'])
         return 0
     details = dict(state.details, enabled=True)
-    today = now.date().isoformat()
-    if details.get('day') != today:
-        details.update(day=today, downloads=0)
     done = 0
     try:
         process_actions(key, details, now)
         if details.get('catalog_at', '') <= (now - CATALOG_EVERY).isoformat():
             refresh_catalog(key, details, now)
-        budget = daily_downloads() - details.get('downloads', 0)
-        if budget > 0:
-            stale = (CrowdsecBlocklist.objects.filter(pricing_tier__in=TIERS, seen_at__gte=now - 2 * CATALOG_EVERY)
-                     .filter(Q(evaluated_at__isnull=True) | Q(evaluated_at__lt=now - REEVALUATE))
-                     .order_by('evaluated_at', '-size')[:min(budget, 3)])
-            if stale:
-                targets = attackers(now)
-                covered = set(IpReputation.objects.filter(listed=True).values_list('ip', flat=True))
-                for row in stale:
-                    details['downloads'] = details.get('downloads', 0) + 1
-                    evaluate(key, row, targets, covered, now)
-                    done += 1
+        if details.get('evaluated_at', '') <= (now - EVALUATE_EVERY).isoformat():
+            targets = attackers(now)
+            details.update(evaluated_at=now.isoformat(), attackers=len(targets), sampled=evaluate_all(targets, now))
         done += auto_subscribe(key, details, now)
         state.error = ''
     except ServiceError as exc:
@@ -361,8 +334,7 @@ def overview(request):
         'recommended': best, 'subscribed': rows.filter(subscribed=True).order_by('-score', 'name'),
         'others': rows.filter(subscribed=False, access='ok', pricing_tier__in=TIERS).exclude(
             pk__in=[r.pk for r in best]).order_by('-score', 'name')[:100],
-        'pending': rows.filter(evaluated_at__isnull=True, pricing_tier__in=TIERS).count(),
-        'blocked': rows.exclude(pricing_tier__in=TIERS).count() + rows.filter(access='denied').count()})
+        'blocked': rows.exclude(pricing_tier__in=TIERS).count()})
 
 
 @login_required

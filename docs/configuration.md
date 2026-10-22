@@ -39,7 +39,6 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_PORTAL_CROWDSEC_DAILY_LIMIT | Entero | Consultas CTI al día (30 por defecto). Con plan mensual, el cupo mensual entre 31. No aplica al motor local. |
 | SOC_PORTAL_CROWDSEC_SERVICE_KEY | Service API Key de la consola de CrowdSec | Opcional; permite medir y suscribir listas. Secreto con capacidad de cambiar suscripciones de la organización: solo en el archivo protegido. |
 | SOC_PORTAL_CROWDSEC_ENGINE_ID | Identificador del motor | Solo si la organización tiene más de un motor. |
-| SOC_PORTAL_CROWDSEC_LIST_DOWNLOADS | Entero (0–100) | Listas evaluadas al día (10 por defecto). |
 | SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE | Entero (0–50) | Listas que el SOC puede suscribir por su cuenta; 0 = solo recomendar. |
 | SOC_PORTAL_CROWDSEC_CTI_PER_RUN | Entero (1–20) | Consultas CTI por ejecución del trabajo, cada 15 minutos (2 por defecto). Subirlo solo si CrowdSec no responde 429. |
 | SOC_PORTAL_CROWDSEC_MONTHLY_LIMIT | Entero | Cupo CTI mensual del plan; vacío o 0 = sin tope mensual propio (solo el diario). |

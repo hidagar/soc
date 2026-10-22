@@ -284,6 +284,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `behaviors` | JSONField | blank=True |
 | `classifications` | JSONField | blank=True |
 | `false_positives` | JSONField | blank=True |
+| `cti_lists` | JSONField | blank=True |
 | `as_name` | CharField | max_length=200; blank=True |
 | `country` | CharField | max_length=2; blank=True |
 | `first_seen` | CharField | max_length=40; blank=True |
@@ -339,6 +340,8 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `new_hits` | PositiveIntegerField |  |
 | `allowed_hits` | PositiveIntegerField |  |
 | `clients` | PositiveIntegerField |  |
+| `method` | CharField | max_length=8; blank=True |
+| `sample` | PositiveIntegerField |  |
 | `score` | FloatField |  |
 | `evaluated_at` | DateTimeField | null=True; blank=True |
 | `seen_at` | DateTimeField |  |

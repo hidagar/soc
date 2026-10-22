@@ -485,7 +485,8 @@ class ReputationMigrationTests(TransactionTestCase):
                            fetched_at=now, expires_at=now + timedelta(days=3))
         executor = MigrationExecutor(connection)
         executor.migrate([('core', '0052_ip_reputation_sources')])
-        listed, cti = IpReputation.objects.get(ip=ATTACKER), IpReputation.objects.get(ip=OTHER_ATTACKER)
+        split = executor.loader.project_state([('core', '0052_ip_reputation_sources')]).apps.get_model('core', 'IpReputation')
+        listed, cti = split.objects.get(ip=ATTACKER), split.objects.get(ip=OTHER_ATTACKER)
         self.assertEqual((listed.listed, listed.list_scenarios, listed.list_origins, listed.cti_found, listed.reputation),
                          (True, ['http:scan'], ['Lista comunitaria'], None, ''))
         self.assertEqual(listed.lists_expires_at, now + timedelta(hours=6))

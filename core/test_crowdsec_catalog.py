@@ -1,11 +1,10 @@
 """Catálogo de listas de CrowdSec (Service API simulada): evaluación con atacantes reales y suscripciones."""
-import io
 import time
 from datetime import timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -13,6 +12,7 @@ from . import crowdsec_catalog as catalog
 from .models import AuditEvent, Client, CrowdsecBlocklist, Device, IpReputation, SecurityEvidence, Site, WorkerState
 
 A_ALLOWED, A_OTHER, A_RANGE, A_COVERED = '45.155.205.233', '185.220.101.4', '91.92.5.6', '218.92.0.35'
+EXTRA = ('193.32.162.31', '80.82.77.139')
 
 
 def blocklist(identifier, tier='free', size=1000, fp=0, name=None):
@@ -21,10 +21,6 @@ def blocklist(identifier, tier='free', size=1000, fp=0, name=None):
             'created_at': '2026-01-01', 'updated_at': '2026-10-01',
             'stats': {'count': size, 'content_stats': {'total_false_positive': fp,
                                                        'most_present_scenarios': [{'name': 'ssh-bf', 'label': 'SSH Bruteforce'}]}}}
-
-
-CONTENT = {'good': f'{A_ALLOWED}\n{A_OTHER}\n91.92.0.0/16\n{A_COVERED}\n# comentario\nbasura\n',
-           'subscribed': f'{A_COVERED}\n', 'noisy': f'{A_ALLOWED}\n{A_OTHER}\n', 'empty': '1.2.3.4\n'}
 
 
 class FakeService:
@@ -47,10 +43,7 @@ class FakeService:
                 return {'items': [b for b in self.lists if self.subscribers.get(b['id'])], 'pages': 1}
             return {'items': self.lists, 'pages': 1}
         if path.endswith('/download'):
-            identifier = path.split('/')[2]
-            if identifier == 'platinum':
-                raise catalog.ServiceError('sin acceso con este plan')
-            return io.BytesIO(CONTENT[identifier].encode())
+            raise AssertionError('la evaluación no descarga listas')
         identifier = path.split('/')[2].split('?')[0]
         if path.endswith('/subscribers') and method == 'POST':
             entity = {'id': body['ids'][0] if body.get('ids') else 'org-1', 'entity_type': body['entity_type']}
@@ -65,13 +58,6 @@ class FakeService:
         raise AssertionError(path)
 
 
-class MatchTests(SimpleTestCase):
-    def test_exact_ips_and_ranges_are_matched_and_junk_ignored(self):
-        targets = {A_ALLOWED: {}, A_RANGE: {}, '8.8.8.8': {}, '2001:db8::1': {}}
-        lines = [A_ALLOWED + '\n', '91.92.0.0/16\n', 'no-es-ip\n', '\n', '2001:db8::/32 # red\n', '10.0.0.1/32\n']
-        self.assertEqual(catalog.matches(lines, targets), {A_ALLOWED, A_RANGE, '2001:db8::1'})
-
-
 class CatalogTestCase(TestCase):
     def setUp(self):
         self.now = timezone.now()
@@ -81,12 +67,21 @@ class CatalogTestCase(TestCase):
             devices.append(Device.objects.create(site=Site.objects.create(client=company, name='S', code=code),
                                                  name=f'FW-{code}', vendor='opnsense'))
         attacks = [(A_ALLOWED, devices[0], 'allowed'), (A_OTHER, devices[1], 'blocked'), (A_RANGE, devices[1], 'blocked'),
-                   (A_COVERED, devices[0], 'blocked'), ('10.0.0.9', devices[0], 'blocked')]
+                   (A_COVERED, devices[0], 'blocked'), ('10.0.0.9', devices[0], 'blocked')] + [(ip, devices[0], 'blocked') for ip in EXTRA]
         for index, (ip, device, action) in enumerate(attacks):
             SecurityEvidence.objects.create(uid=f'{index:064x}', device=device, observed_at=self.now - timedelta(days=2),
                                             engine='suricata', signature='Firma', source_ip=ip, destination_ip='10.0.0.5',
                                             action=action, level=8, client_scope_id=device.site.client_id)
-        IpReputation.objects.create(ip=A_COVERED, listed=True, lists_checked_at=self.now)
+        # Motor: A_COVERED solo en una lista suscrita; A_OTHER en la comunitaria.
+        IpReputation.objects.create(ip=A_COVERED, listed=True, list_origins=['Lista de la consola'],
+                                    list_scenarios=['subscribed'], lists_checked_at=self.now)
+        # CTI: en qué listas está cada atacante consultado, suscritas o no.
+        IpReputation.objects.create(ip=A_ALLOWED, cti_found=True, reputation='malicious', cti_lists=['good', 'noisy'])
+        IpReputation.objects.create(ip=A_OTHER, cti_found=True, reputation='malicious', cti_lists=['good'],
+                                    listed=True, list_origins=['Lista comunitaria'], list_scenarios=['ssh:bruteforce'])
+        IpReputation.objects.create(ip=A_RANGE, cti_found=True, reputation='suspicious', cti_lists=[])
+        for ip in EXTRA:
+            IpReputation.objects.create(ip=ip, cti_found=True, reputation='malicious', cti_lists=['good'])
         self.service = FakeService()
 
     def run_job(self, env=None, now=None, runs=1):
@@ -106,49 +101,46 @@ class RefreshTests(CatalogTestCase):
         call.assert_not_called()
         self.assertFalse(WorkerState.objects.get(name=catalog.STATE).details['enabled'])
 
-    def test_lists_are_measured_against_real_attackers(self):
-        state = self.run_job(runs=2)
-        self.assertEqual((state.error, state.details['engine_id'], state.details['catalog_count']), ('', 'engine-1', 5))
+    def test_lists_are_measured_exactly_by_the_engine_or_estimated_by_the_cti(self):
+        state = self.run_job()
+        self.assertEqual((state.error, state.details['catalog_count'], state.details['attackers'], state.details['sampled']),
+                         ('', 5, 6, 5))
         good = CrowdsecBlocklist.objects.get(blocklist_id='good')
-        # 4 atacantes en la lista (uno por rango); uno ya cubierto por una lista suscrita.
-        self.assertEqual((good.hits, good.new_hits, good.allowed_hits, good.clients), (4, 3, 1, 2))
-        self.assertGreater(good.score, 0)
+        # Estimado: 4 atacantes en la lista según la CTI; A_OTHER ya lo cubre la comunitaria.
+        self.assertEqual((good.method, good.sample, good.hits, good.new_hits, good.allowed_hits, good.clients),
+                         ('cti', 5, 4, 3, 1, 2))
+        subscribed = CrowdsecBlocklist.objects.get(blocklist_id='subscribed')
+        self.assertEqual((subscribed.method, subscribed.hits, subscribed.new_hits, subscribed.subscribed_by),
+                         ('motor', 1, 1, 'console'))
         self.assertEqual(CrowdsecBlocklist.objects.get(blocklist_id='noisy').score, 0, 'falsos positivos > 1 %')
         self.assertEqual(CrowdsecBlocklist.objects.get(blocklist_id='empty').hits, 0)
-        subscribed = CrowdsecBlocklist.objects.get(blocklist_id='subscribed')
-        self.assertEqual((subscribed.subscribed, subscribed.subscribed_by), (True, 'console'))
-        self.assertIsNone(CrowdsecBlocklist.objects.get(blocklist_id='platinum').evaluated_at, 'fuera del plan')
         self.assertEqual([r.blocklist_id for r in catalog.recommended()], ['good'])
         self.assertFalse(any(method == 'POST' for method, _, _ in self.service.calls), 'sin modo automático no suscribe')
-        downloads = [p for _, p, _ in self.service.calls if p.endswith('/download')]
-        self.assertEqual(len(downloads), 4)
         catalog_calls = [p for _, p, _ in self.service.calls if p.startswith('/blocklists?')]
-        self.assertEqual((len(catalog_calls), sum('subscribed_only' in p for p in catalog_calls)), (2, 1), 'catálogo diario')
+        self.assertEqual(len(catalog_calls), 2)
+        self.run_job(now=self.now + timedelta(minutes=30))
+        self.assertEqual(len([p for _, p, _ in self.service.calls if p.startswith('/blocklists?')]), 2, 'catálogo diario')
 
-    def test_download_budget_and_reevaluation_interval(self):
-        self.run_job(env={'SOC_PORTAL_CROWDSEC_LIST_DOWNLOADS': '2'}, runs=3)
-        self.assertEqual(len([p for _, p, _ in self.service.calls if p.endswith('/download')]), 2)
-        self.run_job(now=self.now + timedelta(days=1), runs=2)
-        evaluated = CrowdsecBlocklist.objects.exclude(evaluated_at=None).count()
-        self.assertEqual(evaluated, 4)
-        before = len(self.service.calls)
-        self.run_job(now=self.now + timedelta(days=2))
-        self.assertFalse([p for _, p, _ in self.service.calls[before:] if p.endswith('/download')], 'vigentes 7 días')
+    def test_cti_lists_are_kept_from_references(self):
+        from .reputation import parse
+        values = parse({'reputation': 'malicious', 'references': [
+            {'name': 'list:crowdsec_wordpress'}, {'name': 'list:firehol_greensnow'}, {'name': 'otra:cosa'}, 'x']})
+        self.assertEqual(values['cti_lists'], ['crowdsec_wordpress', 'firehol_greensnow'])
 
     def test_automatic_mode_subscribes_the_best_lists_up_to_the_limit(self):
-        self.run_job(runs=2)
-        self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '1'})
+        self.run_job()
+        self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '1'}, now=self.now + timedelta(minutes=5))
         posts = [(p, b) for m, p, b in self.service.calls if m == 'POST']
         self.assertEqual(posts, [('/blocklists/good/subscribers', {'entity_type': 'engine', 'ids': ['engine-1'], 'remediation': 'ban'})])
         good = CrowdsecBlocklist.objects.get(blocklist_id='good')
         self.assertEqual((good.subscribed, good.subscribed_by), (True, 'soc-auto'))
         self.assertTrue(AuditEvent.objects.filter(action='crowdsec.subscribe').exists())
-        self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '1'})
+        self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '1'}, now=self.now + timedelta(minutes=10))
         self.assertEqual(len([1 for m, _, _ in self.service.calls if m == 'POST']), 1, 'límite alcanzado')
 
     def test_key_without_engine_permission_subscribes_the_organisation(self):
         self.service = FakeService(engines_allowed=False)
-        state = self.run_job(runs=2)
+        state = self.run_job()
         self.assertEqual((state.error, state.details['engine_id']), ('', ''))
         self.assertTrue(CrowdsecBlocklist.objects.get(blocklist_id='subscribed').subscribed)
         self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '1'})
@@ -177,7 +169,7 @@ class PageTests(CatalogTestCase):
         session.save()
 
     def test_manual_subscription_is_queued_then_applied_by_the_job(self):
-        self.run_job(runs=2)
+        self.run_job()
         admin = get_user_model().objects.create_superuser('admin', 'a@example.test', 'x')
         self.login(admin)
         page = self.client.get(reverse('crowdsec_lists'))
@@ -202,7 +194,7 @@ class PageTests(CatalogTestCase):
         self.assertEqual(CrowdsecBlocklist.objects.get(pk=platinum.pk).pending_action, '')
 
     def test_only_connection_managers_with_fresh_mfa_change_subscriptions(self):
-        self.run_job(runs=2)
+        self.run_job()
         good = CrowdsecBlocklist.objects.get(blocklist_id='good')
         url = reverse('crowdsec_list_action', args=[good.pk])
         admin = get_user_model().objects.create_superuser('admin', 'a@example.test', 'x')
