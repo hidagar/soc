@@ -197,6 +197,20 @@ class RefreshTests(TestCase):
         self.assertFalse(Incident.objects.exists())
 
 
+class ProtectedNetworkTests(TestCase):
+    def test_client_exceptions_and_management_addresses_are_never_sent(self):
+        from .models import BlocklistFeed
+        company = Client.objects.create(name='Empresa', code='e')
+        site = Site.objects.create(client=company, name='S', code='s')
+        Device.objects.create(site=site, name='FW', vendor='opnsense', management_address='81.47.12.10')
+        BlocklistFeed.objects.create(client=company, allowlist='193.32.162.0/24  # oficina remota')
+        protected = reputation.protected_addresses()
+        self.assertIn('81.47.12.10', protected)
+        self.assertIn('193.32.162.31', protected)
+        self.assertFalse(eligible('193.32.162.31', '10.0.0.5', protected))
+        self.assertTrue(eligible(ATTACKER, '10.0.0.5', protected))
+
+
 class LapiTests(TestCase):
     """Modo gratuito: decisiones del motor local (lista comunitaria y listas de la consola)."""
     def setUp(self):
@@ -441,6 +455,34 @@ class CombinedModeTests(TestCase):
                                           now=self.now + timedelta(minutes=30))['cti']), 1, 'solo queda THIRD')
         with mock.patch.dict('os.environ', {'SOC_PORTAL_CROWDSEC_CTI_PER_RUN': 'x'}):
             self.assertEqual(reputation.cti_per_run(), 2)
+
+    def test_counters_survive_a_job_killed_mid_batch_and_failing_ips_do_not_burn_quota(self):
+        def killed(ip):
+            raise KeyboardInterrupt  # corte del proceso: no lo atrapa ningún «except Exception»
+        with self.assertRaises(KeyboardInterrupt):
+            self.refresh(cti=killed)
+        state = WorkerState.objects.get(name='crowdsec-quota')
+        self.assertEqual((state.details['used'], state.details['month_used']), (1, 1), 'guardado antes de llamar')
+
+        def broken(ip):
+            raise ValueError('respuesta no válida')
+        WorkerState.objects.all().delete()
+        first = self.refresh(cti=broken, env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '48'})['cti']
+        again = self.refresh(cti=broken, env={'SOC_PORTAL_CROWDSEC_DAILY_LIMIT': '48'},
+                             now=self.now + timedelta(minutes=15))['cti']
+        self.assertEqual(len(first), 2)
+        self.assertEqual([ip for ip, _ in again], [THIRD], 'las que fallaron esperan un día')
+
+    def test_paused_sources_are_reported_not_shown_as_working(self):
+        self.refresh(lists=lambda ip: (_ for _ in ()).throw(reputation.KeyRejected()))
+        later = self.refresh(now=self.now + timedelta(minutes=15))
+        self.assertEqual(later['lists'], [])
+        self.assertIn('en pausa', WorkerState.objects.get(name='crowdsec-quota').error)
+
+    def test_batch_fits_the_job_time_limit(self):
+        with mock.patch.object(reputation, 'CTI_PACE', 15), \
+                mock.patch.dict('os.environ', {'SOC_PORTAL_CROWDSEC_CTI_PER_RUN': '20'}):
+            self.assertEqual(reputation.cti_per_run(), 8)
 
     def test_retry_after_header_is_read(self):
         error = urlerror.HTTPError('u', 429, 'Too Many Requests', {'Retry-After': '30'}, io.BytesIO(b'{}'))

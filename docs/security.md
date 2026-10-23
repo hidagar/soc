@@ -43,7 +43,7 @@ Reputación CrowdSec: en el modo gratuito (motor local) la consulta no sale de l
 
 Vista previa del portal del cliente (`/clients/<id>/customer-view/`): reutiliza los contextos del portal del cliente, de modo que el SOC ve la misma proyección y nunca datos adicionales. Solo GET, limitada al ámbito del usuario mediante `Client.objects`, sin acciones de respuesta y auditada por página. Los usuarios con rol cliente no la alcanzan porque el middleware los limita a `/cliente/`.
 
-Service API de CrowdSec: su clave puede cambiar las suscripciones de toda la organización. Solo la usa el trabajo protegido `crowdsec_lists`; la web deja las altas y bajas en cola (permiso `manage_connections` y MFA reciente) y todas quedan auditadas. Las listas se descargan para compararlas en local; no se envían IPs de clientes a CrowdSec.
+Service API de CrowdSec: su clave puede cambiar las suscripciones de toda la organización. Solo la usa el trabajo protegido `crowdsec_lists`; la web deja las altas y bajas en cola (permiso `manage_connections`, acceso global y MFA reciente) y todas quedan auditadas. La evaluación de las listas usa datos ya obtenidos (decisiones del motor y referencias de la CTI): no descarga listas ni envía IPs de clientes a CrowdSec.
 
 Listas de bloqueo para firewalls (`/feeds/bloqueo/`): ruta pública sin sesión, autorizada solo por un token por cliente (guardado como hash y cifrado, comparación en tiempo constante, rotación con `manage_connections` y MFA reciente). Va en la URL porque los alias de OPNsense no admiten cabeceras: no registrar la ruta completa en logs compartidos y rotarlo si se expone. La lista vacía es el estado seguro (desactivada, detenida o cliente inactivo). La regla en el firewall solo se crea y activa con el control de cambios.
 

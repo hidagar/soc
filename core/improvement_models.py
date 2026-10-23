@@ -207,6 +207,10 @@ class BlocklistFeed(models.Model):
     max_entries=models.PositiveIntegerField('Máximo de entradas',default=2000)
     token_hash=models.CharField(max_length=64,blank=True)
     encrypted_token=models.TextField(blank=True)
+    # Tras rotar el token, la URL anterior sirve una lista vacía: el freno sigue alcanzando a ese firewall.
+    previous_token_hash=models.CharField(max_length=64,blank=True)
+    token_rotated_at=models.DateTimeField(null=True,blank=True)
+    previous_token_fetch_at=models.DateTimeField(null=True,blank=True)
     entries=models.JSONField(default=list,blank=True)
     generated_at=models.DateTimeField(null=True,blank=True)
     last_fetch_at=models.DateTimeField(null=True,blank=True)

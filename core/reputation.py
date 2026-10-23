@@ -19,7 +19,7 @@ import os
 import re
 import time
 from collections import Counter
-from datetime import timedelta
+from datetime import datetime, timedelta
 from urllib import parse as urlparse
 from urllib import error as urlerror
 from urllib import request as urlrequest
@@ -43,6 +43,8 @@ WINDOW = timedelta(days=7)
 MAX_RESPONSE = 512 * 1024
 CTI_PACE = 15  # segundos entre consultas CTI: la API responde 429 a consultas casi seguidas
 CTI_BACKOFF = (timedelta(minutes=15), timedelta(hours=1), timedelta(hours=6))
+JOB_SECONDS = 180  # TimeoutStartSec de soc-job@: el lote CTI debe caber con margen
+CTI_FAILED_RETRY = timedelta(days=1)
 BAD = ('malicious', 'suspicious')
 MODES = {'lapi+cti': 'Motor local + API CTI', 'lapi': 'Motor local (gratuito)', 'cti': 'API CTI (de pago)', '': 'Sin configurar'}
 CTI_EMPTY = {'reputation': '', 'confidence': '', 'background_noise': '', 'background_noise_score': None, 'scores': {},
@@ -117,19 +119,49 @@ def mode():
 
 
 def protected_addresses():
-    """IPs propias de clientes y del SOC: nunca se envían a un tercero."""
+    """IPs y redes propias de clientes y del SOC: nunca se envían a un tercero.
+
+    Devuelve un conjunto de IPs con las redes de excepción de los clientes en `networks`
+    (oficinas remotas, socios): estar en un conjunto basta para `ip in protected`.
+    """
+    from .models import BlocklistFeed, Device
     values = set(ExportConfiguration._base_manager.exclude(source_ip=None).values_list('source_ip', flat=True))
+    values |= set(Device._base_manager.exclude(management_address='').values_list('management_address', flat=True))
     values |= set(SourceOwnership._base_manager.values_list('source', flat=True))
     values |= set(SecureLogChannel._base_manager.exclude(last_transport_ip=None).values_list('last_transport_ip', flat=True))
     for variable in ('SOC_PORTAL_PUBLIC_SYSLOG_IP', 'SOC_PORTAL_EXTRA_SYSLOG_IPS'):
         values |= {v.strip() for v in os.environ.get(variable, '').split(',') if v.strip()}
-    result = set()
+    result = ProtectedSet()
     for value in values:
         try:
             result.add(str(ipaddress.ip_address(value)))
         except ValueError:
             continue
+    from .blocklist import parse_allowlist
+    for text in BlocklistFeed._base_manager.exclude(allowlist='').values_list('allowlist', flat=True):
+        try:
+            result.networks.extend(parse_allowlist(text))
+        except ValueError:
+            continue
     return result
+
+
+class ProtectedSet(set):
+    """Conjunto de IPs protegidas que también considera incluidas las de sus redes."""
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.networks = []
+
+    def __contains__(self, ip):
+        if super().__contains__(ip):
+            return True
+        if not self.networks:
+            return False
+        try:
+            address = ipaddress.ip_address(ip)
+        except (TypeError, ValueError):
+            return False
+        return any(address.version == net.version and address in net for net in self.networks)
 
 
 def eligible(source, destination, protected):
@@ -327,6 +359,9 @@ def _store(ip, values, now):
 
 def _refresh_lists(now, details, protected, errors):
     if details.get('lists_paused_until', '') > now.isoformat():
+        errors.append('El motor rechazó la clave; consultas a las listas en pausa hasta las '
+                      + timezone.localtime(datetime.fromisoformat(details['lists_paused_until'])).strftime('%H:%M')
+                      + '. Revisa SOC_PORTAL_CROWDSEC_LAPI_KEY.')
         return 0
     updated = 0
     try:
@@ -357,9 +392,11 @@ def _refresh_lists(now, details, protected, errors):
 def cti_per_run():
     """Consultas CTI por ejecución (cada 15 min): pocas y espaciadas para no provocar el límite de ritmo."""
     try:
-        return max(1, min(20, int(os.environ.get('SOC_PORTAL_CROWDSEC_CTI_PER_RUN', '2'))))
+        wanted = int(os.environ.get('SOC_PORTAL_CROWDSEC_CTI_PER_RUN', '2'))
     except ValueError:
-        return 2
+        wanted = 2
+    # Si systemd corta el trabajo a medias se perdería el lote: que quepa con margen en su tiempo.
+    return max(1, min(wanted, 20, (JOB_SECONDS - 60) // max(1, int(CTI_PACE)) or 1))
 
 
 def cti_allowance(details):
@@ -369,8 +406,17 @@ def cti_allowance(details):
     return max(0, min(cti_per_run(), left, month - details.get('month_used', 0) if month else left))
 
 
+def _persist_counters(details):
+    """Guarda el consumo antes de cada consulta: un trabajo cortado no puede saltarse el cupo."""
+    with transaction.atomic():
+        WorkerState.reserve('crowdsec-quota-lock')
+        WorkerState.objects.filter(name='crowdsec-quota').update(details=dict(details))
+
+
 def _refresh_cti(now, details, protected, errors):
     if details.get('paused_until', '') > now.isoformat():
+        errors.append('Consultas CTI en pausa hasta las '
+                      + timezone.localtime(datetime.fromisoformat(details['paused_until'])).strftime('%H:%M') + '.')
         return 0
     updated = 0
     key = os.environ['SOC_PORTAL_CROWDSEC_KEY'].strip()
@@ -381,12 +427,15 @@ def _refresh_cti(now, details, protected, errors):
             # Se cuenta antes de llamar: un fallo también consume cupo en el proveedor.
             details['used'] = details.get('used', 0) + 1
             details['month_used'] = details.get('month_used', 0) + 1
+            _persist_counters(details)
             try:
                 data = fetch(ip, key)
             except (QuotaExceeded, KeyRejected):
                 raise
             except Exception:
-                continue  # Un fallo de una IP no detiene el resto; se reintentará cuando caduque.
+                # Un fallo de una IP no detiene el resto; no se reintenta hasta mañana para no gastar cupo.
+                _store(ip, {'cti_expires_at': now + CTI_FAILED_RETRY}, now)
+                continue
             values = parse(data) if data is not None else {**CTI_EMPTY, 'cti_found': False}
             _store(ip, {**values, 'cti_checked_at': now, 'cti_expires_at': now + TTL}, now)
             updated += 1
@@ -417,7 +466,8 @@ def refresh(now=None):
         state.save(update_fields=['error', 'details'])
         return 0
     details = dict(state.details)
-    today, month = now.date().isoformat(), now.strftime('%Y-%m')
+    local = timezone.localtime(now)
+    today, month = local.date().isoformat(), local.strftime('%Y-%m')
     if details.get('day') != today:
         details.update(day=today, used=0)
     if details.get('month') != month:
