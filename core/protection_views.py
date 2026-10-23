@@ -8,8 +8,9 @@ from django.views.decorators.http import require_http_methods
 from .models import Client,Site,Device,DeviceHealth,ProtectionPolicy,Incident,IncidentUpdate
 from .protection import snapshot,incident_key
 from .security import audit
+from .forms import ScopedModelForm
 
-class PolicyForm(forms.ModelForm):
+class PolicyForm(ScopedModelForm):
     class Meta:
         model=ProtectionPolicy
         fields=['require_ips','require_zenarmor','require_clamav','notes']

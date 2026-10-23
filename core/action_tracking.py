@@ -10,10 +10,11 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from .models import IncidentAction,Incident,IncidentUpdate,Client
 from .security import audit
+from .forms import ScopedModelForm
 
 CLOSED=('done','cancelled')
 
-class ActionForm(forms.ModelForm):
+class ActionForm(ScopedModelForm):
     class Meta:
         model=IncidentAction
         fields=['title','description','owner','responsible_party','due_at','status','resolution']

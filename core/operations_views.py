@@ -14,11 +14,12 @@ from .models import (Asset,AuditEvent,Client,Device,DeviceHealth,Incident,Incide
     OperationalIssue,StaffAccess,WorkerState)
 from .release import deployed_release
 from .security import audit,audit_integrity,mfa_fresh
+from .forms import ScopedModelForm
 
 def permitted(request,permission):
     return request.user.has_perm('core.'+permission)
 
-class AssetForm(forms.ModelForm):
+class AssetForm(ScopedModelForm):
     confirm_identity=forms.BooleanField(label='Confirmo la identidad actual tras revisar la IP y la MAC',required=False)
     def clean(self):
         values=super().clean()
@@ -35,7 +36,7 @@ class AssetForm(forms.ModelForm):
         model=Asset
         fields=['name','function','owner_contact','vlan','critical']
 
-class HealthForm(forms.ModelForm):
+class HealthForm(ScopedModelForm):
     class Meta:
         model=DeviceHealth
         fields=['expected_silence_minutes','maintenance_until']

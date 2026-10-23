@@ -11,6 +11,7 @@ from .security import audit,mfa_fresh
 from .zenarmor_scope import digest,device_snapshot
 from .advanced_coverage import snapshot
 from .zenarmor_bypass import snapshot as bypass_snapshot
+from .forms import ScopedModelForm
 
 def revision(device):
     health=getattr(device,'health',None)
@@ -19,7 +20,7 @@ def revision(device):
         'interfaces':engine.get('scope',{}).get('interfaces'),'bypass':engine.get('bypass'),
         'local_bypass':bypass_snapshot(device).get('fingerprint')})
 
-class ReviewForm(forms.ModelForm):
+class ReviewForm(ScopedModelForm):
     class Meta:
         model=AdvancedReview;fields=['note','valid_until'];widgets={'note':forms.Textarea(attrs={'rows':4}),'valid_until':forms.DateTimeInput(format='%Y-%m-%dT%H:%M',attrs={'type':'datetime-local'})}
     def clean_note(self):

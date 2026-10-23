@@ -11,6 +11,7 @@ from .models import (Incident,IncidentUpdate,IncidentAction,RunbookStep,Customer
     Device,ProtectionValidation,SecurityEvidence,ConfigurationArchive,UrgentAlert,NetworkCoverage)
 from .security import audit
 from .service_development import customer_client
+from .forms import ScopedModelForm
 
 def runbook_titles(incident):
     text=(incident.title+' '+incident.recommendation).lower()
@@ -52,7 +53,7 @@ def runbook(request,pk):
             audit('runbook.updated',step,{'status':'done' if done else 'pending'})
     return redirect('incident_detail',pk=pk)
 
-class TaskForm(forms.ModelForm):
+class TaskForm(ScopedModelForm):
     class Meta:
         model=CustomerTask
         fields=['title','instructions','due_at','action','visible','status','review_note']
@@ -127,7 +128,7 @@ def customer_task_reply(request,pk):
                 error='Esta tarea ya está respondida o validada. El SOC revisará la respuesta.'
     return render(request,'customer_task_reply.html',{'client':client,'task':task,'error':error})
 
-class ValidationForm(forms.ModelForm):
+class ValidationForm(ScopedModelForm):
     class Meta:
         model=ProtectionValidation
         fields=['engine','network','test_ip','networks','expected_signature']

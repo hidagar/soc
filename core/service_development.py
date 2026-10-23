@@ -17,10 +17,11 @@ from .models import (Client, Device, DeviceObservation, CustomerPublication, Sec
     Incident, IncidentAction, CustomerTask, WeeklyReport, FeedBucket, StaffAccess, ChangePlan)
 from .security import audit
 from .trends import period_metrics
+from .forms import ScopedModelForm
 
 OPEN_TASK_STATUSES=('pending','rework','submitted')
 
-class PublicationForm(forms.ModelForm):
+class PublicationForm(ScopedModelForm):
     class Meta:
         model=CustomerPublication
         fields=['title','summary','next_steps','status','incident','weekly_report','visible']
