@@ -129,6 +129,19 @@ def _family(kind, category, signature, engine):
     return FAMILIES.get(kind, FAMILIES['intrusion'])
 
 
+def _top(rows, limit, name, count='n', keep=None):
+    """Los `limit` primeros de filas ya ordenadas por recuento descendente; los empates se
+    resuelven en Python por nombre, igual en SQLite y PostgreSQL (inet y colaciones ordenan distinto)."""
+    chosen = []
+    for row in rows:
+        if limit and len(chosen) >= limit and row[count] < chosen[limit - 1][count]:
+            break
+        if keep is None or keep(row):
+            chosen.append(row)
+    chosen.sort(key=lambda row: (-row[count], str(row[name])))
+    return chosen[:limit] if limit else chosen
+
+
 def detection_summary(qs, days, now=None):
     """Resumen del periodo con agregados en la base de datos: no recorre cada detección en Python.
 
@@ -145,22 +158,19 @@ def detection_summary(qs, days, now=None):
     families = Counter()
     for row in qs.values('category', 'signature', 'engine', kind=KT('interpretation__event_family')).annotate(n=Count('uid')):
         families[_family(row['kind'], row['category'], row['signature'], row['engine'])] += row['n']
-    signatures = list(qs.values('signature').annotate(
+    signatures = _top(qs.values('signature').annotate(
         count=Count('uid'), blocked=Count('uid', filter=Q(action='blocked')),
-        allowed=Count('uid', filter=Q(action='allowed'))).order_by('-count', 'signature')[:10])
+        allowed=Count('uid', filter=Q(action='allowed'))).order_by('-count').iterator(chunk_size=500), 10, 'signature', 'count')
     firewalls = [(row['device__name'], row['n']) for row in
-                 qs.values('device__name').annotate(n=Count('uid')).order_by('-n', 'device__name')]
+                 _top(qs.values('device__name').annotate(n=Count('uid')).order_by('-n'), None, 'device__name')]
     # Las comparaciones usan las búsquedas JSON de Django (KT = valor exacto falla en SQLite).
     located = qs.filter(geography__direction='inbound', geography__status='located').annotate(
         country=KT('geography__country')).annotate(country_length=Length('country')).filter(country_length__gt=0)
     countries = [(row['country'], row['n']) for row in
-                 located.values('country').annotate(n=Count('uid')).order_by('-n', 'country')[:10]]
-    origins = []
-    for row in located.values('source_ip').annotate(n=Count('uid')).order_by('-n', 'source_ip').iterator(chunk_size=500):
-        if _public(row['source_ip']):
-            origins.append((row['source_ip'], row['n']))
-            if len(origins) == 10:
-                break
+                 _top(located.values('country').annotate(n=Count('uid')).order_by('-n'), 10, 'country')]
+    origins = [(row['source_ip'], row['n']) for row in
+               _top(located.values('source_ip').annotate(n=Count('uid')).order_by('-n').iterator(chunk_size=500), 10,
+                    'source_ip', keep=lambda row: _public(row['source_ip']))]
     today = timezone.localtime(now).date()
     timeline = [{'date': today - timedelta(days=offset), 'count': days_count.get(today - timedelta(days=offset), 0)}
                 for offset in range(days, -1, -1)]  # incluye el día parcial en que empieza la ventana
