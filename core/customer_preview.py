@@ -15,7 +15,8 @@ from django.views.decorators.http import require_GET
 from .customer_portal import detections_context, firewalls_context
 from .models import Client, StaffAccess
 from .security import audit
-from .service_development import customer_geography, customer_home_context, customer_map_context, customer_version
+from .service_development import (customer_geography, customer_home_context, customer_map_context, customer_reports_context,
+                                  customer_tasks_context, customer_version)
 
 
 def preview_client(request, pk, section):
@@ -40,6 +41,22 @@ def _render(request, template, context):
 def home(request, pk):
     client = preview_client(request, pk, 'inicio')
     return _render(request, 'customer_home.html', customer_home_context(client, preview=True))
+
+
+@login_required
+@never_cache
+@require_GET
+def reports(request, pk):
+    client = preview_client(request, pk, 'informes')
+    return _render(request, 'customer_reports.html', customer_reports_context(client, preview=True))
+
+
+@login_required
+@never_cache
+@require_GET
+def tasks(request, pk):
+    client = preview_client(request, pk, 'actuaciones')
+    return _render(request, 'customer_tasks.html', customer_tasks_context(client, preview=True))
 
 
 @login_required

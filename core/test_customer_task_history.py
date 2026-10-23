@@ -87,8 +87,10 @@ class CustomerTaskHistoryTests(TestCase):
         late = CustomerTask.objects.create(incident=self.case, title='Pendiente lejana', instructions='x', visible=True,
                                            due_at=now + timedelta(days=30))
         self.client.force_login(self.customer)
-        page = self.client.get(reverse('customer_home'))
+        home = self.client.get(reverse('customer_home'))
+        page = self.client.get(reverse('customer_tasks'))
         for pending in (undated, late):
+            self.assertContains(home, reverse('customer_task_reply', args=[pending.pk]))
             self.assertContains(page, reverse('customer_task_reply', args=[pending.pk]))
         self.assertContains(page, 'Actuaciones cerradas')
         self.assertEqual(page.content.decode().count('Cerrada '), 20)
@@ -100,6 +102,7 @@ class CustomerTaskHistoryTests(TestCase):
         self.client.force_login(self.customer)
         self.assertEqual(self.client.get(reverse('customer_task_reply', args=[foreign.pk])).status_code, 404)
         self.assertNotContains(self.client.get(reverse('customer_home')), 'Nota de otra empresa')
+        self.assertNotContains(self.client.get(reverse('customer_tasks')), 'Ajena')
 
 
 class HistorySeedMigrationTests(TestCase):

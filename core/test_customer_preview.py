@@ -47,13 +47,19 @@ class CustomerPreviewTests(TestCase):
         own = self.client.get(reverse('customer_detections'))
         self.client.force_login(self.admin)
         page = self.client.get(reverse('customer_preview', args=[self.company.pk]))
-        for text in ('Vista previa como Conservas Roselló', 'Aviso publicado', 'Revisar acceso RDP', 'FW-Rosello',
-                     'Respuesta del cliente desactivada'):
+        for text in ('Vista previa como Conservas Roselló', 'Aviso publicado', 'Revisar acceso RDP', 'FW-Rosello'):
             self.assertContains(page, text)
         for text in ('NOTA INTERNA', 'INCIDENCIA INTERNA', reverse('customer_task_reply', args=[self.task.pk]),
                      reverse('logout')):
             self.assertNotContains(page, text)
         self.assertContains(page, reverse('customer_preview_report', args=[self.company.pk, self.report.pk]))
+        self.assertContains(self.client.get(reverse('customer_preview_tasks', args=[self.company.pk])),
+                            'Respuesta del cliente desactivada')
+        for name, text in (('customer_preview_reports', 'Semana del 21/09/2026'), ('customer_preview_tasks', 'Revisar acceso RDP')):
+            listing = self.client.get(reverse(name, args=[self.company.pk]))
+            self.assertContains(listing, text)
+            self.assertContains(listing, 'aria-current="page"')
+            self.assertNotContains(listing, reverse('customer_task_reply', args=[self.task.pk]))
         preview = self.client.get(reverse('customer_preview_detections', args=[self.company.pk]))
         self.assertEqual(preview.context['summary']['totals'], own.context['summary']['totals'])
         self.assertEqual(list(preview.context['page'].object_list), list(own.context['page'].object_list))
@@ -69,7 +75,7 @@ class CustomerPreviewTests(TestCase):
                          'application/pdf')
         self.assertEqual(self.client.post(reverse('customer_preview', args=[self.company.pk])).status_code, 405)
         sections = set(AuditEvent.objects.filter(action='customer.preview').values_list('details__status', flat=True))
-        self.assertEqual(sections, {'inicio', 'detecciones', 'firewalls', 'mapa', 'informe'})
+        self.assertEqual(sections, {'inicio', 'informes', 'actuaciones', 'detecciones', 'firewalls', 'mapa', 'informe'})
         self.assertContains(self.client.get(reverse('client_detail', args=[self.company.pk])), 'Ver como cliente')
 
     def test_preview_respects_the_company_options(self):
@@ -100,3 +106,7 @@ class CustomerPreviewTests(TestCase):
         self.assertContains(page, reverse('customer_weekly', args=[self.report.pk]))
         self.assertContains(page, reverse('logout'))
         self.assertNotContains(page, 'Vista previa')
+        for name in ('customer_reports', 'customer_tasks'):
+            self.assertContains(page, reverse(name))
+        self.assertContains(self.client.get(reverse('customer_reports')), reverse('customer_weekly', args=[self.report.pk]))
+        self.assertContains(self.client.get(reverse('customer_tasks')), reverse('customer_task_reply', args=[self.task.pk]))

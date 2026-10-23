@@ -55,10 +55,13 @@ def portal_links(client, preview=False):
                 'firewalls': reverse('customer_preview_firewalls', args=[client.pk]),
                 'detections': reverse('customer_preview_detections', args=[client.pk]),
                 'map': reverse('customer_preview_map', args=[client.pk]),
-                'map_data': reverse('customer_preview_map_data', args=[client.pk])}
+                'map_data': reverse('customer_preview_map_data', args=[client.pk]),
+                'reports': reverse('customer_preview_reports', args=[client.pk]),
+                'tasks': reverse('customer_preview_tasks', args=[client.pk])}
     return {'preview': False, 'home': reverse('customer_home'), 'firewalls': reverse('customer_firewalls'),
             'detections': reverse('customer_detections'), 'map': reverse('customer_map'),
-            'map_data': reverse('customer_map_data')}
+            'map_data': reverse('customer_map_data'), 'reports': reverse('customer_reports'),
+            'tasks': reverse('customer_tasks')}
 
 
 def portal_client(request):

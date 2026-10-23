@@ -83,25 +83,53 @@ def customer_report_context(report):
 def customer_home(request):
     return render(request,'customer_home.html',customer_home_context(customer_client(request)))
 
-def customer_home_context(client,preview=False):
-    """Inicio del portal del cliente; la vista previa del SOC usa el mismo contenido sin enlaces de respuesta."""
+@login_required
+@require_GET
+def customer_reports(request):
+    return render(request,'customer_reports.html',customer_reports_context(customer_client(request)))
+
+@login_required
+@require_GET
+def customer_tasks(request):
+    return render(request,'customer_tasks.html',customer_tasks_context(customer_client(request)))
+
+def portal_reports(client,preview=False,limit=52):
     from django.urls import reverse
-    from .investigation import customer_security_summary
-    from .customer_portal import firewall_rows,portal_links,wazuh_ready
-    live=client.customer_live_map_enabled or client.customer_portal_detail_enabled
-    reports=list(released_reports(client).order_by('-week_start')[:52])
+    reports=list(released_reports(client).order_by('-week_start')[:limit])
     for report in reports:
         report.portal_url=reverse('customer_preview_report',args=[client.pk,report.pk]) if preview else reverse('customer_weekly',args=[report.pk])
-    # Todas las pendientes, sin límite; las cerradas aparte para que no las desplacen.
+    return reports
+
+def portal_tasks(client,preview=False):
+    """Todas las pendientes, sin límite; las cerradas aparte para que no las desplacen."""
+    from django.urls import reverse
     tasks=list(CustomerTask.objects.filter(incident__client=client,visible=True,status__in=OPEN_TASK_STATUSES).order_by(F('due_at').asc(nulls_last=True),'pk'))
     closed=list(CustomerTask.objects.filter(incident__client=client,visible=True).exclude(status__in=OPEN_TASK_STATUSES).order_by(F('reviewed_at').desc(nulls_last=True),'-pk')[:20])
     for task in tasks+closed:
         task.portal_url='' if preview else reverse('customer_task_reply',args=[task.pk])
-    return {'client':client,'security_summary':customer_security_summary(client) if live else None,
-        'portal_section':'home','portal':portal_links(client,preview),'wazuh_ready':wazuh_ready(client),
+    return tasks,closed
+
+def _portal_base(client,preview,section):
+    from .customer_portal import portal_links,wazuh_ready
+    return {'client':client,'portal_section':section,'portal':portal_links(client,preview),'wazuh_ready':wazuh_ready(client)}
+
+def customer_home_context(client,preview=False):
+    """Inicio del portal del cliente; la vista previa del SOC usa el mismo contenido sin enlaces de respuesta."""
+    from .investigation import customer_security_summary
+    from .customer_portal import firewall_rows
+    live=client.customer_live_map_enabled or client.customer_portal_detail_enabled
+    tasks,_=portal_tasks(client,preview)
+    return {**_portal_base(client,preview,'home'),'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
-        'tasks':tasks,'closed_tasks':closed,'publications':CustomerPublication.objects.filter(client=client,visible=True)[:100],
-        'reports':reports}
+        'tasks':tasks,'publications':CustomerPublication.objects.filter(client=client,visible=True)[:100],
+        'reports':portal_reports(client,preview,limit=3),'report_count':released_reports(client).count()}
+
+def customer_reports_context(client,preview=False):
+    return {**_portal_base(client,preview,'reports'),'reports':portal_reports(client,preview)}
+
+def customer_tasks_context(client,preview=False):
+    tasks,closed=portal_tasks(client,preview)
+    return {**_portal_base(client,preview,'tasks'),'tasks':tasks,'closed_tasks':closed}
 
 def customer_geography(request,client=None):
     from .threat_map import map_data
