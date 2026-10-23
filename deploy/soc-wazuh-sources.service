@@ -9,6 +9,7 @@ Group=root
 WorkingDirectory=/srv/soc-portal
 EnvironmentFile=/etc/soc-portal/portal.env
 ExecStart=/opt/soc-portal-venv/bin/python /srv/soc-portal/manage.py sync_wazuh_sources
+TimeoutStartSec=600
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true

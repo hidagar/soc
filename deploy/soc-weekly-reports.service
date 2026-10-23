@@ -10,6 +10,7 @@ Group=root
 WorkingDirectory=/srv/soc-portal
 EnvironmentFile=/etc/soc-portal/portal.env
 ExecStart=/opt/soc-portal-venv/bin/python /srv/soc-portal/manage.py weekly_soc_reports --send
+TimeoutStartSec=3h
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

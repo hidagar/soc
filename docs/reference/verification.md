@@ -18,13 +18,14 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 9 |
-| [core/test_customer_portal.py](../../core/test_customer_portal.py) | 7 |
-| [core/test_customer_preview.py](../../core/test_customer_preview.py) | 4 |
+| [core/test_customer_portal.py](../../core/test_customer_portal.py) | 8 |
+| [core/test_customer_preview.py](../../core/test_customer_preview.py) | 5 |
 | [core/test_customer_task_history.py](../../core/test_customer_task_history.py) | 7 |
 | [core/test_dashboard_sources.py](../../core/test_dashboard_sources.py) | 1 |
 | [core/test_database_concurrency.py](../../core/test_database_concurrency.py) | 3 |
 | [core/test_database_engine.py](../../core/test_database_engine.py) | 5 |
 | [core/test_database_transfer.py](../../core/test_database_transfer.py) | 5 |
+| [core/test_deploy_envfile.py](../../core/test_deploy_envfile.py) | 2 |
 | [core/test_device_inventory.py](../../core/test_device_inventory.py) | 13 |
 | [core/test_device_mac.py](../../core/test_device_mac.py) | 7 |
 | [core/test_durable_operations.py](../../core/test_durable_operations.py) | 21 |
@@ -54,7 +55,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
-| [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 11 |
+| [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 14 |
 | [core/test_recovery_postgresql.py](../../core/test_recovery_postgresql.py) | 3 |
 | [core/test_release_and_receiver.py](../../core/test_release_and_receiver.py) | 5 |
 | [core/test_report_freshness.py](../../core/test_report_freshness.py) | 3 |

@@ -118,12 +118,14 @@ SECURE_REFERRER_POLICY = "same-origin"
 SECURE_HSTS_SECONDS = 0 if DEBUG else int(os.environ.get('SOC_PORTAL_HSTS_SECONDS', '86400'))
 X_FRAME_OPTIONS = "DENY"
 
-# CSRF rejection diagnostics (no request body or credentials).
+# CSRF rejection diagnostics (no request body or credentials) and 500 errors in the journal:
+# with DEBUG off Django only mails them to ADMINS (empty), so they were lost.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"csrf_console": {"class": "logging.StreamHandler"}},
+    "handlers": {"csrf_console": {"class": "logging.StreamHandler"},
+                 "errors_console": {"class": "logging.StreamHandler", "level": "ERROR"}},
     "loggers": {"django.security.csrf": {
         "handlers": ["csrf_console"], "level": "WARNING", "propagate": False,
-    }},
+    }, "django.request": {"handlers": ["errors_console"], "level": "ERROR", "propagate": False}},
 }

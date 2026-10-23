@@ -10,6 +10,8 @@ Group=root
 WorkingDirectory=/srv/soc-portal
 EnvironmentFile=/etc/soc-portal/portal.env
 ExecStart=/opt/soc-portal-venv/bin/python /srv/soc-portal/manage.py poll_urgent_alerts
+# Sin límite, un oneshot colgado bloquea las comprobaciones de cada minuto.
+TimeoutStartSec=300
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

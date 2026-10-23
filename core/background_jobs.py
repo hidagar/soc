@@ -146,9 +146,10 @@ def run_job(name):
     state.last_run_at=timezone.now();state.error=''
     state.details={**previous,'running':True,'label':JOBS[name][1],'consecutive_failures':failures}
     state.save();started=time.monotonic()
+    from .interruption import JobInterrupted
     try:
         result=execute(name)
-    except Exception as exc:
+    except (Exception,JobInterrupted) as exc:
         failures+=1
         state.error='El trabajo no terminó. Se conserva su progreso; revisar el servicio protegido.'
         state.details.update(running=False,duration_ms=int((time.monotonic()-started)*1000),consecutive_failures=failures,error_type=type(exc).__name__,

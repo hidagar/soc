@@ -1,7 +1,8 @@
 [Unit]
 Description=Sync Centro SOC client dashboards into Wazuh
 After=wazuh-dashboard.service
-Requires=wazuh-dashboard.service
+# Requisite y no Requires: si el operador para el dashboard por mantenimiento, no lo vuelve a arrancar.
+Requisite=wazuh-dashboard.service
 
 [Service]
 Type=oneshot

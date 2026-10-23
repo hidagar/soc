@@ -4,6 +4,10 @@
 
 Comprobar URL final, HTTPS público, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS, puerto, cookies y Host/X-Forwarded-Proto. Proxy sobrescribe cabeceras no confiables. No mezclar formulario por IP y envío por dominio ni desactivar CSRF. Corregido el entorno, abrir formulario/sesión nuevos. Logger sin cuerpos ni códigos MFA.
 
+## Error 500 en una página
+
+Desde la revisión del 23/10/2026 el error y su traza quedan en el diario del portal: `sudo journalctl -u soc-portal -n 100 --no-pager`. Antes solo se enviaban por correo a `ADMINS`, que está vacío, y se perdían. La línea incluye la ruta: no copiar al exterior trazas con enlaces firmados o tokens.
+
 ## `/admin/` frente a `/login/`
 
 Rutas distintas aunque compartan diseño. Admin requiere gestión global; usuario válido no implica ese permiso. Revisar correo/excepciones históricas, StaffAccess, permisos y MFA. No resetear credenciales sin confirmar problema.

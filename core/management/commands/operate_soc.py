@@ -11,6 +11,8 @@ class Command(BaseCommand):
     def handle(self,*args,**options):
         if os.geteuid()!=0: raise CommandError('Ejecutar mediante el servicio protegido de operaciones.')
         import fcntl
+        from core.interruption import JobInterrupted,stop_on_sigterm
+        stop_on_sigterm()  # la copia limpia índices de prueba y temporales antes de salir
         job=options['job']
         with open('/run/soc-'+job+'.lock','a') as lock:
             try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -33,8 +35,8 @@ class Command(BaseCommand):
                     run=BackupRun.objects.filter(status='queued').order_by('pk').first()
                     if run: make_backup(run)
                 state.last_success_at=timezone.now(); state.error=''
-            except Exception:
+            except (Exception,JobInterrupted):
                 state.error='La tarea no terminó. Revisar los registros protegidos.'; state.save()
-                raise CommandError(state.error)
+                raise CommandError(state.error) from None
             state.save()
             self.stdout.write(job+': comprobación terminada.')

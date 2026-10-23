@@ -3,6 +3,7 @@
 #
 #   sudo deploy/update.sh                   despliega el commit actual del checkout
 #   sudo deploy/update.sh --rollback DIR    restaura código y base de una copia previa
+#                         [--ignore-keys]  aunque falten claves con que se hizo la copia
 #
 # Sigue docs/deployment.md: copia consistente, escritores parados, código del
 # commit (no del árbol de trabajo), migración, estáticos y comprobación. No
@@ -14,7 +15,10 @@ VENV=/opt/soc-portal-venv
 ENV_FILE=/etc/soc-portal/portal.env
 BACKUPS=/var/backups/soc-portal
 LOG=/var/log/soc-portal-deploy.log
-CODE_ITEMS=(manage.py requirements.txt core socportal templates static deploy)
+CODE_ITEMS=(manage.py requirements.txt requirements-postgresql.txt core socportal templates static deploy)
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+# Fase para el manejador de salida: checks (nada parado) → stopped (parado, sin cambios) → changed → finished.
+PHASE=checks
 # Servicios que el script nunca detiene: portal (se gestiona aparte) y motor privado 3B.
 KEEP_RUNNING='^(soc-portal|soc-wazuh-https|soc-wazuh-https-db)\.service$'
 
@@ -27,11 +31,20 @@ confirm() {
   [[ "$answer" == si ]] || die "Cancelado por el operador."
 }
 
+envfile() { "$VENV/bin/python" -I "$SCRIPT_DIR/envfile.py" "$@"; }
+
+load_env() {
+  # Como systemd (EnvironmentFile): valores literales. Con `source`, un `$` en una contraseña
+  # abortaba el script (set -u) y un espacio sin comillas ejecutaba un comando.
+  local exports
+  exports=$(envfile --shell "$ENV_FILE")
+  eval "$exports"
+}
+
 as_portal() {
-  # Como systemd (EnvironmentFile): root lee el entorno protegido y lo pasa al
-  # proceso de socportal, que no necesita permiso de lectura sobre el archivo.
-  # shellcheck source=/dev/null
-  ( set -a; . "$ENV_FILE"; set +a; cd "$APP"; runuser -u socportal -- /bin/sh -c "$*" )
+  # Root lee el entorno protegido y lo pasa al proceso de socportal, que no necesita
+  # permiso de lectura sobre el archivo.
+  ( load_env; cd "$APP"; runuser -u socportal -- /bin/sh -c "$*" )
 }
 
 collect_static() {
@@ -78,13 +91,12 @@ start_writers() {
 
 env_value() {
   # Último valor de una variable del entorno protegido, sin cargar el resto en este shell.
-  grep -E "^$1=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- || true
+  envfile --get "$1" "$ENV_FILE"
 }
 
 as_pg() {
   # Credenciales de la base solo en el subshell del comando PostgreSQL.
-  # shellcheck source=/dev/null
-  ( set -a; . "$ENV_FILE"; set +a
+  ( load_env
     export PGHOST="${SOC_PORTAL_DB_HOST:-}" PGPORT="${SOC_PORTAL_DB_PORT:-}" PGUSER="${SOC_PORTAL_DB_USER:-socportal}" \
       PGDATABASE="${SOC_PORTAL_DB_NAME:-socportal}" PGPASSWORD="${SOC_PORTAL_DB_PASSWORD:-}" \
       PGSSLMODE="${SOC_PORTAL_DB_SSLMODE:-prefer}"
@@ -93,16 +105,69 @@ as_pg() {
 
 restore_pg() {
   # Una transacción: borrar todas las tablas (también las que creó una versión posterior y no
-  # están en la copia, que impedirían volver a migrar) y cargar la copia. Si algo falla, nada cambia.
-  { cat <<'SQL'
+  # están en la copia, que impedirían volver a migrar) y cargar la copia.
+  # El SQL se genera completo en un archivo antes de tocar la base: si pg_restore se corta a
+  # mitad (copia dañada o truncada), psql en tubería llegaría al final de la entrada y
+  # confirmaría una restauración parcial. Así, o se carga todo o la base no cambia.
+  local sql="$2/restauracion.sql"
+  ( umask 077; cat > "$sql" <<'SQL'
 DO $$ DECLARE t record; BEGIN
   FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
     EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(t.tablename) || ' CASCADE';
   END LOOP;
 END $$;
 SQL
-    pg_restore --no-owner --file=- "$1"
-  } | as_pg psql --quiet --no-psqlrc --set=ON_ERROR_STOP=1 --single-transaction > /dev/null
+  )
+  pg_restore --no-owner --file=- "$1" >> "$sql" || { rm -f "$sql"; die "La copia $1 no se puede leer completa. La base no se ha modificado."; }
+  as_pg psql --quiet --no-psqlrc --set=ON_ERROR_STOP=1 --single-transaction --file="$sql" > /dev/null
+  rm -f "$sql"
+}
+
+sqlite_ok() {
+  "$VENV/bin/python" - "$1" <<'EOF'
+import sqlite3, sys
+from contextlib import closing
+with closing(sqlite3.connect(f'file:{sys.argv[1]}?mode=ro', uri=True)) as db:
+    if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok':
+        raise SystemExit(1)
+EOF
+}
+
+existing_items() {
+  local item
+  for item in "${CODE_ITEMS[@]}"; do
+    if [[ -e "$1/$item" ]]; then printf '%s\n' "$item"; fi
+  done
+}
+
+check_space() {
+  # Antes de parar nada: la copia (y en una reversión el SQL de restauración) cabe con margen.
+  local size avail need
+  if [[ "$ENGINE" == postgresql ]]; then
+    size=$(as_pg psql -tAqX -c 'SELECT pg_database_size(current_database())')
+  else
+    size=$(stat -c %s "$DB")
+  fi
+  need=$(( size * 3 + 300 * 1024 * 1024 ))
+  avail=$(df --output=avail -B1 "$BACKUPS" | tail -n 1)
+  (( avail > need )) || die "Espacio insuficiente en $BACKUPS: hay $((avail / 1048576)) MiB y hacen falta unos $((need / 1048576)) MiB. No se ha parado nada."
+}
+
+check_keys() {
+  # Invariante 10: una copia cifrada con claves que ya no están configuradas dejaría ilegibles
+  # los secretos guardados (MFA, VPN, conectores). Se comparan huellas, nunca las claves.
+  local saved="$1/key-fingerprints.txt" missing
+  if [[ ! -f "$saved" ]]; then
+    log "AVISO: la copia no guarda huellas de las claves (anterior a esta comprobación)."
+    return 0
+  fi
+  missing=$(comm -23 <(sort -u "$saved") <(envfile --fingerprints "$ENV_FILE" | sort -u) | awk '{print $1}' | sort -u)
+  [[ -z "$missing" ]] && return 0
+  if [[ "${IGNORE_KEYS:-0}" == 1 ]]; then
+    log "AVISO: se restaura sin las claves originales de: $(echo "$missing" | tr '\n' ' ')(--ignore-keys)."
+    return 0
+  fi
+  die "La copia se hizo con claves que ya no están en $ENV_FILE: $(echo "$missing" | tr '\n' ' '). Vuelve a añadir la clave anterior al final de su lista (o la SECRET_KEY de entonces) antes de revertir, o usa --ignore-keys si sabes que esos datos no se necesitan."
 }
 
 backup() {
@@ -124,27 +189,39 @@ with closing(sqlite3.connect(f'file:{sys.argv[1]}?mode=ro', uri=True)) as src, c
         raise SystemExit('La copia de la base no supera integrity_check')
 EOF
   fi
-  tar -C "$APP" -czf "$dir/code.tar.gz" "${CODE_ITEMS[@]}"
+  local items
+  mapfile -t items < <(existing_items "$APP")
+  tar -C "$APP" -czf "$dir/code.tar.gz" "${items[@]}"
   cp -a "$APP/.deployed-commit" "$dir/" 2>/dev/null || true
+  envfile --fingerprints "$ENV_FILE" > "$dir/key-fingerprints.txt"
   chmod -R go-rwx "$dir"
 }
 
 replace_code() {
-  local source=$1
+  local source=$1 item items
   for item in "${CODE_ITEMS[@]}"; do
     rm -rf "${APP:?}/$item"
-    cp -a "$source/$item" "$APP/"
+    # Una copia antigua puede no contener los elementos añadidos después.
+    if [[ -e "$source/$item" ]]; then cp -a "$source/$item" "$APP/"; fi
   done
   find "$APP" -name __pycache__ -prune -exec rm -rf {} +
-  chown -R root:root "${CODE_ITEMS[@]/#/$APP/}"
-  find "${CODE_ITEMS[@]/#/$APP/}" -type d -exec chmod 0755 {} +
-  find "${CODE_ITEMS[@]/#/$APP/}" -type f -exec chmod go-w,a+r {} +
+  mapfile -t items < <(existing_items "$APP")
+  chown -R root:root "${items[@]/#/$APP/}"
+  find "${items[@]/#/$APP/}" -type d -exec chmod 0755 {} +
+  find "${items[@]/#/$APP/}" -type f -exec chmod go-w,a+r {} +
   chmod 0755 "$APP/deploy/"*.sh
+}
+
+install_requirements() {
+  "$VENV/bin/python" -m pip install --disable-pip-version-check -q --requirement "$APP/requirements.txt"
+  if [[ "$ENGINE" == postgresql && -f "$APP/requirements-postgresql.txt" ]]; then
+    "$VENV/bin/python" -m pip install --disable-pip-version-check -q --requirement "$APP/requirements-postgresql.txt"
+  fi
 }
 
 health_check() {
   local host status
-  host=$(grep -m1 '^SOC_PORTAL_ALLOWED_HOSTS=' "$ENV_FILE" | cut -d= -f2- | cut -d, -f1)
+  host=$(env_value SOC_PORTAL_ALLOWED_HOSTS | cut -d, -f1 | tr -d '[:space:]')
   for _ in $(seq 1 15); do
     status=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: ${host:-127.0.0.1}" \
       -H 'X-Forwarded-Proto: https' http://127.0.0.1:8000/login/ || true)
@@ -159,12 +236,28 @@ on_error() {
   (( BASH_SUBSHELL > 0 )) && return
   [[ -n "${ERROR_REPORTED:-}" ]] && return; ERROR_REPORTED=1
   log "La actualización se ha detenido en la línea $1."
-  if [[ -n "${BACKUP_DIR:-}" && -f "$BACKUP_DIR/code.tar.gz" ]]; then
-    log "Servicios y timers pueden estar parados. Para volver a la versión anterior:"
-    log "  sudo $0 --rollback $BACKUP_DIR"
-  fi
+}
+
+on_exit() {
+  # También tras `die` (exit no dispara ERR). Decide según lo que ya se haya cambiado.
+  local status=$?
+  set +e
+  [[ -n "${STAGE:-}" ]] && rm -rf "$STAGE"
+  (( status == 0 )) && return
+  case "$PHASE" in
+    stopped)
+      # Código y base sin tocar: dejar el servicio como estaba en lugar de parado y sin avisos.
+      log "Código y base sin cambios: se vuelven a arrancar el portal y los timers."
+      start_writers "$BACKUP_DIR" || log "No se han podido arrancar. Arráncalos a mano: soc-portal y los timers de $BACKUP_DIR/timers-active.txt"
+      ;;
+    changed)
+      log "Servicios y timers pueden estar parados. Para volver al estado anterior:"
+      log "  sudo $0 --rollback $BACKUP_DIR"
+      ;;
+  esac
 }
 trap 'on_error $LINENO' ERR
+trap on_exit EXIT
 
 [[ "$(id -u)" -eq 0 ]] || { echo "Ejecutar como root (sudo)." >&2; exit 1; }
 [[ -d "$APP" && -x "$VENV/bin/python" && -f "$ENV_FILE" ]] || { echo "No se encuentra una instalación en $APP." >&2; exit 1; }
@@ -182,7 +275,8 @@ while (( $# )); do
   case "$1" in
     --yes) ASSUME_YES=1 ;;
     --rollback) MODE=rollback; ROLLBACK_DIR=${2:-}; shift ;;
-    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    --ignore-keys) IGNORE_KEYS=1 ;;
+    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
     *) echo "Opción desconocida: $1" >&2; exit 1 ;;
   esac
   shift
@@ -196,32 +290,46 @@ if [[ "$MODE" == rollback ]]; then
   [[ -f "$ROLLBACK_DIR/code.tar.gz" ]] || die "Copia no válida: $ROLLBACK_DIR"
   if [[ "$ENGINE" == postgresql ]]; then DUMP="$ROLLBACK_DIR/portal.pgdump"; else DUMP="$ROLLBACK_DIR/portal.sqlite3"; fi
   [[ -f "$DUMP" ]] || die "La copia no contiene la base de $ENGINE (¿se hizo con otro motor?): $ROLLBACK_DIR"
+  if [[ "$ENGINE" == postgresql ]]; then
+    pg_restore --list "$DUMP" > /dev/null || die "La copia de PostgreSQL no es legible: $DUMP"
+  else
+    sqlite_ok "$DUMP" || die "La copia de SQLite no supera integrity_check: $DUMP. No se ha tocado nada."
+  fi
+  check_keys "$ROLLBACK_DIR"
+  install -d -m 0700 "$BACKUPS"
+  check_space
   log "REVERSIÓN a la copia $ROLLBACK_DIR (commit $(cat "$ROLLBACK_DIR/.deployed-commit" 2>/dev/null || echo desconocido))"
   echo "Se perderán los datos del portal escritos después de esa copia."
   confirm "¿Restaurar código y base de datos?"
   BACKUP_DIR="$BACKUPS/$(date +%Y%m%d-%H%M%S)-antes-de-reversion"
   install -d -m 0700 "$BACKUP_DIR"
+  PHASE=stopped
   stop_writers "$BACKUP_DIR"
   backup "$BACKUP_DIR"
-  restore=$(mktemp -d /var/tmp/soc-rollback.XXXXXX)
-  tar -C "$restore" -xzf "$ROLLBACK_DIR/code.tar.gz"
+  STAGE=$(mktemp -d /var/tmp/soc-rollback.XXXXXX)
+  tar -C "$STAGE" -xzf "$ROLLBACK_DIR/code.tar.gz"
   # Base antes que código: si la restauración falla, código y base siguen siendo los actuales.
+  PHASE=changed
   if [[ "$ENGINE" == postgresql ]]; then
-    restore_pg "$DUMP"
+    restore_pg "$DUMP" "$BACKUP_DIR"
   else
     for suffix in -wal -shm -journal; do
       [[ -e "$DB$suffix" ]] && mv "$DB$suffix" "$BACKUP_DIR/portal.sqlite3$suffix.descartado"
     done
     install -o socportal -g socportal -m 0600 "$DUMP" "$DB"
   fi
-  replace_code "$restore"; rm -rf "$restore"
+  replace_code "$STAGE"
   cp -a "$ROLLBACK_DIR/.deployed-commit" "$APP/" 2>/dev/null || rm -f "$APP/.deployed-commit"
-  "$VENV/bin/python" -m pip install --disable-pip-version-check -q --requirement "$APP/requirements.txt"
+  install_requirements
   collect_static
   # Usa los timers activos antes de la actualización que se revierte.
   cp "$ROLLBACK_DIR/timers-active.txt" "$BACKUP_DIR/timers-active.txt"
   start_writers "$BACKUP_DIR"
   health_check
+  # Comprobación de solo lectura: los secretos guardados se descifran con las claves actuales.
+  as_portal "$VENV/bin/python manage.py rotate_encryption_keys" > /dev/null \
+    || log "AVISO: hay valores cifrados que no se descifran con las claves actuales. Revisa: manage.py rotate_encryption_keys"
+  PHASE=finished
   log "Reversión completada. Copia del estado previo a la reversión: $BACKUP_DIR"
   exit 0
 fi
@@ -247,7 +355,6 @@ fi
 
 # El código se toma del commit, nunca de archivos sueltos del árbol de trabajo.
 STAGE=$(mktemp -d /var/tmp/soc-release.XXXXXX)
-trap 'rm -rf "$STAGE"' EXIT
 git_repo archive "$COMMIT" "${CODE_ITEMS[@]}" | tar -x -C "$STAGE"
 chmod -R a+rX "$STAGE"
 install -d -o socportal -g socportal -m 0700 "$STAGE/data"  # base vacía solo para las comprobaciones
@@ -258,7 +365,10 @@ runuser -u socportal -- env -i PATH=/usr/bin:/bin SOC_PORTAL_DEBUG=1 HOME=/nonex
   || die "El commit no supera manage.py check / makemigrations --check. No se ha tocado producción."
 
 NEW_MIGRATIONS=$(comm -13 <(ls "$APP/core/migrations" | sort) <(ls "$STAGE/core/migrations" | sort) | grep '\.py$' || true)
-REQS_CHANGED=0; cmp -s "$APP/requirements.txt" "$STAGE/requirements.txt" || REQS_CHANGED=1
+REQS_CHANGED=0
+for reqs in requirements.txt requirements-postgresql.txt; do
+  cmp -s "$APP/$reqs" "$STAGE/$reqs" || REQS_CHANGED=1
+done
 UNITS_CHANGED=$(for unit in "$STAGE"/deploy/systemd/* "$STAGE"/deploy/*.service "$STAGE"/deploy/*.timer; do
   installed=/etc/systemd/system/$(basename "$unit")
   [[ -f "$installed" ]] && ! cmp -s "$unit" "$installed" && basename "$unit"
@@ -279,16 +389,20 @@ fi
 echo
 confirm "Se pararán el portal y los timers soc-* durante la actualización. ¿Continuar?"
 
+install -d -m 0700 "$BACKUPS"
+check_space
 log "Desplegando $COMMIT sobre $CURRENT"
 BACKUP_DIR="$BACKUPS/$(date +%Y%m%d-%H%M%S)-${CURRENT:0:12}"
-install -d -m 0700 "$BACKUPS" "$BACKUP_DIR"
+install -d -m 0700 "$BACKUP_DIR"
+PHASE=stopped
 stop_writers "$BACKUP_DIR"
 backup "$BACKUP_DIR"
 
+PHASE=changed
 replace_code "$STAGE"
 if [[ $REQS_CHANGED == 1 ]]; then
   log "Instalando dependencias"
-  "$VENV/bin/python" -m pip install --disable-pip-version-check -q --requirement "$APP/requirements.txt"
+  install_requirements
 fi
 log "Aplicando migraciones"
 as_portal "$VENV/bin/python manage.py migrate --noinput" | tee -a "$LOG"
@@ -298,6 +412,7 @@ echo "$COMMIT" > "$APP/.deployed-commit"
 
 start_writers "$BACKUP_DIR"
 health_check
+PHASE=finished
 
 # Conservar las 10 copias más recientes de este script.
 ls -1dt "$BACKUPS"/*/ 2>/dev/null | tail -n +11 | xargs -r rm -rf
