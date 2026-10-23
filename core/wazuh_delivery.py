@@ -26,6 +26,7 @@ from .security import encrypt,decrypt
 
 ENGINE_ROOT=Path('/var/lib/soc-wazuh-https/var/ossec')
 SOCKET=ENGINE_ROOT/'queue/sockets/queue'
+UNSENT_RETRY=timedelta(minutes=1)  # motor local caído: reintento sin gastar intentos
 ARCHIVES=ENGINE_ROOT/'logs/archives'
 HOST_RE=re.compile(r'^sr\.(\d{13})\.([0-9a-f]{32})\.([0-9a-f]{32})$')
 MONTHS=('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
@@ -159,28 +160,38 @@ def read_native_receipts(paths=None,max_bytes=32*1024*1024,max_seconds=20):
         if state.details.get('compressed_done') and path.suffix=='.gz' and state.details.get('file_size')==stat.st_size:continue
         offset=state.offset
         if path.suffix!='.gz' and offset>stat.st_size:offset=0
+        corrupt=int(state.details.get('corrupt_lines',0));skipped=0
+        # fsync on the real native output, including a compressed file, precedes committing
+        # confirmation to the durable SQL inbox. Size first, then fsync: every byte below
+        # `durable` is on disk. One fsync per file instead of one per record.
+        with path.open('rb') as handle:
+            durable=os.fstat(handle.fileno()).st_size;os.fsync(handle.fileno())
         with opener(path,'rb') as stream:
             stream.seek(offset)
             while used<max_bytes and time.monotonic()-started<max_seconds:
-                start=stream.tell();line=stream.readline(1024*1024+1)
+                line=stream.readline(1024*1024+1)
                 if not line:break
+                if path.suffix!='.gz' and stream.tell()>durable:break  # escrito tras el fsync: la próxima vez
                 used+=len(line)
                 if len(line)>1024*1024 or not line.endswith(b'\n'):
-                    # Stop rather than confirming a truncated or corrupt record.
+                    # Stop rather than confirming a truncated record: the writer may still be completing it.
                     state.error='Archivo incompleto o demasiado grande; se conserva el cursor.';break
                 try:source=json.loads(line)
                 except (ValueError,UnicodeError):
-                    state.error='JSON nativo no válido; se conserva el cursor.';break
-                # fsync on the real native output, including a compressed file,
-                # precedes committing confirmation to the durable SQL inbox.
-                with path.open('rb') as durable:os.fsync(durable.fileno())
+                    # Una línea completa pero corrupta (p. ej. tras un fallo de analysisd) no puede
+                    # bloquear los acuses siguientes del día: se cuenta y se salta. Saltarla no la confirma.
+                    source=None;skipped+=1
                 if isinstance(source,dict):accepted+=int(_record_ack(source,now))
                 state.offset=stream.tell();state.last_run_at=state.last_success_at=now;state.error=''
             with path.open('rb') as probe:
                 end=stat.st_size if path.suffix=='.gz' else state.offset
                 probe.seek(max(0,end-256));cursor_hash=hashlib.sha256(probe.read(min(256,end))).hexdigest()
-            state.details={'head_hash':head_hash,'cursor_hash':cursor_hash,'file_size':stat.st_size,'compressed_done':path.suffix=='.gz' and not stream.peek(1) if hasattr(stream,'peek') else False}
+            state.details={'head_hash':head_hash,'cursor_hash':cursor_hash,'file_size':stat.st_size,'corrupt_lines':corrupt+skipped,'compressed_done':path.suffix=='.gz' and not stream.peek(1) if hasattr(stream,'peek') else False}
             state.save()
+        if skipped:
+            from .operations import set_issue
+            set_issue('platform:native-archive-corrupt','Líneas no válidas en el archivo nativo de Wazuh',
+                      details=f'{skipped} líneas saltadas en esta lectura; sus mensajes, si los hubiera, quedarán sin confirmar y se reintentarán.',severity='warning')
         if used>=max_bytes or time.monotonic()-started>=max_seconds:break
     return accepted
 
@@ -191,8 +202,9 @@ def send_due(limit=256,max_seconds=60,now=None):
     batches=SecureLogReceipt.objects.filter(channel_id__in=channels,transport_version=2,status__in=['queued','awaiting']).filter(
         Q(delivery_messages=None)|Q(delivery_messages__processed_at=None,delivery_messages__next_attempt_at=None)|
         Q(delivery_messages__processed_at=None,delivery_messages__next_attempt_at__lte=now)).distinct().order_by('received_at','pk')
+    engine_down=False
     for receipt in list(batches[:limit]):
-        if time.monotonic()-started>=max_seconds:break
+        if engine_down or time.monotonic()-started>=max_seconds:break
         try:lines=prepare_messages(receipt)
         except (ValueError,TypeError,InvalidToken):
             SecureLogReceipt.objects.filter(pk=receipt.pk).update(status='failed',error='El lote no supera la comprobación de integridad.');continue
@@ -209,8 +221,12 @@ def send_due(limit=256,max_seconds=60,now=None):
                     sender.settimeout(1);sender.connect(str(SOCKET))
                     data=f'1:{receipt.channel.source_identity}:{frame}'.encode()
                     if sender.send(data)!=len(data):raise OSError
-                row.sent_at=now;row.status='awaiting';row.error='';sent+=1
-            except OSError:row.error='Motor local no disponible; mensaje conservado.'
+            except OSError:
+                # No salió ningún mensaje: no cuenta como intento. Antes, unos 45 minutos de motor
+                # caído agotaban los ocho intentos y los mensajes quedaban «fallidos» sin haberse enviado.
+                row.error='Motor local no disponible; mensaje conservado.';row.next_attempt_at=now+UNSENT_RETRY;row.save()
+                engine_down=True;break
+            row.sent_at=now;row.status='awaiting';row.error='';sent+=1
             row.attempts+=1;row.next_attempt_at=now+timedelta(seconds=min(900,30*2**min(row.attempts-1,5)));row.save()
         SecureLogReceipt.objects.filter(pk=receipt.pk).update(status='awaiting',attempted_at=now)
     return sent
@@ -319,7 +335,7 @@ def check_profile():
 
 def prune_logs(now=None):
     """Only this private engine's closed logs; no main-manager archive changes."""
-    now=now or timezone.now();removed=0;active_inodes=set();files={}
+    now=now or timezone.now();removed=0;active_inodes=set()
     for directory,stem in ((ARCHIVES,'archives'),(ENGINE_ROOT/'logs/alerts','alerts')):
         for suffix in ('json','log'):
             active=directory/f'{stem}.{suffix}'

@@ -1,6 +1,7 @@
 """Near-real-time, customer-scoped alerts from verified Wazuh event sources."""
 
 import hashlib
+from collections import defaultdict
 import ipaddress
 import logging
 import re
@@ -48,7 +49,6 @@ def _event_kind(source, client):
     unifi = data.get("unifi") or {}
     name = str(unifi.get("event_name") or "")
     category = str(unifi.get("category") or "")
-    action = str(unifi.get("action") or "").lower()
     try:
         level = int((source.get("rule") or {}).get("level") or 0)
     except (ValueError, TypeError):
@@ -124,8 +124,6 @@ def _record_event(hit, owners, inventory_cache, now):
     event_id = str(hit.get("_id") or "")
     if not index or not event_id:
         return False
-    data = source.get("data") or {}
-    unifi = data.get("unifi") or {}
     from .operations import normalize
     event=normalize(source)
     destination = event['affected_ip'] or event['destination_ip']
@@ -160,6 +158,28 @@ def _record_event(hit, owners, inventory_cache, now):
     return created
 
 
+def _prepare_inventories(hits,owners,inventory_cache):
+    """Inventario de cada fuente de la página antes de reservar el escritor de la base.
+
+    Puede consultar la nube de UniFi (varias llamadas de hasta 25 s): hacerlo dentro de la
+    transacción retenía el escritor de SQLite más de un minuto y bloqueaba el portal. Solo se
+    cargan las evidencias de los eventos de la página, no las 10 000 últimas del equipo.
+    """
+    by_location=defaultdict(list)
+    for hit in hits:
+        source=hit.get('_source') or {}
+        location=_ip(source.get('location'))
+        client=owners.get(location)
+        if client is not None and client.active and client.urgent_alerts_enabled and location not in inventory_cache:
+            by_location[location].append(source)
+    for location,events in by_location.items():
+        try:
+            inventory_cache[location]=inventories_for_sources(owners[location],[location],events=events).get(location,{})
+        except Exception:
+            # An enrichment/API failure must not prevent a verified security event from being queued.
+            inventory_cache[location]={}
+
+
 def scan_events(now=None,pages=MAX_PAGES):
     """Fixed windows and stable per-page checkpoints, independent of delivery."""
     from .indexer_results import complete,hits as checked_hits
@@ -189,6 +209,7 @@ def scan_events(now=None,pages=MAX_PAGES):
         after=hits[-1].get('sort') if hits else None
         if len(hits)==PAGE_SIZE and (not isinstance(after,list) or len(after)!=3 or after==checkpoint.get('after')):
             raise ValueError('Falta un cursor estable en Wazuh.')
+        _prepare_inventories(hits,owners,inventory_cache)
         with transaction.atomic():
             # Reserve SQLite's writer, then compare the checkpoint. A concurrent
             # poll cannot commit a page based on an obsolete cursor.

@@ -6,6 +6,7 @@ import re
 import socket
 import ssl
 import subprocess
+import time
 from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
@@ -458,50 +459,66 @@ def probe_device(device):
     record_observation(device,health)
     return evaluate_health(device,now)
 
-def read_receipts(path=Path('/var/ossec/logs/alerts/alerts.json'),limit=3000):
+RECEIPT_CHUNK=200    # eventos por transacción: el escritor de SQLite queda libre entre bloques
+RECEIPT_BUDGET=100   # segundos por ejecución (systemd la corta a los 180)
+
+def read_receipts(path=Path('/var/ossec/logs/alerts/alerts.json'),limit=3000,chunk=RECEIPT_CHUNK,budget=RECEIPT_BUDGET):
+    """Lee alerts.json desde la posición guardada e ingiere por bloques.
+
+    Cada bloque confirma sus evidencias y la posición del final de su última línea en la misma
+    transacción: un corte deja la posición exacta. Antes, 3000 eventos en una sola transacción
+    retenían el escritor decenas de segundos (las vistas fallaban con «database is locked») y,
+    si systemd paraba el trabajo, se repetía el mismo lote indefinidamente.
+    """
     state,_ = WorkerState.objects.get_or_create(name='receipts')
     stat = path.stat()
     identity = f'{stat.st_dev}:{stat.st_ino}'
     start = state.offset if state.inode == identity and stat.st_size >= state.offset else 0
     details=dict(state.details)
     skipping=bool(details.get('skipping_oversized')) if start else False
-    invalid=oversized=read_bytes=0
+    read_bytes=0
+    items=[]  # (evento|None, tipo, posición final, saltando una línea enorme)
     with path.open('rb') as stream:
         stream.seek(start)
-        events = []
         end = start
         for _ in range(limit):
             line = stream.readline(1024*1024+1)
             if not line:break
             read_bytes+=len(line)
             if skipping or len(line)>1024*1024:
-                if not skipping:oversized+=1
+                kind='' if skipping else 'oversized'
                 skipping=not line.endswith(b'\n');end=stream.tell()
+                items.append((None,kind,end,skipping))
                 if read_bytes>=16*1024*1024:break
                 continue
             if not line.endswith(b'\n'):break
             end = stream.tell()
             try:
                 event = json.loads(line)
-                if isinstance(event,dict):
-                    events.append(event)
-                else:invalid+=1
+                items.append((event,'event',end,False) if isinstance(event,dict) else (None,'invalid',end,False))
             except (ValueError,UnicodeError):
-                invalid+=1
+                items.append((None,'invalid',end,False))
             if read_bytes>=16*1024*1024:break
-    with transaction.atomic():
-        # Reserve SQLite's writer before ingest_events reads the ownership
-        # catalogue. Independent workers must not upgrade a stale read snapshot.
-        WorkerState.objects.filter(pk=state.pk).update(offset=F('offset'))
-        count = ingest_events(events)
-        state.inode,state.offset = identity,end
-        state.last_run_at = state.last_success_at = timezone.now()
-        state.error = ''
-        state.details={**details,'skipping_oversized':skipping,'read_bytes':read_bytes,
-            'remaining_bytes':max(0,stat.st_size-end),'invalid_json':invalid,'oversized_lines':oversized,
-            'invalid_json_total':int(details.get('invalid_json_total',0))+invalid,
-            'oversized_lines_total':int(details.get('oversized_lines_total',0))+oversized}
-        state.save()
+    count=0;started=time.monotonic();position=start
+    for first in range(0,len(items) or 1,chunk):
+        block=items[first:first+chunk]
+        position=block[-1][2] if block else end
+        invalid=sum(kind=='invalid' for _,kind,_,_ in block);oversized=sum(kind=='oversized' for _,kind,_,_ in block)
+        with transaction.atomic():
+            # Reserve SQLite's writer before ingest_events reads the ownership
+            # catalogue. Independent workers must not upgrade a stale read snapshot.
+            WorkerState.objects.filter(pk=state.pk).update(offset=F('offset'))
+            count += ingest_events([event for event,kind,_,_ in block if kind=='event'])
+            state.inode,state.offset = identity,position
+            state.last_run_at = state.last_success_at = timezone.now()
+            state.error = ''
+            details={**details,'skipping_oversized':block[-1][3] if block else skipping,'read_bytes':read_bytes,
+                'remaining_bytes':max(0,stat.st_size-position),'invalid_json':invalid,'oversized_lines':oversized,
+                'invalid_json_total':int(details.get('invalid_json_total',0))+invalid,
+                'oversized_lines_total':int(details.get('oversized_lines_total',0))+oversized}
+            state.details=details
+            state.save()
+        if time.monotonic()-started>budget:break  # el resto, en la siguiente ejecución
     return count
 
 def reconcile_security(now=None,pages=3,page_size=200,state_name='security-reconciliation',initial_days=1,selected_sources=None,issue_suffix=''):
@@ -543,9 +560,9 @@ def reconcile_security(now=None,pages=3,page_size=200,state_name='security-recon
                     {'range':{'timestamp':{'gte':details['start'],'lt':details['end']}}}]}},
                 'sort':[{'timestamp':'asc'},{'id':{'order':'asc','unmapped_type':'keyword'}},{'_index':'asc'}]}
             if details.get('after'): body['search_after']=details['after']
-            result=_search(body,authorization)
-            if result.get('timed_out') or result.get('_shards',{}).get('failed',0):
-                raise ValueError('La consulta del indexador fue parcial.')
+            # Invariante 5: la misma comprobación que el resto (incluye terminated_early).
+            from .indexer_results import complete
+            result=complete(_search(body,authorization))
             hits=result.get('hits',{}).get('hits')
             if not isinstance(hits,list): raise ValueError('Respuesta del indexador incompleta.')
             if hits and (not all(h.get('_source',{}).get('id') for h in hits) or len(hits[-1].get('sort',[]))!=3):

@@ -147,6 +147,25 @@ class IndependentJobTests(TestCase):
                 self.assertEqual(state.details['remaining_bytes'],0)
                 self.assertEqual(ingest.call_args.args[0],[{}])
                 self.assertEqual(state.details['oversized_lines_total'],1)
+    def test_receipts_commit_in_chunks_and_an_interruption_keeps_the_last_committed_position(self):
+        from .interruption import JobInterrupted
+        from .operations import read_receipts
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'alerts.json'
+            path.write_bytes(b''.join(json.dumps({'n':i}).encode()+b'\n' for i in range(7)))
+            seen=[]
+            def ingest(events):
+                if len(seen)==2:raise JobInterrupted('parada')
+                seen.append([e['n'] for e in events]);return len(events)
+            with patch('core.operations.ingest_events',side_effect=ingest):
+                with self.assertRaises(JobInterrupted):read_receipts(path,chunk=3)
+                state=WorkerState.objects.get(pk='receipts')
+                self.assertEqual(seen,[[0,1,2],[3,4,5]])
+                self.assertEqual(state.offset,len(b''.join(json.dumps({'n':i}).encode()+b'\n' for i in range(6))))
+                seen.clear()  # siguiente ejecución, sin corte
+                read_receipts(path,chunk=3)
+            self.assertEqual(seen[-1],[6],'continúa tras el último bloque confirmado, sin repetir')
+            self.assertEqual(WorkerState.objects.get(pk='receipts').details['remaining_bytes'],0)
     def test_delivery_drains_multiple_batches_within_the_budget(self):
         # Independent transport can drain more than one batch/minute per source.
         owner=Client.objects.create(name='Owner',code='owner')

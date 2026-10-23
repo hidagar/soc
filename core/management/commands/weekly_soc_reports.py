@@ -24,16 +24,24 @@ class Command(BaseCommand):
             monday = today - timedelta(days=today.weekday() + 7)
         if monday.weekday() != 0:
             raise CommandError("La fecha debe ser lunes.")
-        try:
-            reports = refresh_week(monday)
-        except Exception as exc:
-            raise CommandError(f"No se pudo consultar Wazuh: {exc}") from exc
         sent = 0
-        for report in reports:
+
+        def deliver(report):
+            # Cada informe se envía justo tras recopilarlo, dentro de su vigencia de 15 minutos.
+            nonlocal sent
             if options["send"]:
                 try:
                     sent += int(send_report(report))
                 except Exception as exc:
                     self.stderr.write(f"Falló el correo del cliente {report.client_id}: {type(exc).__name__}")
             self.stdout.write(f"{report.client.code}: {report.security_count} detecciones SIEM, {report.wazuh_alert_count} alertas Wazuh")
+
+        try:
+            reports, failures = refresh_week(monday, on_report=deliver)
+        except Exception as exc:
+            raise CommandError(f"No se pudo consultar Wazuh: {exc}") from exc
+        for client, exc in failures:
+            self.stderr.write(f"No se pudo recopilar el cliente {client.code}: {type(exc).__name__}")
         self.stdout.write(f"Informes: {len(reports)}. Correos aceptados por SendGrid: {sent}.")
+        if failures:
+            raise CommandError(f"{len(failures)} clientes sin informe esta semana. Revisar y repetir con --week {monday}.")

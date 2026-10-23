@@ -50,7 +50,8 @@ class ReportVersionTests(TestCase):
         self.assertEqual(ReportVersion.objects.count(), 1)
         self.assertIn('4 detecciones bloqueadas', first)
         self.assertIn('4 detecciones bloqueadas', later)
-        self.assertNotIn('99', later.split('<footer')[0].split('Informe semanal', 1)[1])
+        # Solo el informe congelado: el menú del portal lleva un token CSRF aleatorio.
+        self.assertNotIn('99', later.split('<footer')[0].split('class="page-head"', 1)[1])
         self.assertNotIn(PDF_PLACEHOLDER, later)
         pdf = self.client.get(reverse('customer_weekly_pdf', args=[self.report.pk]))
         self.assertEqual(bytes(pdf.content), bytes(ReportVersion.objects.get().pdf))

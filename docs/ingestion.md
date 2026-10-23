@@ -58,12 +58,22 @@ El digest es SHA-256 del JSON compacto de la lista (`ensure_ascii=False`, separa
 
 `wazuh_delivery.py` deriva UID de canal/lote/digest/posición, reemplaza encabezado de transporte y conserva programa/cuerpo en formatos ensayados. No se presume soporte para todo Syslog: RFC5424/desconocidos se conservan opacos hasta disponer de adaptador contrastado.
 
+Una línea completa pero corrupta del archivo nativo (p. ej. tras un fallo de analysisd) se cuenta (`corrupt_lines`), se salta y se avisa en «Salud del SOC» (`platform:native-archive-corrupt`); saltarla no confirma nada. Antes bloqueaba todos los acuses siguientes del archivo. Una línea sin terminar sigue deteniendo la lectura: el motor puede estar escribiéndola. El archivo se sincroniza (fsync) una vez por lectura y solo se procesan los bytes anteriores a esa sincronización.
+
 El recibo nativo debe coincidir en alias, marcador y huella. El lector soporta rotación/compresión y comprueba generación antes de saltarse bytes. Congela el primer resultado confirmado. Alertas: documento `soc-relay-<uid>` con create y verificación; pipeline privado con fechas precisas y errores explícitos. `projected_at` y la transacción evitan doble contribución al portal.
 
 ## Cortes, limpieza y límites
 
-Ocho intentos sin confirmación llevan a revisión; no se borran pendientes. Publicación al índice espera al menos 60 segundos ante incertidumbre. Perfil cambiado obliga a verificar/sincronizar reglas/binarios. Archivos privados cerrados: 24 h; cuerpos confirmados y alertas cifradas indexadas: siete días. Marcas de deduplicación permanecen. Pausa por logs privados >512 MiB o espacio libre <15 %, con mínimo de seguridad.
+Ocho intentos sin confirmación llevan a revisión; no se borran pendientes. Solo cuentan los envíos que salieron: con el motor local caído, el mensaje se reintenta cada minuto sin gastar intentos (antes, unos 45 minutos de caída dejaban todo «fallido»). Publicación al índice espera al menos 60 segundos ante incertidumbre. Perfil cambiado obliga a verificar/sincronizar reglas/binarios. Archivos privados cerrados: 24 h; cuerpos confirmados y alertas cifradas indexadas: siete días. Marcas de deduplicación permanecen. Pausa por logs privados >512 MiB o espacio libre <15 %, con mínimo de seguridad.
 
 La ejecución interna de Wazuh es al menos una vez: un reenvío ambiguo puede afectar correlación interna. El documento/proyección estable no debe duplicarse. El primer salto UDP sigue sin garantía. Recibos v1 conservan revisión de envíos ambiguos; no inventar un ACK retroactivo.
+
+## Lector local y avisos urgentes
+
+`read_receipts` ingiere `alerts.json` en bloques de 200 eventos: cada bloque confirma sus evidencias y la posición del final de su última línea en la misma transacción, con un máximo de 100 s por ejecución. Antes, 3000 eventos en una sola transacción retenían el escritor de SQLite decenas de segundos y un corte repetía el lote indefinidamente. Índices compuestos para la agrupación de episodios, los agregados de cada caso, la proyección pendiente y la búsqueda por `wazuh_id` (migración 0057).
+
+La exploración urgente prepara el inventario de cada fuente (puede consultar la nube de UniFi) antes de reservar el escritor y solo carga las evidencias de los eventos de la página.
+
+Los informes semanales se recopilan y envían cliente a cliente: el envío llega dentro de la vigencia de 15 minutos de su recopilación y el fallo de un cliente no detiene a los demás (el trabajo termina con error y los nombra).
 
 Más detalle: [entrega 3B](entrega-wazuh-https.md), [relay](../deploy/relay/LEEME.md), `test_wazuh_delivery`, `test_durable_operations` y `test_native_pipeline`.

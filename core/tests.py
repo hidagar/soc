@@ -711,6 +711,23 @@ class UrgentAlertTests(TestCase):
         self.assertNotIn("Cliente B", send.call_args_list[0].args[2])
         self.assertTrue(all(row.status == UrgentAlert.Status.ACCEPTED for row in UrgentAlert.objects.all()))
 
+    def test_inventory_and_cloud_calls_happen_before_reserving_the_writer(self):
+        from django.db import connection
+        from .urgent_alerts import scan_events
+        UrgentMonitorCursor.objects.create(pk=1, last_checked_at=self.now - timedelta(minutes=3))
+        hits = [self.hit("a", "192.0.2.11"), self.hit("c", "192.0.2.11")]
+        response = {"hits": {"total": {"value": 2}, "hits": hits}}
+        baseline, depths, asked = len(connection.atomic_blocks), [], []
+        def inventory(client, sources, events=None):
+            depths.append(len(connection.atomic_blocks)); asked.append(len(events or []))
+            return {sources[0]: {"device_name": "Firewall", "site_name": "Sede", "hosts": {}}}
+        with mock.patch("core.urgent_alerts._search", return_value=response), mock.patch(
+            "core.urgent_alerts.indexer_authorization", return_value="test-auth"
+        ), mock.patch("core.urgent_alerts.inventories_for_sources", side_effect=inventory):
+            self.assertEqual(scan_events(self.now), 2)
+        self.assertEqual(depths, [baseline], 'una consulta por fuente y fuera de la transacción')
+        self.assertEqual(asked, [2], 'solo las evidencias de los eventos de la página')
+
     def test_same_asset_is_grouped_for_one_hour(self):
         from .urgent_alerts import deliver_pending, scan_events
         UrgentMonitorCursor.objects.create(pk=1, last_checked_at=self.now - timedelta(minutes=3))
