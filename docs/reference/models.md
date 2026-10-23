@@ -310,6 +310,9 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `max_entries` | PositiveIntegerField |  |
 | `token_hash` | CharField | max_length=64; blank=True |
 | `encrypted_token` | TextField | blank=True |
+| `previous_token_hash` | CharField | max_length=64; blank=True |
+| `token_rotated_at` | DateTimeField | null=True; blank=True |
+| `previous_token_fetch_at` | DateTimeField | null=True; blank=True |
 | `entries` | JSONField | blank=True |
 | `generated_at` | DateTimeField | null=True; blank=True |
 | `last_fetch_at` | DateTimeField | null=True; blank=True |

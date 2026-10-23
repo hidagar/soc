@@ -108,3 +108,43 @@ class RecoveryVMViewsTests(TestCase):
         with patch('core.control_views.mfa_fresh',return_value=False):
             response=self.client.post(reverse('recovery'),{'action':'save','transport':'vm'})
         self.assertEqual(response.status_code,302);self.assertIn('/security/mfa/',response.url)
+
+
+class RestoreTestScopeTests(SimpleTestCase):
+    """La prueba de restauración no duplica el histórico cada día ni llena el disco del indexador."""
+    def test_sample_and_inventory_ignore_daily_rotation(self):
+        from .recovery import restore_inventory,restore_sample
+        monday=['.kibana_1','soc-customer-7-events','wazuh-alerts-4.x-2026.10.12','wazuh-alerts-4.x-2026.10.13']
+        tuesday=['.kibana_1','soc-customer-7-events','wazuh-alerts-4.x-2026.10.13','wazuh-alerts-4.x-2026.10.14']
+        self.assertEqual(restore_sample(tuesday),['.kibana_1','soc-customer-7-events','wazuh-alerts-4.x-2026.10.14'])
+        self.assertEqual(restore_inventory(monday),restore_inventory(tuesday),'la rotación diaria no repite la prueba')
+        self.assertNotEqual(restore_inventory(monday),restore_inventory(monday+['soc-customer-8-events']),'un cliente nuevo sí')
+    def test_restore_is_postponed_when_it_would_fill_the_indexer_disk(self):
+        calls=[]
+        def api(path,payload=None,**kwargs):
+            calls.append(path)
+            if path=='/_snapshot/soc_recovery/soc-20261013000000':return {'snapshots':[{'state':'SUCCESS','indices':['.kibana_1','wazuh-alerts-test']}]}
+            if path.startswith('/_cat/indices/'):return [{'index':'wazuh-alerts-test','pri.store.size':'40000'}]
+            if path.startswith('/_cat/allocation'):return [{'disk.total':'100000','disk.used':'50000'}]
+            raise AssertionError(path)
+        with patch('core.indexer_admin.admin_request',side_effect=api):
+            result=test_indexer_restore('soc-20261013000000')
+        self.assertEqual(result['native_restore'],'pospuesta')
+        self.assertFalse(any(p.endswith('/_restore') for p in calls),'no restaura nada')
+
+
+class JobInterruptionTests(TestCase):
+    def test_sigterm_is_not_swallowed_by_connector_error_handling_and_is_recorded(self):
+        from . import background_jobs
+        from .interruption import JobInterrupted
+        from .models import WorkerState
+        def connector():
+            try:
+                raise JobInterrupted('parada')
+            except Exception:  # lo que hacen los conectores con sus errores
+                return 'siguió trabajando'
+        with patch.object(background_jobs,'execute',side_effect=lambda name:connector()):
+            with self.assertRaises(JobInterrupted):background_jobs.run_job('transport')
+        state=WorkerState.objects.get(name='job:transport')
+        self.assertEqual((state.details['running'],state.details['error_type']),(False,'JobInterrupted'))
+        self.assertFalse(issubclass(JobInterrupted,(Exception,OSError)))

@@ -57,3 +57,26 @@ class ReportFreshnessTests(TestCase):
         r.refresh_from_db()
         self.assertEqual(r.security_count,4)
         self.assertTrue(OperationalIssue.objects.filter(key=f'platform:report-refresh:{self.c.pk}',active=True).exists())
+
+
+class WeeklyRunTests(TestCase):
+    """El envío semanal recopila y envía cliente a cliente; un fallo no detiene a los demás."""
+    @patch('core.reporting.indexer_authorization',return_value='auth')
+    def test_each_client_is_sent_right_after_its_collection_and_failures_are_isolated(self,auth):
+        from django.core.management import call_command
+        from django.core.management.base import CommandError
+        clients=[Client.objects.create(name=f'Cliente {n}',code=f'c{n}') for n in range(3)]
+        order=[]
+        def collect(client,week,authorization):
+            order.append(('recopila',client.code))
+            if client.code=='c1':raise RuntimeError('indexador')
+            return {'sources':['192.0.2.10'],'security_count':1}
+        def send(report):
+            order.append(('envía',report.client.code));return True
+        monday=timezone.localdate()-timedelta(days=timezone.localdate().weekday()+7)
+        with patch('core.reporting.collect_client_week',side_effect=collect),patch('core.reporting._source_owner_check'),\
+                patch('core.management.commands.weekly_soc_reports.send_report',side_effect=send):
+            with self.assertRaises(CommandError):call_command('weekly_soc_reports','--send','--week',monday.isoformat())
+        self.assertEqual(order,[('recopila','c0'),('envía','c0'),('recopila','c1'),('recopila','c2'),('envía','c2')])
+        self.assertEqual(sorted(WeeklyReport.objects.values_list('client__code',flat=True)),['c0','c2'])
+        self.assertTrue(all(c.pk for c in clients))

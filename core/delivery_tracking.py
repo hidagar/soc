@@ -13,6 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST,require_http_methods
 from .models import MailDispatch,MailEvent,DeliverySettings,Client,UrgentAlert,OperationalIssue,WorkerState
 from .security import audit,mfa_fresh
+from .forms import ScopedModelForm
 
 def verification_key(value):
     value=value.strip()
@@ -67,7 +68,7 @@ def delivery_webhook(request):
         if matched:DeliverySettings.objects.filter(pk=config.pk).update(last_matched_at=timezone.now())
     return HttpResponse(status=204)
 
-class DeliveryForm(forms.ModelForm):
+class DeliveryForm(ScopedModelForm):
     class Meta:
         model=DeliverySettings;fields=['public_key','enabled','ack_minutes']
         widgets={'public_key':forms.Textarea(attrs={'rows':4})}

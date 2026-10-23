@@ -222,6 +222,11 @@ class SecurityEvidence(models.Model):
         return {'allowed':'Permitida','blocked':'Bloqueada'}.get(self.action,'Sin confirmar')
     class Meta:
         ordering = ['-observed_at']
+        # Consultas que se repiten por evento o cada pocos minutos con cientos de miles de filas.
+        indexes = [models.Index(fields=['device','signature','observed_at'],name='evidence_episode_idx'),
+                   models.Index(fields=['incident','observed_at'],name='evidence_incident_idx'),
+                   models.Index(fields=['client_scope_id','wazuh_published_at','observed_at'],name='evidence_unpublished_idx'),
+                   models.Index(fields=['client_scope_id','wazuh_id'],name='evidence_wazuh_id_idx')]
 
 class AttributionCatalog(models.Model):
     device=models.OneToOneField('core.Device',on_delete=models.CASCADE,related_name='attribution_catalog')

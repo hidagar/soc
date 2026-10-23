@@ -9,7 +9,8 @@ let motionPaused=motionQuery.matches,lastSuccess=Date.now(),lastAttempt=Date.now
 let serverTime=Date.parse(payload.generated_at_iso)||Date.now();
 let seenIds=new Set((payload.recent||[]).map(e=>e.uid).filter(Boolean)),freshIds=new Set();
 function watchMode(){return document.body.classList.contains('map-presentation')||document.fullscreenElement===$('map-panel')||fullscreenFallback;}
-function refreshDelay(){return watchMode()?15000:60000;}
+// El portal del cliente fija un mínimo (data-min-refresh): su modo presentación no consulta cada 15 s.
+function refreshDelay(){const minimum=Number($('threat-console').dataset.minRefresh||0);return Math.max(minimum,watchMode()?15000:60000);}
 function eventAge(event){const t=Date.parse(event.observed_at);return Number.isFinite(t)?Math.max(0,serverTime+Date.now()-lastSuccess-t):null;}
 function ageText(ms){if(ms===null)return 'Hora sin confirmar';if(ms<60000)return 'hace menos de 1 min';if(ms<3600000)return `hace ${Math.floor(ms/60000)} min`;return `hace ${Math.floor(ms/3600000)} h`;}
 function updateWatchClock(){

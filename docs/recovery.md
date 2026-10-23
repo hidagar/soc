@@ -10,8 +10,10 @@ Portal SQLite, índices/objetos/seguridad OpenSearch, RBAC/API Wazuh, secretos/c
 |---|---|
 | local_verified | Archivo local validado, no persistencia fuera de VM. |
 | verified / external_verified | Transferencia externa comprobada según destino. |
-| native_restore en detalles | Ensayo específico del snapshot en índices temporales y ámbito. |
+| native_restore en detalles | Ensayo del snapshot en índices temporales con prefijo propio: una muestra (el índice más reciente de cada familia, más los objetos guardados), no todo el histórico. `pospuesta` si dejaría el disco del indexador por encima del 80 %; se avisa en «Salud del SOC» (`platform:restore-test`). |
 | Declaración de backup VM | Información del operador; no consulta automática del hipervisor. |
+
+El ensayo del indexador se repite a los 30 días o cuando cambian las familias de índices (un cliente nuevo), no con la rotación diaria de alertas: antes cada copia diaria restauraba todos los índices en el clúster vivo y duplicaba su disco. La espera de recuperación llega a 10 minutos. Al empezar cada copia se borran los índices `soc-restore-check-*` y las carpetas `build-*` que dejara una copia cortada (contienen el entorno y la base en claro). Si systemd para la copia (SIGTERM), se ejecuta su limpieza y queda como fallida. Los archivos de copias fallidas caducan con la misma retención.
 
 El usuario realiza copias de VM: no inventar/configurar SFTP por ello. Registrar fecha/destino externo y restaurar en aislamiento. No afirmar RPO/RTO sin medir pérdida máxima y tiempo real.
 

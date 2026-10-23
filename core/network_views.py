@@ -9,9 +9,10 @@ from django.views.decorators.http import require_http_methods
 from .models import Client, Device, DeviceHealth, NetworkCoverage
 from .network_coverage import snapshot
 from .security import audit
+from .forms import ScopedModelForm
 
 
-class NetworkForm(forms.ModelForm):
+class NetworkForm(ScopedModelForm):
     class Meta:
         model = NetworkCoverage
         fields = ['scope', 'require_ips', 'require_zenarmor', 'review_note', 'review_until']

@@ -9,6 +9,7 @@ from django.urls import reverse
 from .models import Client, CustomerPublication, MailSettings, ReportVersion, Site, StaffAccess, WeeklyReport
 from .report_sharing import create_report_link
 from .report_versions import PDF_PLACEHOLDER, published_version
+from .testing_access import collected_report
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
@@ -19,6 +20,7 @@ class ReportVersionTests(TestCase):
         Site.objects.create(client=self.company, name='Sede original', code='s1')
         self.report = WeeklyReport.objects.create(client=self.company, week_start=date(2026, 9, 21),
                                                   sources=['192.0.2.1'], security_count=4, blocked_count=4)
+        collected_report(self.report)  # recopilación completa: publicable
         CustomerPublication.objects.create(client=self.company, title='Publicación', summary='x', visible=True,
                                            weekly_report=self.report)
         MailSettings.objects.create(pk=1, from_email='soc@example.test', enabled=True, last_test_ok=True,
@@ -48,7 +50,8 @@ class ReportVersionTests(TestCase):
         self.assertEqual(ReportVersion.objects.count(), 1)
         self.assertIn('4 detecciones bloqueadas', first)
         self.assertIn('4 detecciones bloqueadas', later)
-        self.assertNotIn('99', later.split('<footer')[0].split('Informe semanal', 1)[1])
+        # Solo el informe congelado: el menú del portal lleva un token CSRF aleatorio.
+        self.assertNotIn('99', later.split('<footer')[0].split('class="page-head"', 1)[1])
         self.assertNotIn(PDF_PLACEHOLDER, later)
         pdf = self.client.get(reverse('customer_weekly_pdf', args=[self.report.pk]))
         self.assertEqual(bytes(pdf.content), bytes(ReportVersion.objects.get().pdf))
@@ -101,3 +104,46 @@ class ReportVersionTests(TestCase):
         self.client.force_login(self.customer)
         self.assertEqual(self.client.get(reverse('customer_weekly', args=[foreign.pk])).status_code, 404)
         self.assertEqual(self.client.get(reverse('customer_weekly_pdf', args=[foreign.pk])).status_code, 404)
+
+    def test_concurrent_first_views_never_create_an_unexplained_second_version(self):
+        from .report_versions import freeze_first
+        first = freeze_first(self.report)
+        again = freeze_first(self.report)
+        self.assertEqual((first.pk, again.pk, ReportVersion.objects.count()), (again.pk, first.pk, 1))
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
+class PublicationFreezeTests(TestCase):
+    """Publicar un informe lo congela: nunca un borrador ni una semana abierta."""
+    def setUp(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        self.company = Client.objects.create(name='Empresa A', code='a')
+        Site.objects.create(client=self.company, name='Sede', code='s1')
+        this_week = timezone.localdate() - timedelta(days=timezone.localdate().weekday())
+        self.open_week = WeeklyReport.objects.create(client=self.company, week_start=this_week, sources=['192.0.2.1'])
+        self.manager = get_user_model().objects.create_superuser('gestor', 'g@example.test', 'x')
+        self.client.force_login(self.manager)
+
+    def publish(self, report):
+        return self.client.post(reverse('customer_publish', args=[self.company.pk]), {
+            'title': 'Aviso', 'summary': 'Texto', 'next_steps': '', 'status': 'open', 'weekly_report': report.pk,
+            'visible': 'on'})
+
+    def test_open_or_unverified_reports_cannot_be_published(self):
+        draft = WeeklyReport.objects.create(client=self.company, week_start=date(2026, 9, 21), sources=[])
+        for report, text in ((self.open_week, 'aún no ha terminado'), (draft, 'fuente de eventos verificada')):
+            response = self.publish(report)
+            self.assertContains(response, text)
+        self.assertFalse(CustomerPublication.objects.exists())
+        self.assertFalse(ReportVersion.objects.exists())
+
+    def test_a_verified_report_is_frozen_when_published(self):
+        from unittest import mock
+        report = WeeklyReport.objects.create(client=self.company, week_start=date(2026, 9, 21), sources=['192.0.2.1'])
+        with mock.patch('core.reporting.release_problem', return_value=''):
+            response = self.publish(report)
+        self.assertEqual(response.status_code, 302)
+        version = ReportVersion.objects.get()
+        self.assertEqual((version.report, version.number, version.created_by), (report, 1, self.manager))
+

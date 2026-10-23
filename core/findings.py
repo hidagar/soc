@@ -155,7 +155,6 @@ def _asset(item, inventories):
     source = str(item.get("location") or "")
     inventory = inventories.get(source, {})
     kind = _event_type(item)
-    data = item.get("data", {})
     from .operations import normalize
     event=normalize(item)
     ip = event['affected_ip'] or _clean_ip(event['destination_ip'])
@@ -240,11 +239,9 @@ def build_findings(hits, inventories):
         item = hit.get("_source", {})
         kind = _event_type(item)
         description = _event_description(item)
-        unifi = item.get("data", {}).get("unifi", {})
         event=normalize(item)
         asset = _asset(item, inventories)
         action = _action(event['action'])
-        data = item.get("data", {})
         port = event['destination_port'][:12]
         src_ip = _clean_ip(event['source_ip'])
         date = _time(item.get("timestamp", ""))

@@ -145,25 +145,35 @@ def collect_client_week(client, week_start, authorization):
     }
 
 
-def refresh_week(week_start):
+def refresh_week(week_start, on_report=None):
+    """Recopila la semana cliente a cliente; `on_report` (p. ej. enviar) se llama tras cada uno.
+
+    Antes se recopilaban todos y después se enviaban: con decenas de clientes, los primeros
+    superaban los 15 minutos de vigencia y `send_report` los rechazaba. Un fallo de un cliente
+    tampoco detiene a los demás: se devuelve en `failures`.
+    """
     if week_start.weekday() != 0:
         raise ValueError("La semana debe comenzar en lunes.")
     clients = list(Client.objects.filter(active=True))
     _source_owner_check(clients)
     authorization = indexer_authorization()
-    reports = []
+    reports, failures = [], []
     for client in clients:
-        existing = WeeklyReport.objects.filter(client=client, week_start=week_start).first()
-        if existing and existing.sent_at:
-            reports.append(existing)
+        try:
+            report = WeeklyReport.objects.filter(client=client, week_start=week_start).first()
+            if not (report and report.sent_at):
+                values = collect_client_week(client, week_start, authorization)
+                report, _ = WeeklyReport.objects.update_or_create(
+                    client=client, week_start=week_start,
+                    defaults={**values, "collected_at": timezone.now()},
+                )
+        except Exception as exc:
+            failures.append((client, exc))
             continue
-        values = collect_client_week(client, week_start, authorization)
-        report, _ = WeeklyReport.objects.update_or_create(
-            client=client, week_start=week_start,
-            defaults={**values, "collected_at": timezone.now()},
-        )
         reports.append(report)
-    return reports
+        if on_report:
+            on_report(report)
+    return reports, failures
 
 
 def refresh_current_reports(now=None, limit=3):
@@ -189,7 +199,9 @@ def refresh_current_reports(now=None, limit=3):
             values = collect_client_week(client, monday, authorization)
             # Recheck sent_at under the lock: a shared/sent snapshot stays unchanged.
             from django.db import transaction
+            from .models import WorkerState
             with transaction.atomic():
+                WorkerState.reserve('report-refresh')  # el «lock» del comentario: escritor antes de leer
                 report, _ = WeeklyReport.objects.get_or_create(client=client,week_start=monday)
                 if report.sent_at:
                     continue
@@ -257,6 +269,29 @@ def report_context(report):
         "provisional": report.week_start + timedelta(days=7) > timezone.localdate(),
         "report_stale": not report.sent_at and timezone.now()-report.collected_at > timedelta(minutes=15),
     }
+
+
+def release_problem(report, now=None):
+    """Motivo por el que un informe aún no puede publicarse al cliente; cadena vacía si puede.
+
+    Publicarlo lo congela (bloque 6): no debe congelarse una semana abierta ni un borrador
+    sin fuentes o con la propiedad histórica pendiente de verificar.
+    """
+    now = now or timezone.now()
+    if report.week_start + timedelta(days=7) > timezone.localdate(now):
+        return 'la semana del informe aún no ha terminado.'
+    if not report.sources:
+        return 'no hay una fuente de eventos verificada para este cliente.'
+    from .source_ownership import report_scope
+    try:
+        _, _, fingerprint = report_scope(report.client, report.week_start)
+    except ValueError:
+        fingerprint = None
+    coverage = report.coverage or {}
+    if (coverage.get('collection_schema') != 2 or coverage.get('ownership_fingerprint') != fingerprint
+            or coverage.get('ownership_pending')):
+        return 'requiere una recopilación completa con la propiedad histórica verificada; actualiza el informe.'
+    return ''
 
 
 def send_report(report):

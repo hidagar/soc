@@ -151,6 +151,34 @@ class RefreshTests(CatalogTestCase):
         self.assertIn(('DELETE', '/blocklists/good/subscribers/org-1', None), self.service.calls)
         self.assertFalse(CrowdsecBlocklist.objects.get(pk=good.pk).subscribed)
 
+    def test_automatic_mode_respects_rejections_and_lists_out_of_the_plan(self):
+        self.run_job()
+        # Baja hecha en la consola de una lista que el SOC tenía: el modo automático no la vuelve a dar de alta.
+        CrowdsecBlocklist.objects.filter(blocklist_id='good').update(subscribed=True, subscribed_by='soc-auto')
+        self.run_job(now=self.now + timedelta(hours=25))  # catálogo diario
+        good = CrowdsecBlocklist.objects.get(blocklist_id='good')
+        self.assertEqual((good.subscribed, good.subscribed_by), (False, 'rejected'))
+        self.assertEqual(list(catalog.recommended()), [])
+        self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '3'}, now=self.now + timedelta(hours=25, minutes=10))
+        self.assertFalse(any(m == 'POST' for m, _, _ in self.service.calls))
+        # Una lista recomendada sin acceso con el plan: queda marcada y no se reintenta en cada ciclo.
+        CrowdsecBlocklist.objects.filter(pk=good.pk).update(subscribed_by='')
+        original = self.service.__call__
+
+        def forbidden(key, path, method='GET', body=None, raw=False):
+            if method == 'POST':
+                self.service.calls.append((method, path, body))
+                raise catalog.ServiceError('clave rechazada o sin acceso con este plan', 403)
+            return original(key, path, method, body, raw)
+        service, self.service = self.service, mock.Mock(side_effect=forbidden, calls=self.service.calls)
+        self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '3'}, now=self.now + timedelta(hours=25, minutes=15))
+        good.refresh_from_db()
+        self.assertEqual(good.access, 'denied')
+        self.assertIn('alta automática', good.error)
+        self.run_job(env={'SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE': '3'}, now=self.now + timedelta(hours=25, minutes=20))
+        self.assertEqual(len([1 for m, _, _ in service.calls if m == 'POST']), 1, 'no se reintenta cada 5 minutos')
+        self.assertEqual(CrowdsecBlocklist.objects.get(pk=good.pk).access, 'denied', 'la evaluación no lo borra')
+
     def test_several_engines_require_explicit_engine_id(self):
         self.service.engines = [{'id': 'engine-1'}, {'id': 'engine-2'}]
         state = self.run_job()
@@ -187,8 +215,14 @@ class PageTests(CatalogTestCase):
         self.client.post(url, {'action': 'unsubscribe'})
         self.run_job()
         good.refresh_from_db()
-        self.assertFalse(good.subscribed)
+        self.assertEqual((good.subscribed, good.subscribed_by), (False, 'rejected'))
         self.assertIn(('DELETE', '/blocklists/good/subscribers/engine-1', None), self.service.calls)
+        self.assertNotIn(good, catalog.recommended(), 'una baja del SOC no se vuelve a recomendar')
+        self.assertContains(self.client.get(reverse('crowdsec_lists')), 'Descartada por el SOC')
+        self.client.post(url, {'action': 'subscribe'})
+        self.run_job()
+        good.refresh_from_db()
+        self.assertEqual((good.subscribed, good.subscribed_by), (True, 'soc-manual'), 'el alta manual la recupera')
         platinum = CrowdsecBlocklist.objects.get(blocklist_id='platinum')
         self.client.post(reverse('crowdsec_list_action', args=[platinum.pk]), {'action': 'subscribe'})
         self.assertEqual(CrowdsecBlocklist.objects.get(pk=platinum.pk).pending_action, '')
@@ -206,4 +240,12 @@ class PageTests(CatalogTestCase):
         StaffAccess.objects.create(user=reader, role='reader', all_clients=True)
         self.login(reader)
         self.assertEqual(self.client.get(reverse('crowdsec_lists')).status_code, 403)
+        self.assertEqual(CrowdsecBlocklist.objects.get(pk=good.pk).pending_action, '')
+        # Las suscripciones afectan a toda la organización: un gestor limitado a un cliente no las cambia.
+        from django.contrib.auth.models import Group
+        limited = get_user_model().objects.create_user('limitado')
+        StaffAccess.objects.create(user=limited, role='manager').clients.add(Client.objects.first())
+        limited.groups.add(Group.objects.get(name='SOC Administrador'))
+        self.login(limited)
+        self.assertEqual(self.client.post(url, {'action': 'subscribe'}).status_code, 403)
         self.assertEqual(CrowdsecBlocklist.objects.get(pk=good.pk).pending_action, '')

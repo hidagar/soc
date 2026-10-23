@@ -61,12 +61,15 @@ class AcknowledgedDeliveryTests(TestCase):
         self.assertEqual(finish_batches(),0)
         self.receipt.refresh_from_db();self.assertNotEqual(self.receipt.status,'confirmed')
     def test_socket_error_and_crash_retry_preserve_message_id(self):
-        with patch('core.wazuh_delivery.socket.socket',side_effect=OSError):self.assertEqual(send_due(),0)
-        self.message.refresh_from_db();self.assertEqual(self.message.attempts,1);self.assertIsNone(self.message.processed_at)
+        start=timezone.now()
+        with patch('core.wazuh_delivery.socket.socket',side_effect=OSError):
+            for minute in range(12):self.assertEqual(send_due(now=start+timedelta(minutes=minute)),0)
+        # Un motor caído no gasta los ocho intentos: el mensaje no salió nunca.
+        self.message.refresh_from_db();self.assertEqual((self.message.attempts,self.message.status),(0,'queued'));self.assertIsNone(self.message.processed_at)
         uid=self.message.uid
         with patch('core.wazuh_delivery.socket.socket') as sock:
             sock.return_value.__enter__.return_value.send.side_effect=lambda data:len(data)
-            self.assertEqual(send_due(now=timezone.now()+timedelta(minutes=1)),1)
+            self.assertEqual(send_due(now=start+timedelta(minutes=13)),1)
         self.assertEqual(self.receipt.delivery_messages.get().pk,uid)
     def test_no_alert_has_native_receipt_without_fake_security_evidence(self):
         source=self.native();source.pop('rule');source['decoder']={}
@@ -95,6 +98,16 @@ class AcknowledgedDeliveryTests(TestCase):
             self.assertEqual(read_native_receipts([path]),0);self.assertEqual(WorkerState.objects.filter(name__startswith='https-archive:').get().offset,0)
             path.write_text(line+'\n',encoding='utf-8')
             with patch('core.wazuh_delivery.os.fsync'):self.assertEqual(read_native_receipts([path]),1)
+    def test_complete_corrupt_line_is_skipped_and_does_not_block_later_receipts(self):
+        from .models import OperationalIssue
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'archives.json'
+            path.write_text('{"cortado": \n'+json.dumps(self.native())+'\n',encoding='utf-8')
+            with patch('core.wazuh_delivery.os.fsync'):self.assertEqual(read_native_receipts([path]),1)
+            state=WorkerState.objects.get(name__startswith='https-archive:')
+            self.assertEqual((state.offset,state.details['corrupt_lines'],state.error),(path.stat().st_size,1,''))
+            self.assertTrue(OperationalIssue.objects.filter(key='platform:native-archive-corrupt',active=True).exists())
+            self.message.refresh_from_db();self.assertIsNotNone(self.message.processed_at)
     def publish(self,create_status=True,stored=None):
         source=canonical(self.native(),self.message) if stored is None else stored
         with tempfile.TemporaryDirectory() as directory:

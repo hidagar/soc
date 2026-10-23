@@ -1,4 +1,4 @@
-from .testing_access import workflow_access
+from .testing_access import FreshMfaClient, workflow_access
 from datetime import date
 from unittest import mock
 
@@ -13,6 +13,7 @@ from .models import Client, Device, ExportConfiguration, FirewallOnboarding, Inc
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class SiteDeleteTests(TestCase):
+    client_class = FreshMfaClient  # credential views require a fresh MFA
     @classmethod
     def setUpTestData(cls):
         cls.operator = get_user_model().objects.create_user('site-delete-operator')

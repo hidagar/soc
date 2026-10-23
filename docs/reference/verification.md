@@ -14,25 +14,27 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_asn.py](../../core/test_asn.py) | 5 |
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
-| [core/test_blocklist.py](../../core/test_blocklist.py) | 10 |
+| [core/test_blocklist.py](../../core/test_blocklist.py) | 12 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
-| [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 8 |
-| [core/test_customer_portal.py](../../core/test_customer_portal.py) | 7 |
-| [core/test_customer_preview.py](../../core/test_customer_preview.py) | 4 |
+| [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 9 |
+| [core/test_customer_portal.py](../../core/test_customer_portal.py) | 8 |
+| [core/test_customer_preview.py](../../core/test_customer_preview.py) | 5 |
 | [core/test_customer_task_history.py](../../core/test_customer_task_history.py) | 7 |
 | [core/test_dashboard_sources.py](../../core/test_dashboard_sources.py) | 1 |
 | [core/test_database_concurrency.py](../../core/test_database_concurrency.py) | 3 |
 | [core/test_database_engine.py](../../core/test_database_engine.py) | 5 |
 | [core/test_database_transfer.py](../../core/test_database_transfer.py) | 5 |
+| [core/test_deploy_envfile.py](../../core/test_deploy_envfile.py) | 2 |
 | [core/test_device_inventory.py](../../core/test_device_inventory.py) | 13 |
 | [core/test_device_mac.py](../../core/test_device_mac.py) | 7 |
-| [core/test_durable_operations.py](../../core/test_durable_operations.py) | 21 |
+| [core/test_durable_operations.py](../../core/test_durable_operations.py) | 22 |
 | [core/test_email_auth.py](../../core/test_email_auth.py) | 6 |
 | [core/test_event_contract.py](../../core/test_event_contract.py) | 16 |
 | [core/test_exposure.py](../../core/test_exposure.py) | 13 |
 | [core/test_exposure_context.py](../../core/test_exposure_context.py) | 8 |
 | [core/test_exposure_ssh.py](../../core/test_exposure_ssh.py) | 3 |
+| [core/test_form_scope.py](../../core/test_form_scope.py) | 4 |
 | [core/test_gcc_connection_status.py](../../core/test_gcc_connection_status.py) | 3 |
 | [core/test_gdms_cloud.py](../../core/test_gdms_cloud.py) | 12 |
 | [core/test_grandstream_gcc.py](../../core/test_grandstream_gcc.py) | 4 |
@@ -49,19 +51,20 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_navigation.py](../../core/test_navigation.py) | 3 |
 | [core/test_network_coverage.py](../../core/test_network_coverage.py) | 20 |
 | [core/test_onboarding.py](../../core/test_onboarding.py) | 16 |
-| [core/test_operations.py](../../core/test_operations.py) | 31 |
+| [core/test_operations.py](../../core/test_operations.py) | 32 |
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
-| [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 11 |
+| [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 14 |
 | [core/test_recovery_postgresql.py](../../core/test_recovery_postgresql.py) | 3 |
 | [core/test_release_and_receiver.py](../../core/test_release_and_receiver.py) | 5 |
-| [core/test_report_freshness.py](../../core/test_report_freshness.py) | 3 |
+| [core/test_report_freshness.py](../../core/test_report_freshness.py) | 4 |
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
-| [core/test_report_versions.py](../../core/test_report_versions.py) | 5 |
-| [core/test_reputation.py](../../core/test_reputation.py) | 35 |
+| [core/test_report_versions.py](../../core/test_report_versions.py) | 8 |
+| [core/test_reputation.py](../../core/test_reputation.py) | 39 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
+| [core/test_security_review.py](../../core/test_security_review.py) | 6 |
 | [core/test_service_development.py](../../core/test_service_development.py) | 18 |
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
@@ -69,14 +72,14 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
 | [core/test_unifi_zone_scope.py](../../core/test_unifi_zone_scope.py) | 18 |
 | [core/test_wazuh_customer_isolation.py](../../core/test_wazuh_customer_isolation.py) | 10 |
-| [core/test_wazuh_delivery.py](../../core/test_wazuh_delivery.py) | 21 |
+| [core/test_wazuh_delivery.py](../../core/test_wazuh_delivery.py) | 22 |
 | [core/test_wazuh_sso.py](../../core/test_wazuh_sso.py) | 7 |
 | [core/test_work_queue.py](../../core/test_work_queue.py) | 8 |
 | [core/test_zenarmor_export.py](../../core/test_zenarmor_export.py) | 9 |
 | [core/test_zenarmor_onboarding.py](../../core/test_zenarmor_onboarding.py) | 8 |
 | [core/test_zenarmor_scope.py](../../core/test_zenarmor_scope.py) | 15 |
 | [core/testing_access.py](../../core/testing_access.py) | 0 |
-| [core/tests.py](../../core/tests.py) | 51 |
+| [core/tests.py](../../core/tests.py) | 52 |
 
 ## Migraciones
 
@@ -137,3 +140,5 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0053_blocklist_feed.py](../../core/migrations/0053_blocklist_feed.py)
 - [core/migrations/0054_crowdsec_blocklists.py](../../core/migrations/0054_crowdsec_blocklists.py)
 - [core/migrations/0055_crowdsec_list_sources.py](../../core/migrations/0055_crowdsec_list_sources.py)
+- [core/migrations/0056_blocklist_token_grace.py](../../core/migrations/0056_blocklist_token_grace.py)
+- [core/migrations/0057_evidence_indexes.py](../../core/migrations/0057_evidence_indexes.py)

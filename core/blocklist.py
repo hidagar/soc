@@ -34,6 +34,8 @@ from .security import audit, decrypt, encrypt
 
 WINDOW = timedelta(days=7)
 LISTS_FRESH = timedelta(hours=24)
+FEED_MAX_AGE = timedelta(hours=24)  # una lista sin recalcular más tiempo se sirve vacía (estado seguro)
+FETCH_STALE = timedelta(hours=2)
 MAX_ALLOWLIST = 200
 TEMPLATE = 'crowdsec'
 TITLE = 'Bloqueo CrowdSec del SOC'
@@ -65,13 +67,15 @@ def qualifying(now):
     for row in rows.iterator(chunk_size=1000):
         if row.cti_found and (row.background_noise == 'high' or row.false_positives):
             continue  # Ruido de fondo de Internet o posible falso positivo: nunca se bloquea.
-        reasons = []
-        if row.listed and row.lists_checked_at and row.lists_checked_at >= now - LISTS_FRESH:
-            reasons += list(row.list_origins or ['Lista CrowdSec'])
-        if row.cti_found and row.reputation == 'malicious' and row.cti_checked_at and row.cti_checked_at >= now - TTL:
+        # Cada fuente cuenta solo con su dato vigente: un dato caducado no es motivo para bloquear.
+        listed = bool(row.listed and row.lists_checked_at and row.lists_checked_at >= now - LISTS_FRESH)
+        malicious = bool(row.cti_found and row.reputation == 'malicious' and row.cti_checked_at
+                         and row.cti_checked_at >= now - TTL)
+        reasons = list(row.list_origins or ['Lista CrowdSec']) if listed else []
+        if malicious:
             reasons.append('CTI: maliciosa')
         if reasons:
-            result[row.ip] = {'reasons': reasons[:4], 'listed': bool(row.listed), 'cti': row.reputation == 'malicious'}
+            result[row.ip] = {'reasons': reasons[:4], 'listed': listed, 'cti': malicious}
     return result
 
 
@@ -132,8 +136,10 @@ def refresh_feeds(now=None):
             continue  # Excepciones no válidas: se conserva la última lista buena y se avisa en su página.
         before = {e['ip'] for e in feed.entries}
         after = {e['ip'] for e in entries}
-        BlocklistFeed.objects.filter(pk=feed.pk).update(entries=entries, generated_at=now,
-                                                        observation=observation(entries, now))
+        # Solo si la configuración no cambió mientras se calculaba; si cambió, se recalcula en la próxima pasada.
+        if not BlocklistFeed.objects.filter(pk=feed.pk, updated_at=feed.updated_at).update(
+                entries=entries, generated_at=now, observation=observation(entries, now)):
+            continue
         if before != after:
             audit('blocklist.generated', feed.client, {'count': len(after),
                                                        'status': f'+{len(after - before)} -{len(before - after)}'})
@@ -146,9 +152,36 @@ def _hash(token):
 
 def rotate_token(feed):
     token = secrets.token_urlsafe(32)
+    if feed.token_hash:
+        feed.previous_token_hash, feed.token_rotated_at, feed.previous_token_fetch_at = feed.token_hash, timezone.now(), None
     feed.token_hash, feed.encrypted_token = _hash(token), encrypt(token)
-    feed.save(update_fields=['token_hash', 'encrypted_token', 'updated_at'])
+    feed.save(update_fields=['token_hash', 'encrypted_token', 'previous_token_hash', 'token_rotated_at',
+                             'previous_token_fetch_at', 'updated_at'])
     return token
+
+
+def servable(feed, now=None):
+    """IPs que se sirven ahora: vacía si está desactivada, detenida o sin recalcular; sin excepciones ni protegidas.
+
+    Las excepciones y las IPs protegidas se vuelven a aplicar al servir: un cambio del operador
+    surte efecto en la siguiente descarga aunque la lista aún no se haya recalculado.
+    """
+    now = now or timezone.now()
+    if not (feed.enabled and not feed.stopped and feed.client.active and feed.generated_at
+            and now - feed.generated_at <= FEED_MAX_AGE):
+        return []
+    try:
+        allow = parse_allowlist(feed.allowlist)
+    except ValueError:
+        allow = []  # La lista guardada ya se calculó con las últimas excepciones válidas.
+    protected = protected_addresses()
+    result = []
+    for entry in feed.entries:
+        address = ipaddress.ip_address(entry['ip'])
+        if entry['ip'] not in protected and not any(address in network for network in allow
+                                                     if network.version == address.version):
+            result.append(entry['ip'])
+    return result
 
 
 def feed_url(feed):
@@ -164,11 +197,16 @@ def feed_url(feed):
 def serve(request, client_pk, token):
     """Descarga del firewall: una IP por línea. Vacía si la lista está desactivada o detenida."""
     feed = BlocklistFeed._base_manager.filter(client_id=client_pk).select_related('client').first()
-    if not feed or not feed.token_hash or not hmac.compare_digest(feed.token_hash, _hash(token)):
+    digest = _hash(token)
+    if feed and feed.previous_token_hash and hmac.compare_digest(feed.previous_token_hash, digest):
+        # URL anterior a una rotación: lista vacía, para que ese firewall deje de bloquear y se vea en la página.
+        BlocklistFeed._base_manager.filter(pk=feed.pk).update(previous_token_fetch_at=timezone.now())
+        body = ''
+    elif not feed or not feed.token_hash or not hmac.compare_digest(feed.token_hash, digest):
         raise Http404
-    active = feed.enabled and not feed.stopped and feed.client.active
-    BlocklistFeed._base_manager.filter(pk=feed.pk).update(last_fetch_at=timezone.now())
-    body = ''.join(entry['ip'] + '\n' for entry in feed.entries) if active else ''
+    else:
+        BlocklistFeed._base_manager.filter(pk=feed.pk).update(last_fetch_at=timezone.now())
+        body = ''.join(ip + '\n' for ip in servable(feed))
     response = HttpResponse(body, content_type='text/plain; charset=utf-8')
     response['X-Content-Type-Options'] = 'nosniff'
     return response
@@ -236,7 +274,7 @@ def detail(request, client_pk):
                 feed.include_lists = request.POST.get('include_lists') == 'on'
                 feed.include_cti = request.POST.get('include_cti') == 'on'
                 feed.enabled = request.POST.get('enabled') == 'on'
-                feed.save()
+                feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'enabled', 'updated_at'])
                 if feed.enabled and not feed.token_hash:
                     rotate_token(feed)
                 audit('blocklist.settings', client, {'status': 'enabled' if feed.enabled else 'disabled',
@@ -281,7 +319,21 @@ def detail(request, client_pk):
     except ValueError as exc:
         allowlist_error = str(exc)
     plans = ChangePlan.objects.filter(template=TEMPLATE, device__site__client=client).select_related('device').order_by('-pk')[:10]
+    now = timezone.now()
+    warnings = []
+    if feed.enabled and feed.generated_at and now - feed.generated_at > FEED_MAX_AGE:
+        warnings.append('La lista no se recalcula desde el ' + timezone.localtime(feed.generated_at).strftime('%d/%m %H:%M')
+                        + ': se sirve vacía hasta que el trabajo «Listas de bloqueo del SOC» vuelva a funcionar.')
+    if feed.previous_token_fetch_at:
+        warnings.append('Un firewall sigue usando la URL anterior al cambio de token (última descarga el '
+                        + timezone.localtime(feed.previous_token_fetch_at).strftime('%d/%m %H:%M')
+                        + '): recibe una lista vacía hasta que se actualice su URL.')
+    if (feed.enabled and any(p.status == 'active' for p in plans)
+            and (not feed.last_fetch_at or now - feed.last_fetch_at > FETCH_STALE)):
+        warnings.append('Hay una regla activa, pero ningún firewall ha descargado la lista en las últimas 2 horas. '
+                        'Revisa la conexión del firewall con el SOC.')
     return render(request, 'blocklist_detail.html', {
+        'warnings': warnings,
         'client': client, 'feed': feed, 'entries': feed.entries[:300], 'count': len(feed.entries),
         'url': feed_url(feed) if show_url and feed.enabled else '', 'error': error or allowlist_error,
         'devices': _devices(client), 'plans': plans, 'observation': feed.observation})

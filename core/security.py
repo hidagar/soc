@@ -58,7 +58,7 @@ def verify_token(profile, value, now=None, recovery=True):
                     if MfaProfile.objects.filter(pk=locked.pk, last_counter=locked.last_counter).update(last_counter=candidate):
                         return True
                     return False
-        if recovery and locked.enabled:
+        if recovery and locked.enabled and len(value) == 16 and all(c in '0123456789abcdefABCDEF' for c in value):
             for encoded in locked.recovery_hashes:
                 if check_password(value.lower(), encoded):
                     hashes = list(locked.recovery_hashes)
@@ -105,10 +105,14 @@ def failed_login(request):
     if ip:
         failed_attempt(request, 'password-ip', ip)
 
+# Campos de auditoría permitidos: valores acotados o identificadores, nunca texto libre.
+AUDIT_FIELDS = {'fields','status','count','template','role','clients','reason','job','sha256',
+                'decision','until','incident_id','owner','due_at','active','all_clients'}
+
 def audit(action, obj=None, details=None, user=None):
     user = user or actor_scope.get()
     # Fixed allowlist: never request bodies, tokens, credentials, URLs or arbitrary notes.
-    safe = {k: v for k, v in (details or {}).items() if k in {'fields','status','count','template','role','clients','reason','job','sha256'}}
+    safe = {k: v for k, v in (details or {}).items() if k in AUDIT_FIELDS}
     with transaction.atomic():
         WorkerState.reserve('audit-lock')
         previous = AuditEvent.objects.order_by('-pk').first()
@@ -143,12 +147,27 @@ def mark_mfa(request, profile):
     request.session['soc_mfa_version'] = profile.version
     request.session['soc_mfa_at'] = time.time()
 
+# Guardan credenciales, destinos de envío o borran datos: un MFA de hace más de 10 minutos no basta.
+FRESH_MFA_VIEWS = {'mail_settings','verify_public_reports','unifi_cloud','opnsense_api','ssh_connection',
+                   'export_destination','site_delete','hillstone_api','gdms_cloud'}
+# Desactivar el envío es una parada segura: no se retrasa con el MFA.
+FRESH_MFA_EXEMPT = {('mail_settings','disable')}
+# Tiempo máximo de una sesión verificada con MFA, aunque se siga usando.
+MFA_SESSION_MAX = 12 * 3600
+
 class SocSecurityMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        if not request.user.is_authenticated or request.user.is_superuser:
+        if not request.user.is_authenticated:
+            return None
+        name = request.resolver_match.url_name if request.resolver_match else ''
+        if (request.method not in ('GET','HEAD','OPTIONS') and name in FRESH_MFA_VIEWS
+                and (name, request.POST.get('action', '')) not in FRESH_MFA_EXEMPT and not mfa_fresh(request)):
+            messages.info(request, 'Confirma tu código MFA y repite la operación.')
+            return redirect('mfa_challenge')
+        if request.user.is_superuser:
             return None
         access = StaffAccess.objects.filter(user=request.user).first()
         if access and access.role=='customer':
@@ -157,7 +176,9 @@ class SocSecurityMiddleware:
                 return redirect('customer_home')
             if not allowed:
                 return HttpResponseForbidden('Esta cuenta solo puede acceder al portal de su empresa.')
-        global_views={'mail_settings','verify_public_reports','audit_log','recovery','staff','staff_edit','mfa_reset','delivery_settings'}
+        global_views={'mail_settings','verify_public_reports','audit_log','recovery','staff','staff_edit','mfa_reset','delivery_settings',
+            'crowdsec_list_action',  # cambia las suscripciones de toda la organización de CrowdSec
+            'client_new'}  # un gestor limitado no vería el cliente que acaba de crear
         if request.resolver_match and request.resolver_match.url_name in global_views and not (access and access.all_clients):
             return HttpResponseForbidden('Esta operación requiere acceso global al SOC.')
         if request.path.startswith('/admin/') and request.path not in ('/admin/login/','/admin/logout/'):
@@ -165,7 +186,6 @@ class SocSecurityMiddleware:
                 return HttpResponseForbidden('Administración global requerida.')
         if request.method in ('GET','HEAD','OPTIONS'):
             return None
-        name = request.resolver_match.url_name if request.resolver_match else ''
         permissions = {'client_new':'add_client','client_edit':'change_client',
             'site_new':'add_site','site_edit':'change_site','site_delete':'delete_site',
             'device_new':'add_device','device_edit':'change_device','onboarding_add_device':'add_device',
@@ -199,6 +219,9 @@ class SocSecurityMiddleware:
                 if not profile or not profile.enabled:
                     return redirect('mfa_setup')
                 if request.session.get('soc_mfa_user') != request.user.pk or request.session.get('soc_mfa_version') != profile.version:
+                    return redirect('mfa_challenge')
+                if time.time() - request.session.get('soc_mfa_at', 0) > MFA_SESSION_MAX:
+                    request.session.pop('soc_mfa_user', None)
                     return redirect('mfa_challenge')
             if request.method not in ('GET','HEAD','OPTIONS') and not exempt:
                 role = 'manager' if request.user.is_superuser else access.role if access else 'reader'

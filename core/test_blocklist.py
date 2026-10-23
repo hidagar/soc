@@ -83,6 +83,34 @@ class BuildTests(FeedTestCase):
         refresh_feeds(self.now)
         self.assertEqual(self.ips(), [CTI_ONLY])
 
+    def test_each_source_counts_only_with_fresh_data(self):
+        IpReputation.objects.filter(ip=HERE).update(cti_found=True, reputation='malicious',
+                                                    cti_checked_at=self.now - timedelta(days=10))
+        IpReputation.objects.filter(ip=CTI_ONLY).update(listed=True, lists_checked_at=self.now - timedelta(days=3))
+        self.feed.include_lists = False
+        self.feed.save()
+        refresh_feeds(self.now)
+        self.assertEqual(self.ips(), [CTI_ONLY], 'HERE solo tiene CTI caducada')
+        self.assertEqual(self.feed.entries[0]['reasons'], ['CTI: maliciosa'])
+
+    def test_recalculation_never_overwrites_newer_settings(self):
+        refresh_feeds(self.now)
+        before = self.ips()
+        real_build = blocklist.build
+
+        def operator_saves_meanwhile(feed, *args):
+            entries = real_build(feed, *args)
+            # El operador guarda una excepción mientras el trabajo calcula.
+            changed = BlocklistFeed.objects.get(pk=feed.pk)
+            changed.allowlist = f'{HERE}/32'
+            changed.save(update_fields=['allowlist', 'updated_at'])
+            return entries[:1]
+        with mock.patch.object(blocklist, 'build', side_effect=operator_saves_meanwhile):
+            refresh_feeds(self.now + timedelta(minutes=15))
+        self.assertEqual(self.ips(), before, 'no escribe una lista calculada con la configuración anterior')
+        refresh_feeds(self.now + timedelta(minutes=30))
+        self.assertNotIn(HERE, self.ips(), 'la siguiente pasada aplica la excepción')
+
     def test_allowlist_validation(self):
         self.assertEqual(len(parse_allowlist('10.0.0.0/8\n2001:db8::/32 # sede\n\n# solo comentario')), 2)
         for bad in ('no-es-ip', '300.1.1.1', '\n'.join(f'10.0.{i}.0/24' for i in range(201))):
@@ -111,6 +139,22 @@ class ServeTests(FeedTestCase):
         for bad in (reverse('blocklist_serve', args=[self.rosello.pk, 'x' * 43]),
                     reverse('blocklist_serve', args=[self.other.pk, token])):
             self.assertEqual(self.client.get(bad).status_code, 404)
+        # Excepción añadida después del cálculo: se aplica ya en la siguiente descarga.
+        BlocklistFeed.objects.filter(pk=self.feed.pk).update(allowlist=f'{OTHER}/32')
+        self.assertEqual(self.client.get(url).content.decode().split(), [HERE, CTI_ONLY])
+        BlocklistFeed.objects.filter(pk=self.feed.pk).update(allowlist='')
+        # Tras rotar el token, la URL anterior recibe una lista vacía (el freno la sigue alcanzando).
+        self.feed.refresh_from_db()
+        new_token = blocklist.rotate_token(self.feed)
+        self.assertEqual(self.client.get(url).content, b'')
+        self.feed.refresh_from_db()
+        self.assertIsNotNone(self.feed.previous_token_fetch_at)
+        url = reverse('blocklist_serve', args=[self.rosello.pk, new_token])
+        self.assertEqual(len(self.client.get(url).content.decode().split()), 3)
+        # Sin recalcular más de 24 h: vacía.
+        BlocklistFeed.objects.filter(pk=self.feed.pk).update(generated_at=self.now - timedelta(hours=25))
+        self.assertEqual(self.client.get(url).content, b'')
+        BlocklistFeed.objects.filter(pk=self.feed.pk).update(generated_at=timezone.now())
         BlocklistFeed.objects.filter(pk=self.feed.pk).update(stopped=True)
         self.assertEqual(self.client.get(url).content, b'')
         BlocklistFeed.objects.filter(pk=self.feed.pk).update(stopped=False, enabled=False)

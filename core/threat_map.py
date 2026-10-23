@@ -130,7 +130,7 @@ def filters(request):
     if direction not in ('all','inbound','outbound','external','internal'):direction='all'
     return client,days,action,direction
 
-def map_data(client=None,days=7,action='all',direction='all'):
+def map_data(client=None,days=7,action='all',direction='all',with_recent=True):
     now=timezone.now();start=now-timedelta(days=days)
     qs=SecurityEvidence.objects.filter(client_scope_id=F('device__site__client_id'),observed_at__gte=start,observed_at__lte=now).exclude(category='application_policy')
     if client:qs=qs.filter(client_scope_id=client.pk)
@@ -141,26 +141,29 @@ def map_data(client=None,days=7,action='all',direction='all'):
         recent_allowed=Count('uid',filter=Q(observed_at__gte=recent_window,action='allowed')),
         recent_critical=Count('uid',filter=Q(observed_at__gte=recent_window,level__gte=12)))
     total=totals['total']
-    rows=list(qs.select_related('device__site__client','asset','incident').order_by('-observed_at')[:20000])
+    # Solo los campos que se agregan: cargar 20 000 objetos con sus relaciones en cada consulta del mapa era lento.
+    rows=list(qs.order_by('-observed_at').values_list('observed_at','action','engine','geography')[:20000])
     countries={};points={};actions=Counter();engines=Counter();flow=Counter();timeline=Counter();recent=[]
-    for e in rows:
-        g=e.geography;actions[e.action]+=1;engines[e.engine]+=1
+    for observed_at,event_action,engine,g in rows:
+        g=g if isinstance(g,dict) else {};actions[event_action]+=1;engines[engine]+=1
         status=g.get('status','pending');flow[status]+=1
-        timeline[timezone.localtime(e.observed_at).strftime('%d/%m')]+=1
+        timeline[timezone.localtime(observed_at).strftime('%d/%m')]+=1
         if status=='located':
             code=g['country_code']
             c=countries.setdefault(code,{'code':code,'name':g['country'],'count':0,'blocked':0,'allowed':0})
             c['count']+=1
-            if e.action in ('blocked','allowed'):c[e.action]+=1
-            key=(code,g.get('direction','external'),e.action)
-            p=points.setdefault(key,{'code':code,'country':g['country'],'lat':g['lat'],'lon':g['lon'],'direction':g.get('direction','external'),'action':e.action,'count':0,'recent_count':0,'latest_at':e.observed_at.isoformat()})
+            if event_action in ('blocked','allowed'):c[event_action]+=1
+            key=(code,g.get('direction','external'),event_action)
+            p=points.setdefault(key,{'code':code,'country':g['country'],'lat':g['lat'],'lon':g['lon'],'direction':g.get('direction','external'),'action':event_action,'count':0,'recent_count':0,'latest_at':observed_at.isoformat()})
             p['count']+=1
-            if e.observed_at>=recent_window:p['recent_count']+=1
-        if len(recent)<20:
-            recent.append({'uid':e.uid,'observed_at':e.observed_at.isoformat(),'level':e.level,'contract_version':e.interpretation.get('contract_version'),'soc_priority':e.interpretation.get('soc_priority'),'vendor_severity':e.interpretation.get('vendor_severity'),'country_code':g.get('country_code',''),'client_id':e.client_scope_id,'time':timezone.localtime(e.observed_at).strftime('%d/%m %H:%M'),'client':e.device.site.client.name,'site':e.interpretation.get('site_name') or e.device.site.name,'device':e.device.name,'signature':e.signature,'action':e.action,'country':g.get('country') or ('Red privada' if status=='internal' else 'Sin ubicación'),'direction':g.get('direction','pending'),'peer':g.get('peer_ip') or '', 'asset':e.identified_label,'asset_ip':e.asset.ip if e.asset else '', 'incident_url':reverse('incident_detail',args=[e.incident_id]) if e.incident_id else ''})
+            if observed_at>=recent_window:p['recent_count']+=1
+    # Los 20 últimos con su detalle, solo para el personal del SOC.
+    for e in (qs.select_related('device__site__client','asset').order_by('-observed_at')[:20] if with_recent else ()):
+        g=e.geography if isinstance(e.geography,dict) else {};status=g.get('status','pending')
+        recent.append({'uid':e.uid,'observed_at':e.observed_at.isoformat(),'level':e.level,'contract_version':e.interpretation.get('contract_version'),'soc_priority':e.interpretation.get('soc_priority'),'vendor_severity':e.interpretation.get('vendor_severity'),'country_code':g.get('country_code',''),'client_id':e.client_scope_id,'time':timezone.localtime(e.observed_at).strftime('%d/%m %H:%M'),'client':e.device.site.client.name,'site':e.interpretation.get('site_name') or e.device.site.name,'device':e.device.name,'signature':e.signature,'action':e.action,'country':g.get('country') or ('Red privada' if status=='internal' else 'Sin ubicación'),'direction':g.get('direction','pending'),'peer':g.get('peer_ip') or '', 'asset':e.identified_label,'asset_ip':e.asset.ip if e.asset else '', 'incident_url':reverse('incident_detail',args=[e.incident_id]) if e.incident_id else ''})
     state=WorkerState.objects.filter(name='geography').first()
     history=WorkerState.objects.filter(name='map-history').first()
-    return {'generated_at_iso':now.isoformat(),'watch':{'window_minutes':15,'total':totals['recent_total'],'allowed':totals['recent_allowed'],'critical':totals['recent_critical']},'generated_at':timezone.localtime(now).strftime('%H:%M:%S'),'client':client.name if client else 'Clientes autorizados','days':days,'total':total,'displayed':len(rows),'limited':total>len(rows),'blocked':actions['blocked'],'allowed':actions['allowed'],'unknown_action':len(rows)-actions['blocked']-actions['allowed'],'located':flow['located'],'private':flow['internal'],'unknown_location':flow['unknown'],'pending':flow['pending'],'countries':sorted(countries.values(),key=lambda x:-x['count']),'points':list(points.values()),'engines':dict(engines),'timeline':[{'date':timezone.localtime(now-timedelta(days=i)).strftime('%d/%m'),'count':timeline[timezone.localtime(now-timedelta(days=i)).strftime('%d/%m')]} for i in reversed(range(days+1))],'recent':recent,'geo_database':state.details.get('database_date','')[:10] if state else '', 'geo_error':state.error if state else 'Geolocalización pendiente','history_pending':not history or not history.details.get('completed_until'),'last_event':timezone.localtime(rows[0].observed_at).strftime('%d/%m %H:%M') if rows else None}
+    return {'generated_at_iso':now.isoformat(),'watch':{'window_minutes':15,'total':totals['recent_total'],'allowed':totals['recent_allowed'],'critical':totals['recent_critical']},'generated_at':timezone.localtime(now).strftime('%H:%M:%S'),'client':client.name if client else 'Clientes autorizados','days':days,'total':total,'displayed':len(rows),'limited':total>len(rows),'blocked':actions['blocked'],'allowed':actions['allowed'],'unknown_action':len(rows)-actions['blocked']-actions['allowed'],'located':flow['located'],'private':flow['internal'],'unknown_location':flow['unknown'],'pending':flow['pending'],'countries':sorted(countries.values(),key=lambda x:-x['count']),'points':list(points.values()),'engines':dict(engines),'timeline':[{'date':timezone.localtime(now-timedelta(days=i)).strftime('%d/%m'),'count':timeline[timezone.localtime(now-timedelta(days=i)).strftime('%d/%m')]} for i in reversed(range(days+1))],'recent':recent,'geo_database':state.details.get('database_date','')[:10] if state else '', 'geo_error':state.error if state else 'Geolocalización pendiente','history_pending':not history or not history.details.get('completed_until'),'last_event':timezone.localtime(rows[0][0]).strftime('%d/%m %H:%M') if rows else None}
 
 @login_required
 @never_cache

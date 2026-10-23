@@ -1,4 +1,5 @@
 from django import forms
+from django.core.exceptions import FieldDoesNotExist
 from django.forms import formset_factory
 from django.utils.text import slugify
 from django.utils import timezone
@@ -7,7 +8,30 @@ from .models import Client, Device, Incident, MailSettings, Site
 from .opnsense_api import OpnsenseApiError, validate_api_url, validate_ca_certificate
 
 
-class StyledModelForm(forms.ModelForm):
+class ScopedModelForm(forms.ModelForm):
+    """ModelForm cuyas listas de opciones respetan el ámbito de cliente de la petición actual.
+
+    Django crea el queryset de cada campo relacionado al importar el formulario y
+    ScopedManager filtra en ese momento (invariante 1): sin rehacerlo, la lista conservaría
+    el ámbito de la primera petición del proceso, o ninguno, y un usuario limitado podría
+    elegir y escribir sedes, equipos o clientes ajenos. Los campos declarados en la clase
+    y los que cada formulario restringe después en su __init__ se respetan.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if not isinstance(field, forms.ModelChoiceField) or name in self.declared_fields:
+                continue
+            try:
+                model_field = self._meta.model._meta.get_field(name)
+            except FieldDoesNotExist:
+                continue
+            if model_field.remote_field is not None:
+                field.queryset = model_field.remote_field.model._default_manager.complex_filter(
+                    model_field.get_limit_choices_to() or {})
+
+
+class StyledModelForm(ScopedModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
@@ -224,4 +248,5 @@ class IncidentForm(StyledModelForm):
         from django.contrib.auth import get_user_model
         from django.db.models import Q
         self.fields['owner'].queryset=get_user_model().objects.filter(is_active=True).filter(
-            Q(is_superuser=True)|Q(soc_access__all_clients=True)|Q(soc_access__clients__pk=client_id)).distinct() if str(client_id).isdigit() else get_user_model().objects.none()
+            Q(is_superuser=True)|Q(soc_access__all_clients=True)|Q(soc_access__clients__pk=client_id)).exclude(
+            soc_access__role='customer').distinct() if str(client_id).isdigit() else get_user_model().objects.none()

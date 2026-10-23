@@ -21,6 +21,12 @@ def durable_ack(status,reply,batch_id,lines):
     return (status==202 and reply.get('persisted') is True and reply.get('batch_id')==batch_id
         and reply.get('digest')==digest and reply.get('accepted')==len(lines))
 
+QUEUE_LIMIT=64*1024*1024
+SIZE_REFRESH=10  # segundos entre recuentos exactos de la cola
+
+def queue_bytes(db):
+    return db.execute('SELECT (SELECT COALESCE(SUM(length(CAST(content AS BLOB))),0) FROM spool) + (SELECT COALESCE(SUM(length(CAST(content AS BLOB))),0) FROM batches)').fetchone()[0]
+
 def spool_status(path):
     with database(path) as db:
         result=dict(db.execute('SELECT name,value FROM counters'))
@@ -70,14 +76,27 @@ def main():
                     counter(db,'persisted_messages',len(lines))
             except Exception:
                 # Never log credentials, URLs with secrets, raw messages or exceptions.
-                with database(spool) as db:counter(db,'delivery_errors')
+                try:
+                    with database(spool) as db:counter(db,'delivery_errors')
+                except Exception:
+                    pass  # Un fallo al contar no debe matar el hilo de entrega.
                 print('Entrega pendiente; se conserva la cola local.',flush=True);time.sleep(15)
-    threading.Thread(target=forward,daemon=True).start()
+    forwarder=threading.Thread(target=forward,daemon=True);forwarder.start()
     with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as listener:
+        try:listener.setsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF,4*1024*1024)  # ráfagas sin pérdidas silenciosas
+        except OSError:pass
         listener.bind((config.get('listen_host','127.0.0.1'),int(config.get('listen_port',5515))))
+        listener.settimeout(5)
         print('Reenviador iniciado. Revisa el portal para confirmar la interpretación en Wazuh.',flush=True)
+        # Tamaño de la cola: recuento exacto cada SIZE_REFRESH s y suma de lo recibido entre medias.
+        # Antes se sumaba toda la cola por cada mensaje, lo que frenaba la recepción justo durante un corte.
+        queued,counted_at=0,0.0
         while True:
-            content,_=listener.recvfrom(8193)
+            if not forwarder.is_alive():
+                # Sin hilo de entrega el servicio parecería activo sin reenviar nada: salir para que systemd lo reinicie.
+                raise SystemExit('El hilo de entrega se ha detenido; reinicio del servicio.')
+            try:content,_=listener.recvfrom(8193)
+            except socket.timeout:continue
             if len(content)>8192:
                 with database(spool) as db:counter(db,'invalid_messages')
                 continue
@@ -89,11 +108,14 @@ def main():
                 with database(spool) as db:counter(db,'invalid_messages')
                 continue
             with database(spool) as db:
-                size=db.execute('SELECT (SELECT COALESCE(SUM(length(CAST(content AS BLOB))),0) FROM spool) + (SELECT COALESCE(SUM(length(CAST(content AS BLOB))),0) FROM batches)').fetchone()[0]
-                if size+len(json.dumps(line,ensure_ascii=False).encode())>64*1024*1024:
+                if time.monotonic()-counted_at>=SIZE_REFRESH:
+                    queued,counted_at=queue_bytes(db),time.monotonic()
+                length=len(json.dumps(line,ensure_ascii=False).encode())
+                if queued+length>QUEUE_LIMIT:
                     counter(db,'overflow_dropped')
                     print('Cola local llena; se descarta el nuevo mensaje. Revisar conectividad.',flush=True);continue
                 db.execute('INSERT INTO spool VALUES (?,?,?)',(str(uuid.uuid4()),line,time.time()))
                 counter(db,'received_messages')
+                queued+=length
 
 if __name__=='__main__':main()

@@ -252,8 +252,15 @@ class MfaTests(TestCase):
         self.assertTrue(verify_token(p,code,now=3000))
         self.assertFalse(verify_token(p,code,now=3000))
     def test_recovery_code_is_one_use(self):
-        p=MfaProfile.objects.create(user=self.user,encrypted_secret=encrypt(self.secret),enabled=True,recovery_hashes=[make_password('abcd1234')])
-        self.assertTrue(verify_token(p,'abcd1234')); self.assertFalse(verify_token(p,'abcd1234'))
+        p=MfaProfile.objects.create(user=self.user,encrypted_secret=encrypt(self.secret),enabled=True,recovery_hashes=[make_password('0123456789abcdef')])
+        self.assertTrue(verify_token(p,'0123-4567-89AB-CDEF')); self.assertFalse(verify_token(p,'0123456789abcdef'))
+    def test_wrong_totp_code_does_not_try_recovery_hashes(self):
+        # Cada hash cuesta unos 0,3 s: un código de 6 cifras erróneo no debe recorrer los 10.
+        from unittest.mock import patch
+        p=MfaProfile.objects.create(user=self.user,encrypted_secret=encrypt(self.secret),enabled=True,recovery_hashes=[make_password('0123456789abcdef')]*10)
+        with patch('core.security.check_password') as check:
+            self.assertFalse(verify_token(p,'000000'))
+        check.assert_not_called()
     def test_login_requires_personal_enrolment_and_qr_renders(self):
         self.assertRedirects(self.client.get(reverse('dashboard')),reverse('mfa_setup'))
         response=self.client.post(reverse('mfa_setup'),{'action':'generate','password':'Very-L0ng-test!975'})

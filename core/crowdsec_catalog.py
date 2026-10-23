@@ -43,7 +43,9 @@ TIERS = ('free', 'premium')
 
 
 class ServiceError(Exception):
-    pass
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
 
 
 class _NoRedirect(urlrequest.HTTPRedirectHandler):
@@ -78,7 +80,7 @@ def call(key, path, method='GET', body=None):
         response = urlrequest.build_opener(_NoRedirect()).open(req, timeout=20)
     except urlerror.HTTPError as exc:
         raise ServiceError({401: 'clave rechazada', 403: 'clave rechazada o sin acceso con este plan', 404: 'no encontrada',
-                            429: 'límite de la API'}.get(exc.code, f'HTTP {exc.code}')) from None
+                            429: 'límite de la API'}.get(exc.code, f'HTTP {exc.code}'), exc.code) from None
     except (urlerror.URLError, TimeoutError, ConnectionError):
         raise ServiceError('sin conexión con la API de CrowdSec') from None
     with response:
@@ -156,10 +158,13 @@ def refresh_catalog(key, details, now):
             row, created = CrowdsecBlocklist.objects.get_or_create(blocklist_id=blocklist_id, defaults=values)
             if not created:
                 if values['subscribed'] and not row.subscribed:
-                    values['subscribed_by'] = row.subscribed_by or 'console'
+                    values['subscribed_by'] = 'console' if row.subscribed_by in ('', 'rejected') else row.subscribed_by
+                elif row.subscribed and not values['subscribed']:
+                    values['subscribed_by'] = 'rejected'  # baja en la consola: decisión que el modo automático respeta
                 for field, value in values.items():
                     setattr(row, field, value)
-                row.save()
+                # Solo los campos del catálogo: no pisa una petición en cola ni un error recientes.
+                row.save(update_fields=list(values))
             elif values['subscribed']:
                 CrowdsecBlocklist.objects.filter(pk=row.pk).update(subscribed_by='console')
         if page >= int(data.get('pages') or 1):
@@ -228,15 +233,19 @@ def evaluate_all(targets, now):
         ratio = row.false_positives / row.size if row.size else 0
         # Aporte nuevo, sobre todo si dejó pasar tráfico; penaliza listas con falsos positivos.
         row.score = 0 if ratio > MAX_FALSE_POSITIVE else round(row.new_hits + 4 * row.allowed_hits + 0.5 * row.clients, 2)
-        row.access, row.error, row.evaluated_at = 'ok', '', now
-        row.save()
+        row.evaluated_at = now
+        if row.access == 'pending':
+            row.access = 'ok'  # medida; un 'denied' del alta automática se conserva para no reintentarlo
+        row.save(update_fields=['method', 'sample', 'hits', 'new_hits', 'allowed_hits', 'clients', 'score', 'evaluated_at',
+                                'access'])
     return len(data['sampled'])
 
 
 def recommended(queryset=None):
     """Listas recomendables: con aporte nuevo real, plan accesible y pocos falsos positivos."""
     rows = (CrowdsecBlocklist.objects.all() if queryset is None else queryset).filter(
-        access='ok', pricing_tier__in=TIERS, subscribed=False, new_hits__gte=MIN_NEW_HITS, score__gt=0)
+        access='ok', pricing_tier__in=TIERS, subscribed=False, new_hits__gte=MIN_NEW_HITS, score__gt=0
+    ).exclude(subscribed_by='rejected')  # descartada por el SOC: no se vuelve a proponer ni a suscribir sola
     return rows.order_by('-score', 'name')
 
 
@@ -269,7 +278,8 @@ def process_actions(key, details, now):
             continue
         subscribed = action == 'subscribe'
         CrowdsecBlocklist.objects.filter(pk=row.pk).update(
-            pending_action='', subscribed=subscribed, subscribed_by='soc-manual' if subscribed else '', error='')
+            pending_action='', subscribed=subscribed, subscribed_by='soc-manual' if subscribed else 'rejected',
+            access='ok' if subscribed else row.access, error='')
         audit('crowdsec.' + action, row, {'status': row.name[:60]}, user=row.requested_by)
 
 
@@ -280,11 +290,15 @@ def auto_subscribe(key, details, now):
         return 0
     engine = engine_id(key, details)
     done = 0
-    for row in recommended()[:limit - current]:
+    for row in list(recommended()):
+        if done >= limit - current:
+            break
         try:
             _subscribe(key, row, engine, 'subscribe')
         except ServiceError as exc:
-            CrowdsecBlocklist.objects.filter(pk=row.pk).update(error=f'alta automática: {exc}'[:240])
+            # Sin acceso con el plan: no se reintenta cada 5 minutos y se pasa a la siguiente recomendada.
+            CrowdsecBlocklist.objects.filter(pk=row.pk).update(
+                access='denied' if exc.status == 403 else row.access, error=f'alta automática: {exc}'[:240])
             continue
         CrowdsecBlocklist.objects.filter(pk=row.pk).update(subscribed=True, subscribed_by='soc-auto', error='')
         audit('crowdsec.subscribe', row, {'status': row.name[:60], 'reason': 'automática'})
@@ -326,13 +340,17 @@ def refresh(now=None):
 def overview(request):
     if not request.user.has_perm('core.manage_operations'):
         return HttpResponseForbidden('Permiso de operaciones requerido.')
+    from django.utils.dateparse import parse_datetime
     state = WorkerState.objects.filter(name=STATE).first()
+    details = state.details if state else {}
     rows = CrowdsecBlocklist.objects.all()
     best = list(recommended()[:15])
     return render(request, 'crowdsec_lists.html', {
-        'state': state, 'details': state.details if state else {}, 'auto': auto_subscribe_limit(),
+        'state': state, 'details': details, 'auto': auto_subscribe_limit(),
+        'catalog_at': parse_datetime(details.get('catalog_at') or ''),
+        'evaluated_at': parse_datetime(details.get('evaluated_at') or ''),
         'recommended': best, 'subscribed': rows.filter(subscribed=True).order_by('-score', 'name'),
-        'others': rows.filter(subscribed=False, access='ok', pricing_tier__in=TIERS).exclude(
+        'others': rows.filter(subscribed=False, pricing_tier__in=TIERS).exclude(
             pk__in=[r.pk for r in best]).order_by('-score', 'name')[:100],
         'blocked': rows.exclude(pricing_tier__in=TIERS).count()})
 

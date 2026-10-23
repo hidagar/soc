@@ -64,14 +64,21 @@ def request(path, auth, method="GET", body=None, *, tenant=None):
         raise RuntimeError(f"Wazuh rechazó {method} {path}: HTTP {exc.code}: {detail}") from exc
 
 
+def read_portal_env(env_file):
+    # Mismas reglas que EnvironmentFile de systemd (deploy/envfile.py): comillas, sin expansión de $.
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("soc_envfile", Path(__file__).with_name("envfile.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.parse(env_file.read_text(encoding="utf-8"))
+
+
 def portal_env_value(name, default, env_file=Path("/etc/soc-portal/portal.env")):
     # Se ejecuta sin Django ni EnvironmentFile: leer solo la variable pedida del entorno protegido.
     try:
-        lines = env_file.read_text(encoding="utf-8").splitlines()
+        return read_portal_env(env_file).get(name) or default
     except OSError:
         return default
-    values = [line.split("=", 1)[1].strip() for line in lines if line.startswith(name + "=")]
-    return values[-1] if values and values[-1] else default
 
 
 def portal_database_engine(env_file=Path("/etc/soc-portal/portal.env")):
@@ -102,14 +109,7 @@ def sqlite_rows(database=DATABASE):
 
 def portal_rows():
     # Sin Django en este proceso: el portal lee su base (cualquier motor) con su propio entorno.
-    env = {"PATH": "/usr/bin:/bin"}
-    for line in PORTAL_ENV.read_text(encoding="utf-8").splitlines():
-        if "=" in line and not line.lstrip().startswith("#"):
-            key, value = line.split("=", 1)
-            value = value.strip()
-            if len(value) > 1 and value[0] == value[-1] and value[0] in "\"'":
-                value = value[1:-1]
-            env[key.strip()] = value
+    env = {"PATH": "/usr/bin:/bin", **read_portal_env(PORTAL_ENV)}
     result = subprocess.run([str(PORTAL_PYTHON), str(PORTAL / "manage.py"), "dashboard_sources"], cwd=PORTAL,
                             env=env, capture_output=True, text=True, timeout=120, check=True)
     data = json.loads(result.stdout)

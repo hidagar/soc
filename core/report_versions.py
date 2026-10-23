@@ -36,40 +36,58 @@ def render_snapshot(report):
     return html, pdf
 
 
+def _create(report, number, html, pdf, user, reason):
+    return ReportVersion._base_manager.create(
+        report=report, number=number, html=html, pdf=pdf, reason=reason,
+        html_sha256=hashlib.sha256(html.encode()).hexdigest(), pdf_sha256=hashlib.sha256(pdf).hexdigest(),
+        created_by=user if user and user.is_authenticated else None)
+
+
 def freeze(report, user=None, reason=''):
     """Crea la versión siguiente con el contenido actual para el cliente."""
     html, pdf = render_snapshot(report)
     with transaction.atomic():
         WorkerState.reserve('report-versions')
         number = (ReportVersion._base_manager.filter(report=report).aggregate(n=Max('number'))['n'] or 0) + 1
-        return ReportVersion._base_manager.create(
-            report=report, number=number, html=html, pdf=pdf, reason=reason,
-            html_sha256=hashlib.sha256(html.encode()).hexdigest(), pdf_sha256=hashlib.sha256(pdf).hexdigest(),
-            created_by=user if user and user.is_authenticated else None)
+        return _create(report, number, html, pdf, user, reason)
 
 
-def published_version(report, number=None):
-    """Versión que debe ver el cliente: la pedida, o la última; la primera se congela si falta."""
+def freeze_first(report, user=None):
+    """Primera versión, idempotente: dos peticiones simultáneas no crean una «versión 2» sin motivo.
+
+    Se genera fuera de la transacción y se reserva el escritor antes de comprobar si ya existe
+    (en SQLite, leer antes de escribir dentro de la transacción provoca «database is locked»).
+    """
+    html, pdf = render_snapshot(report)
+    try:
+        with transaction.atomic():
+            WorkerState.reserve('report-versions')
+            existing = ReportVersion._base_manager.filter(report=report).order_by('-number').first()
+            return existing or _create(report, 1, html, pdf, user, '')
+    except IntegrityError:
+        return ReportVersion._base_manager.filter(report=report).order_by('-number').first()
+
+
+def published_version(report, number=None, create=True):
+    """Versión que debe ver el cliente: la pedida, o la última; con `create`, la primera se congela si falta.
+
+    La vista previa del SOC usa `create=False`: es de solo lectura y nunca congela nada.
+    """
     versions = ReportVersion._base_manager.filter(report=report)
     if number is not None:
         return versions.filter(number=number).first()
     latest = versions.order_by('-number').first()
-    if latest:
+    if latest or not create:
         return latest
-    try:
-        with transaction.atomic():
-            if not versions.exists():
-                return freeze(report)
-    except IntegrityError:
-        pass
-    return versions.order_by('-number').first()
+    return freeze_first(report)
 
 
-def version_page(request, version, pdf_url, *, base, versions=(), version_url=None, expires_at=None):
+def version_page(request, version, pdf_url, *, base, versions=(), version_url=None, expires_at=None, extra=None):
+    """Página de una versión; `extra` añade la navegación del portal (no en el enlace firmado)."""
     html = version.html.replace(PDF_PLACEHOLDER, escape(pdf_url))
     return render(request, 'report_version.html', {
         'client': version.report.client, 'report': version.report, 'version': version, 'snapshot_html': html,
-        'versions': versions, 'version_url': version_url, 'report_base': base, 'expires_at': expires_at})
+        'versions': versions, 'version_url': version_url, 'report_base': base, 'expires_at': expires_at, **(extra or {})})
 
 
 def version_pdf(version, filename):

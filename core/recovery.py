@@ -18,6 +18,7 @@ from django.utils import timezone
 from django.db import connection
 from .models import BackupRun, RecoverySettings, SecurityEvidence, FeedBucket, AuthAttempt
 from .security import decrypt,audit
+from .interruption import JobInterrupted
 
 ROOT=Path('/var/lib/soc-recovery')
 KEY=Path('/etc/soc-portal/recovery.key')
@@ -206,6 +207,43 @@ def native_snapshot():
     if snapshot.get('state')!='SUCCESS' or sorted(snapshot.get('indices',[]))!=indices: raise ValueError('El indexador no confirmó su snapshot completo.')
     return name
 
+RESTORE_PREFIX='soc-restore-check-'
+# Margen de disco del indexador para la prueba: por debajo de la marca baja (85 % por defecto).
+RESTORE_DISK_LIMIT=0.80
+RESTORE_WAIT_ROUNDS=10  # hasta 10 minutos esperando a que se recuperen las réplicas de prueba
+
+def index_family(name):
+    """Familia de un índice sin la fecha final: los diarios de alertas son una sola familia."""
+    import re
+    return re.sub(r'\d{4}[.-]\d{2}(?:[.-]\d{2})?\Z','*',name)
+
+def restore_sample(indices):
+    """El índice más reciente de cada familia: prueba que el snapshot se restaura sin duplicar
+    todo el histórico en el clúster vivo (cada copia diaria restauraba todos los índices)."""
+    latest={}
+    for name in sorted(indices):latest[index_family(name)]=name
+    return sorted(latest.values())
+
+def restore_inventory(indices):
+    """Lo que cambia la prueba: familias, no nombres diarios (antes se repetía cada día)."""
+    return hashlib.sha256(json.dumps(sorted({index_family(n) for n in indices})).encode()).hexdigest()
+
+def remove_restore_leftovers():
+    """Índices de prueba de una ejecución cortada antes de su limpieza. Solo el prefijo propio."""
+    from .indexer_admin import admin_request
+    admin_request('/'+RESTORE_PREFIX+'*?expand_wildcards=all',method='DELETE')
+
+def restore_space_problem(indices):
+    """Motivo para no restaurar ahora si la prueba acercaría el disco a las marcas de agua."""
+    from .indexer_admin import admin_request
+    rows=admin_request('/_cat/indices/'+','.join(indices)+'?format=json&bytes=b&expand_wildcards=all')
+    needed=sum(int(r.get('pri.store.size') or r.get('store.size') or 0) for r in rows) if isinstance(rows,list) else 0
+    for node in admin_request('/_cat/allocation?format=json&bytes=b') or []:
+        total,used=int(node.get('disk.total') or 0),int(node.get('disk.used') or 0)
+        if total and (used+needed)/total>RESTORE_DISK_LIMIT:
+            return f'el disco del indexador quedaría por encima del {int(RESTORE_DISK_LIMIT*100)} %'
+    return ''
+
 def test_indexer_restore(name):
     from .indexer_admin import admin_request
     import secrets
@@ -216,24 +254,38 @@ def test_indexer_restore(name):
     if len(snapshots)!=1 or snapshots[0].get('state')!='SUCCESS':raise ValueError('Snapshot not verified')
     expected=selected_indices([{'index':n} for n in snapshots[0].get('indices',[])])
     if sorted(snapshots[0]['indices'])!=expected:raise ValueError('Snapshot includes unsupported indices')
-    prefix='soc-restore-check-'+secrets.token_hex(8)+'-'
+    sample=restore_sample(expected)
+    problem=restore_space_problem(sample)
+    if problem:
+        return {'native_restore':'pospuesta','native_restore_reason':problem}
+    prefix=RESTORE_PREFIX+secrets.token_hex(8)+'-'
     try:
         answer=admin_request('/_snapshot/soc_recovery/'+name+'/_restore',{
-            'indices':','.join(expected),'include_global_state':False,'include_aliases':False,
+            'indices':','.join(sample),'include_global_state':False,'include_aliases':False,
             'rename_pattern':'(.+)','rename_replacement':prefix+'$1',
             'index_settings':{'index.number_of_replicas':0}},timeout=90)
         if not answer.get('accepted'): raise ValueError('Restauración de prueba rechazada.')
-        health=admin_request('/_cluster/health/'+prefix+'*?expand_wildcards=all&wait_for_status=yellow&wait_for_no_initializing_shards=true&timeout=60s',timeout=70)
+        for _ in range(RESTORE_WAIT_ROUNDS):
+            health=admin_request('/_cluster/health/'+prefix+'*?expand_wildcards=all&wait_for_status=yellow&wait_for_no_initializing_shards=true&timeout=60s',timeout=70)
+            if not health.get('timed_out'):break
         if health.get('timed_out') or health.get('status')=='red': raise ValueError('Las réplicas de prueba no pudieron recuperarse.')
         admin_request('/'+prefix+'*/_refresh?expand_wildcards=all',method='POST')
         rows=admin_request('/_cat/indices/'+prefix+'*?format=json&expand_wildcards=all')
         if not isinstance(rows,list) or not rows: raise ValueError('No se restauraron índices de prueba.')
-        if sorted(r['index'] for r in rows)!=sorted(prefix+n for n in expected): raise ValueError('Ámbito de restauración incorrecto o incompleto.')
-        saved=sum(n.startswith(('.kibana','.opensearch_dashboards')) for n in expected)
-        return {'native_restore':'ok','native_restore_profile':2,'restored_indices':len(rows),'restored_saved_object_indices':saved,'restored_docs':sum(int(r.get('docs.count') or 0) for r in rows)}
+        if sorted(r['index'] for r in rows)!=sorted(prefix+n for n in sample): raise ValueError('Ámbito de restauración incorrecto o incompleto.')
+        saved=sum(n.startswith(('.kibana','.opensearch_dashboards')) for n in sample)
+        return {'native_restore':'ok','native_restore_profile':2,'restored_indices':len(rows),'snapshot_indices':len(expected),
+                'restored_saved_object_indices':saved,'restored_docs':sum(int(r.get('docs.count') or 0) for r in rows)}
     finally:
         # Unique, controlled prefix; never delete the live Wazuh indices.
         admin_request('/'+prefix+'*?expand_wildcards=all',method='DELETE')
+
+def remove_stale_builds():
+    """Carpetas build-* de una copia cortada: contienen portal.env y la base en claro."""
+    import shutil
+    if ROOT.is_dir():
+        for path in ROOT.glob('build-*'):
+            if path.is_dir() and not path.is_symlink():shutil.rmtree(path,ignore_errors=True)
 
 def make_backup(run):
     if connection.vendor not in DATABASE_MEMBERS:
@@ -243,6 +295,9 @@ def make_backup(run):
     ROOT.mkdir(mode=0o700,parents=True,exist_ok=True)
     run.status='running'; run.save()
     try:
+        # Restos de una copia que systemd cortó: las copias comparten bloqueo, no hay otra en curso.
+        remove_stale_builds()
+        remove_restore_leftovers()
         snapshot_name=native_snapshot()
         with tempfile.TemporaryDirectory(dir=ROOT,prefix='build-') as directory:
             files=dump_database(directory)
@@ -299,11 +354,19 @@ def make_backup(run):
             run.filename,run.size,run.sha256=path.name,path.stat().st_size,file_hash(path)
             run.details=validate_archive(path)
             run.details['indexer_snapshot']=snapshot_name
-            inventory=hashlib.sha256(json.dumps(manifest['indexer_indices']).encode()).hexdigest()
+            inventory=restore_inventory(manifest['indexer_indices'])
             if not BackupRun.objects.filter(details__native_restore='ok',details__native_restore_profile=2,details__native_restore_inventory=inventory,restore_tested_at__gte=timezone.now()-timedelta(days=30)).exists():
-                run.details.update(test_indexer_restore(snapshot_name))
-                run.details['native_restore_inventory']=inventory
-                run.restore_tested_at=timezone.now()
+                result=test_indexer_restore(snapshot_name)
+                run.details.update(result)
+                if result.get('native_restore')=='ok':
+                    run.details['native_restore_inventory']=inventory
+                    run.restore_tested_at=timezone.now()
+                    from .models import OperationalIssue
+                    OperationalIssue.objects.filter(key='platform:restore-test',active=True).update(active=False,resolved_at=timezone.now())
+                else:
+                    from .operations import set_issue
+                    set_issue('platform:restore-test','Prueba de restauración del indexador pospuesta',
+                              details=result.get('native_restore_reason',''),severity='warning')
             run.details['integrity_checked_at']=timezone.now().isoformat()
             if cfg.enabled and cfg.transport=='sftp':
                 transfer(cfg,path); run.external_verified=True
@@ -311,7 +374,7 @@ def make_backup(run):
             run.error=''; run.save()
             audit('backup.verified',run,{'sha256':run.sha256})
         retention(cfg)
-    except Exception:
+    except (Exception,JobInterrupted):
         run.status='failed'; run.error='No terminó la copia o su verificación. Revisar destino, huella, snapshot y espacio.'; run.save()
         from .operations import set_issue
         set_issue('platform:backup','Copia de seguridad fallida',severity='critical')
@@ -323,13 +386,17 @@ def make_backup(run):
 def retention(cfg):
     import re
     cutoff=timezone.now()-timedelta(days=cfg.retention_days)
-    for run in BackupRun.objects.filter(created_at__lt=cutoff,status__in=['verified','local_verified']):
+    for run in BackupRun.objects.filter(created_at__lt=cutoff,status__in=['verified','local_verified','failed']).exclude(filename=''):
         # Keep the latest successful copy even when maintenance has suspended new backups.
-        if not BackupRun.objects.filter(created_at__gt=run.created_at,status__in=['verified','local_verified']).exists(): continue
+        if run.status!='failed' and not BackupRun.objects.filter(created_at__gt=run.created_at,status__in=['verified','local_verified']).exists(): continue
         path=ROOT/run.filename
         if path.parent.resolve()!=ROOT.resolve() or not path.name.startswith('soc-backup-'): continue
         path.unlink(missing_ok=True)
-        run.status='expired'; run.save(update_fields=['status'])
+        # Un archivo de una copia fallida también caduca (antes se quedaba para siempre).
+        if run.status=='failed':
+            run.filename=''; run.save(update_fields=['filename'])
+        else:
+            run.status='expired'; run.save(update_fields=['status'])
     SecurityEvidence.objects.filter(observed_at__lt=timezone.now()-timedelta(days=cfg.evidence_days),incident__isnull=True).delete()
     FeedBucket.objects.filter(hour__lt=timezone.now()-timedelta(days=cfg.evidence_days)).delete()
     AuthAttempt.objects.filter(occurred_at__lt=timezone.now()-timedelta(days=1)).delete()
