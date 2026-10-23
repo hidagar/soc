@@ -90,7 +90,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
@@ -113,6 +113,9 @@ SECURE_SSL_REDIRECT = not DEBUG
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
+# HSTS: el navegador no vuelve a intentar HTTP con este nombre. Un día por defecto; subirlo (31536000)
+# cuando se confirme que nada más se sirve por HTTP con el mismo nombre. Se ignora si se entra por IP.
+SECURE_HSTS_SECONDS = 0 if DEBUG else int(os.environ.get('SOC_PORTAL_HSTS_SECONDS', '86400'))
 X_FRAME_OPTIONS = "DENY"
 
 # CSRF rejection diagnostics (no request body or credentials).

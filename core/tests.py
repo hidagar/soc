@@ -1,4 +1,4 @@
-from .testing_access import workflow_access
+from .testing_access import FreshMfaClient, workflow_access
 import json
 from io import BytesIO
 from datetime import timedelta
@@ -59,6 +59,7 @@ class OpnsenseApiHeaderTests(SimpleTestCase):
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class PortalWorkflowTests(TestCase):
+    client_class = FreshMfaClient  # credential views require a fresh MFA
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="operator", password="test-pass-9821")
         workflow_access(self.user, reader=False)

@@ -201,6 +201,7 @@ def staff(request,pk=None):
             else:
                 with transaction.atomic():
                     created=member is None
+                    before={} if created else {'email':member.email,'active':member.is_active}
                     member=member or User()
                     member.username,member.email,member.is_active=v['username'],v['email'],v['active']
                     member.is_staff=v['role']=='manager'
@@ -218,7 +219,10 @@ def staff(request,pk=None):
                     if v['role']!='manager':
                         member.user_permissions.remove(*member.user_permissions.filter(codename__in=['manage_connections','manage_security','apply_changes','manage_recovery','view_all_clients']))
                         member.groups.remove(*member.groups.exclude(name__in=names))
-                    audit('staff.access',member,{'role':v['role'],'clients':[c.pk for c in v['clients']]})
+                    # Qué cambió de la cuenta (sin guardar el correo en la auditoría).
+                    changed=[k for k,old in before.items() if old!=v[k]]
+                    audit('staff.access',member,{'role':v['role'],'clients':[c.pk for c in v['clients']],'all_clients':v['all_clients'],
+                                                 'active':v['active'],'fields':changed})
                     if created:
                         from .invitations import queue
                         queue(member)

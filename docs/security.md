@@ -6,7 +6,9 @@ Django gestiona contraseña y sesión; `EmailBackend` busca correo normalizado d
 
 Los fallos de contraseña se limitan por identidad intentada (8 en 15 minutos) y por IP del navegador (`SOC_PORTAL_LOGIN_IP_LIMIT`, 30 por defecto, con cualquier usuario), de modo que probar una contraseña contra muchas cuentas también se frena. Un acceso correcto solo limpia el contador de su identidad. La IP se toma de `X-Real-IP` únicamente cuando la petición llega de un proxy de `SOC_PORTAL_TRUSTED_PROXIES` (Nginx local); sin esa cabecera no se aplica el límite por IP, porque aplicarlo a la dirección del proxy bloquearía a todos los usuarios. Nginx debe sustituir la cabecera (`proxy_set_header X-Real-IP $remote_addr;`, como en `install.sh`). El límite por identidad permite que un tercero retrase el acceso de una cuenta concreta durante 15 minutos.
 
-MFA usa TOTP y recuperación de un solo uso, con contador/CAS contra repetición. `SocSecurityMiddleware` vincula usuario, versión de perfil y sesión; `mfa_fresh()` limita operaciones sensibles. Las pruebas pueden deshabilitar MFA para un escenario, no la configuración del servicio real.
+MFA usa TOTP y recuperación de un solo uso, con contador/CAS contra repetición. Los códigos de recuperación (16 hexadecimales) solo se comprueban si la entrada tiene ese formato: un código TOTP erróneo no recorre los diez hashes. `SocSecurityMiddleware` vincula usuario, versión de perfil y sesión, y pide el código otra vez a las 12 horas de verificarlo aunque la sesión siga activa (`MFA_SESSION_MAX`). `mfa_fresh()` (código de menos de 10 minutos) limita operaciones sensibles; el middleware lo exige también, incluidos superusuarios, en los POST de las vistas que guardan credenciales, destinos o borran datos (`FRESH_MFA_VIEWS`: correo y URL pública de informes, UniFi, OPNsense, SSH, Hillstone, GDMS, destino de exportación y borrado de sedes). Desactivar el envío de correo no lo exige: es una parada segura. Las pruebas pueden deshabilitar MFA para un escenario, no la configuración del servicio real; `testing_access.FreshMfaClient` inicia sesión con un MFA recién verificado.
+
+Contraseñas de al menos 12 caracteres (validadores de Django). HSTS con `SOC_PORTAL_HSTS_SECONDS` (un día por defecto; subirlo a un año cuando se confirme que nada más se sirve por HTTP con el mismo nombre). La contraseña SFTP de las copias no se reutiliza si cambia el servidor, el puerto o el usuario: hay que escribirla de nuevo.
 
 ## Autorización
 
@@ -14,7 +16,7 @@ MFA usa TOTP y recuperación de un solo uso, con contador/CAS contra repetición
 |---|---|
 | reader | Consulta de los clientes autorizados; sin POST de modificación. |
 | operator | Operación permitida por permisos Django y ámbito asignado. No implica gestión global de credenciales. |
-| manager | Administración sujeta a permisos/ámbito; operaciones globales requieren acceso global. |
+| manager | Administración sujeta a permisos/ámbito; operaciones globales requieren acceso global (también crear clientes y cambiar suscripciones de CrowdSec). |
 | customer | Exactamente un cliente activo, sin acceso global; portal y respuestas de tareas autorizadas. |
 | superuser | Acceso global; sigue sujeto al flujo MFA en las rutas protegidas. |
 

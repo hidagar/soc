@@ -11,7 +11,7 @@ from django.test import TestCase, SimpleTestCase, override_settings
 from django.urls import reverse
 from . import gdms_api as api
 from .models import Client, Site, Device, GdmsConnection, AuditEvent, StaffAccess
-from .testing_access import workflow_access
+from .testing_access import FreshMfaClient, workflow_access
 
 
 TOKEN = {'access_token': 'TOKEN-NEVER-PERSIST', 'token_type': 'bearer', 'expires_in': 3600}
@@ -72,6 +72,7 @@ class TransportTests(SimpleTestCase):
 
 @override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
 class ConnectionTests(TestCase):
+    client_class = FreshMfaClient  # credential views require a fresh MFA
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user('gdms-operator')

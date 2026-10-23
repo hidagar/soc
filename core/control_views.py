@@ -2,7 +2,7 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.http import HttpResponse,HttpResponseForbidden
+from django.http import Http404,HttpResponse,HttpResponseForbidden
 from django.shortcuts import get_object_or_404,redirect,render
 from django.views.decorators.http import require_http_methods
 from .models import BackupRun,ChangePlan,Device,RecoverySettings,Site,VpnPeer
@@ -74,7 +74,9 @@ def vpn_sites(request,pk=None):
     if not request.user.has_perm('core.manage_connections'): return HttpResponseForbidden('Permiso de conexiones requerido.')
     if request.method=='POST':
         if not mfa_fresh(request): return redirect('mfa_challenge')
-        site=get_object_or_404(Site,pk=request.POST.get('site'))
+        site_pk=request.POST.get('site','')
+        if not site_pk.isdigit(): raise Http404
+        site=get_object_or_404(Site,pk=int(site_pk))
         from .vpn import create_peer
         peer=create_peer(site)
         action=request.POST.get('action')
@@ -185,6 +187,10 @@ def recovery(request):
                     form.add_error(None,'Completa el destino y su huella antes de activar las copias externas.')
                 elif v['enabled'] and not (v['password'] or cfg.encrypted_password):
                     form.add_error('password','Falta la contraseña del destino.')
+                elif (cfg.encrypted_password and not v['password']
+                      and (cfg.hostname,cfg.port,cfg.username)!=(v['hostname'],v['port'],v['username'])):
+                    # La contraseña guardada era del destino anterior: no se envía a otro servidor o usuario.
+                    form.add_error('password','Has cambiado el servidor, el puerto o el usuario: vuelve a escribir la contraseña de este destino.')
                 else:
                     from pathlib import PurePosixPath
                     if v['remote_path'] and (not PurePosixPath(v['remote_path']).is_absolute() or '..' in PurePosixPath(v['remote_path']).parts):

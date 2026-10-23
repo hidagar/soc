@@ -1,6 +1,18 @@
 """Explicit grants for historical workflow test fixtures, never production fallback."""
+import time
+
 from django.contrib.auth.models import Permission
+from django.test import Client as HttpClient
 from .models import StaffAccess
+
+
+class FreshMfaClient(HttpClient):
+    """Test client whose logins carry a just-verified MFA, for views that require a fresh one."""
+    def force_login(self, user, backend=None):
+        super().force_login(user, backend)
+        session = self.session
+        session.update({'soc_mfa_user': user.pk, 'soc_mfa_at': time.time()})
+        session.save()
 
 def workflow_access(user, reader=False):
     StaffAccess.objects.create(user=user,role='reader' if reader else 'manager',all_clients=True)

@@ -1,4 +1,4 @@
-from .testing_access import workflow_access
+from .testing_access import FreshMfaClient, workflow_access
 import json
 from datetime import date, timedelta
 from unittest import mock
@@ -18,6 +18,7 @@ from .report_sharing import SALT, create_report_link
 
 @override_settings(SECURE_SSL_REDIRECT=False)
 class ReportSharingTests(TestCase):
+    client_class = FreshMfaClient  # credential views require a fresh MFA
     def setUp(self):
         self.customer = Client.objects.create(name="Cliente uno", code="one", report_email="client@example.test", weekly_reports_enabled=True)
         self.other = Client.objects.create(name="Cliente secreto dos", code="two")
