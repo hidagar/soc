@@ -47,6 +47,20 @@ def wazuh_ready(client):
     return binding_ready(client.pk)
 
 
+def portal_links(client, preview=False):
+    """Direcciones del portal: las del cliente o, en la vista previa del SOC, las de solo lectura."""
+    from django.urls import reverse
+    if preview:
+        return {'preview': True, 'home': reverse('customer_preview', args=[client.pk]),
+                'firewalls': reverse('customer_preview_firewalls', args=[client.pk]),
+                'detections': reverse('customer_preview_detections', args=[client.pk]),
+                'map': reverse('customer_preview_map', args=[client.pk]),
+                'map_data': reverse('customer_preview_map_data', args=[client.pk])}
+    return {'preview': False, 'home': reverse('customer_home'), 'firewalls': reverse('customer_firewalls'),
+            'detections': reverse('customer_detections'), 'map': reverse('customer_map'),
+            'map_data': reverse('customer_map_data')}
+
+
 def portal_client(request):
     client = customer_client(request)
     if not client.customer_portal_detail_enabled:
@@ -144,22 +158,27 @@ def _selection(request):
     return days, action
 
 
+def firewalls_context(client, preview=False):
+    rows = firewall_rows(client)
+    return {'client': client, 'rows': rows, 'portal_section': 'firewalls', 'wazuh_ready': wazuh_ready(client),
+            'portal': portal_links(client, preview), 'attention': sum(r['status_class'] == 'attention' for r in rows)}
+
+
 @login_required
 @never_cache
 @require_GET
 def firewalls(request):
-    client = portal_client(request)
-    rows = firewall_rows(client)
-    return render(request, 'customer_firewalls.html', {'client': client, 'rows': rows, 'portal_section': 'firewalls',
-                                                       'wazuh_ready': wazuh_ready(client),
-                                                       'attention': sum(r['status_class'] == 'attention' for r in rows)})
+    return render(request, 'customer_firewalls.html', firewalls_context(portal_client(request)))
 
 
 @login_required
 @never_cache
 @require_GET
 def detections(request):
-    client = portal_client(request)
+    return render(request, 'customer_detections.html', detections_context(request, portal_client(request)))
+
+
+def detections_context(request, client, preview=False):
     days, action = _selection(request)
     qs = evidence_queryset(client, days)
     names = list(Device.objects.filter(site__client=client).order_by('name').values_list('name', flat=True).distinct())
@@ -174,7 +193,6 @@ def detections(request):
     page.object_list = [detection_row(row) for row in page.object_list]
     params = request.GET.copy()
     params.pop('page', None)
-    return render(request, 'customer_detections.html', {
-        'client': client, 'days': days, 'action': action, 'actions': ACTIONS, 'firewall': firewall, 'firewalls': names,
-        'summary': summary, 'page': page, 'query': params.urlencode(), 'portal_section': 'detections',
-        'wazuh_ready': wazuh_ready(client)})
+    return {'client': client, 'days': days, 'action': action, 'actions': ACTIONS, 'firewall': firewall, 'firewalls': names,
+            'summary': summary, 'page': page, 'query': params.urlencode(), 'portal_section': 'detections',
+            'wazuh_ready': wazuh_ready(client), 'portal': portal_links(client, preview)}

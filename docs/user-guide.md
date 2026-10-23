@@ -23,6 +23,8 @@ Con «Mostrar firewalls y detecciones en el portal del cliente» activado en la 
 - **Detecciones:** periodo de 24 h, 7 o 30 días, con filtros por firewall y acción; totales, evolución diaria, tipo de detección, países de origen, firmas más frecuentes, IPs públicas de origen más activas y registro paginado con fecha, firewall, firma, categoría, origen, país, destino, puerto y acción. Son los mismos campos que la proyección del índice Wazuh del cliente.
 - **Menú del portal** (Resumen, Firewalls, Detecciones, Mapa si está activado, Informes, Actuaciones) y enlace «Panel avanzado (Wazuh)» solo cuando su ámbito Wazuh está verificado.
 
+**Ver como cliente (personal del SOC):** el botón «Ver como cliente» de la ficha del cliente abre su portal tal como lo ve él, con las mismas páginas, opciones activadas y proyección de datos. Es de solo lectura: no se puede responder a tareas ni cerrar su sesión. Lo pueden usar los usuarios del SOC con ese cliente en su ámbito (fuera de él da 404), y cada página consultada queda en la auditoría (`customer.preview`). Las cuentas de cliente no tienen acceso.
+
 Nunca se muestran notas internas, recomendaciones del SOC, identificadores de Wazuh, identidades de equipos, incidencias no publicadas ni reputación CrowdSec. Las detecciones se limitan al propietario histórico de la evidencia (`client_scope_id`) que coincide con el cliente actual del equipo, como en el resto de vistas.
 
 El correo semanal enlaza al informe web, desde donde puede descargar PDF. No se adjunta PDF. Un enlace firmado está limitado a ese informe y puede caducar/revocarse; no da acceso al panel entero.

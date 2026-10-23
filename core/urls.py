@@ -28,6 +28,7 @@ from . import advanced_views
 from . import investigation, vpn_security
 from . import reputation_views
 from . import customer_portal
+from . import customer_preview
 from . import blocklist
 from . import crowdsec_catalog
 from . import invitations
@@ -60,6 +61,13 @@ urlpatterns = [
     path('incidents/<int:pk>/claim/', work_queue.claim_incident, name='claim_incident'),
     path('cliente/mapa/',service.customer_map,name='customer_map'),
     path('cliente/firewalls/',customer_portal.firewalls,name='customer_firewalls'),
+    path('clients/<int:pk>/customer-view/',customer_preview.home,name='customer_preview'),
+    path('clients/<int:pk>/customer-view/firewalls/',customer_preview.firewalls,name='customer_preview_firewalls'),
+    path('clients/<int:pk>/customer-view/detections/',customer_preview.detections,name='customer_preview_detections'),
+    path('clients/<int:pk>/customer-view/map/',customer_preview.threat_map,name='customer_preview_map'),
+    path('clients/<int:pk>/customer-view/map/data/',customer_preview.map_data,name='customer_preview_map_data'),
+    path('clients/<int:pk>/customer-view/reports/<int:report_pk>/',customer_preview.report,name='customer_preview_report'),
+    path('clients/<int:pk>/customer-view/reports/<int:report_pk>/pdf/',customer_preview.report_pdf,name='customer_preview_report_pdf'),
     path('cliente/detecciones/',customer_portal.detections,name='customer_detections'),
     path('cliente/mapa/data/',service.customer_map_data,name='customer_map_data'),
     path('operations/exposure/device/<int:pk>/interfaces/',exposure_views.exposure_interfaces,name='exposure_interfaces'),

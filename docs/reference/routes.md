@@ -42,6 +42,13 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `incidents/<int:pk>/claim/` | `claim_incident` | `work_queue.claim_incident` |
 | `cliente/mapa/` | `customer_map` | `service.customer_map` |
 | `cliente/firewalls/` | `customer_firewalls` | `customer_portal.firewalls` |
+| `clients/<int:pk>/customer-view/` | `customer_preview` | `customer_preview.home` |
+| `clients/<int:pk>/customer-view/firewalls/` | `customer_preview_firewalls` | `customer_preview.firewalls` |
+| `clients/<int:pk>/customer-view/detections/` | `customer_preview_detections` | `customer_preview.detections` |
+| `clients/<int:pk>/customer-view/map/` | `customer_preview_map` | `customer_preview.threat_map` |
+| `clients/<int:pk>/customer-view/map/data/` | `customer_preview_map_data` | `customer_preview.map_data` |
+| `clients/<int:pk>/customer-view/reports/<int:report_pk>/` | `customer_preview_report` | `customer_preview.report` |
+| `clients/<int:pk>/customer-view/reports/<int:report_pk>/pdf/` | `customer_preview_report_pdf` | `customer_preview.report_pdf` |
 | `cliente/detecciones/` | `customer_detections` | `customer_portal.detections` |
 | `cliente/mapa/data/` | `customer_map_data` | `service.customer_map_data` |
 | `operations/exposure/device/<int:pk>/interfaces/` | `exposure_interfaces` | `exposure_views.exposure_interfaces` |
