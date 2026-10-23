@@ -82,11 +82,12 @@ def published_version(report, number=None, create=True):
     return freeze_first(report)
 
 
-def version_page(request, version, pdf_url, *, base, versions=(), version_url=None, expires_at=None):
+def version_page(request, version, pdf_url, *, base, versions=(), version_url=None, expires_at=None, extra=None):
+    """Página de una versión; `extra` añade la navegación del portal (no en el enlace firmado)."""
     html = version.html.replace(PDF_PLACEHOLDER, escape(pdf_url))
     return render(request, 'report_version.html', {
         'client': version.report.client, 'report': version.report, 'version': version, 'snapshot_html': html,
-        'versions': versions, 'version_url': version_url, 'report_base': base, 'expires_at': expires_at})
+        'versions': versions, 'version_url': version_url, 'report_base': base, 'expires_at': expires_at, **(extra or {})})
 
 
 def version_pdf(version, filename):

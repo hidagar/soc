@@ -106,9 +106,21 @@ def customer_reports(request):
 def customer_tasks(request):
     return render(request,'customer_tasks.html',customer_tasks_context(customer_client(request)))
 
+def publishable(report):
+    """Publicado de verdad: con versión congelada, enviado, o que cumple las condiciones para congelarse.
+
+    Una publicación antigua pudo enlazar un borrador; ese informe no se muestra ni se congela al abrirlo.
+    """
+    from .reporting import release_problem
+    has_versions=getattr(report,'version_count',None)
+    if has_versions is None:has_versions=report.versions.exists()
+    return bool(has_versions or report.sent_at or not release_problem(report))
+
 def portal_reports(client,preview=False,limit=52):
+    """Informes publicados con su estado (versión y fecha); no las cifras vivas, que pueden diferir de lo publicado."""
     from django.urls import reverse
-    reports=list(released_reports(client).order_by('-week_start')[:limit])
+    rows=released_reports(client).annotate(version_count=Count('versions'),published_at=Min('versions__created_at'))
+    reports=[report for report in rows.order_by('-week_start')[:limit] if publishable(report)]
     for report in reports:
         report.portal_url=reverse('customer_preview_report',args=[client.pk,report.pk]) if preview else reverse('customer_weekly',args=[report.pk])
     return reports
@@ -132,10 +144,11 @@ def customer_home_context(client,preview=False):
     from .customer_portal import firewall_rows
     live=client.customer_live_map_enabled or client.customer_portal_detail_enabled
     tasks,_=portal_tasks(client,preview)
+    reports=portal_reports(client,preview)
     return {**_portal_base(client,preview,'home'),'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
         'tasks':tasks,'publications':CustomerPublication.objects.filter(client=client,visible=True)[:100],
-        'reports':portal_reports(client,preview,limit=3),'report_count':released_reports(client).count()}
+        'reports':reports[:3],'report_count':len(reports)}
 
 def customer_reports_context(client,preview=False):
     return {**_portal_base(client,preview,'reports'),'reports':portal_reports(client,preview)}
@@ -152,7 +165,7 @@ def customer_geography(request,client=None):
     action=request.GET.get('action','all');direction=request.GET.get('direction','all')
     if action not in ('all','blocked','allowed','unknown'):action='all'
     if direction not in ('all','inbound','outbound','external','internal'):direction='all'
-    payload=map_data(client,days,action,direction)
+    payload=map_data(client,days,action,direction,with_recent=False)
     # All event detail and internal operational state are discarded before serialization.
     payload['recent']=[];payload['geo_error']='';payload['history_pending']=False
     payload['watch']={k:v for k,v in payload['watch'].items() if k!='critical'}  # nivel de Wazuh: dato interno
@@ -178,6 +191,7 @@ def customer_map_data(request):
 def customer_version(request,pk,client=None,create=True):
     from .report_versions import published_version
     report=get_object_or_404(released_reports(client or customer_client(request)),pk=pk)
+    if not publishable(report):raise Http404
     raw=request.GET.get('version','')
     version=published_version(report,int(raw) if raw.isdigit() and len(raw)<6 else None,create=create)
     if not version:raise Http404
@@ -190,7 +204,8 @@ def customer_weekly(request,pk):
     from .report_versions import version_page
     version,suffix=customer_version(request,pk)
     return version_page(request,version,reverse('customer_weekly_pdf',args=[pk])+suffix,base='customer_report_base.html',
-        versions=version.report.versions.all(),version_url=reverse('customer_weekly',args=[pk]))
+        versions=version.report.versions.all(),version_url=reverse('customer_weekly',args=[pk]),
+        extra=_portal_base(version.report.client,False,'reports'))
 
 @login_required
 @require_GET

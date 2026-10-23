@@ -91,7 +91,7 @@ def unifi_protection(device,key,connection,connector):
 def incident_key(device,code):
     return 'protection-'+hashlib.sha256(f'{device.pk}:{code}'.encode()).hexdigest()
 
-def snapshot(device,now=None):
+def snapshot(device,now=None,incidents=True):
     from django.utils.dateparse import parse_datetime
     now=now or timezone.now()
     health=getattr(device,'health',None);policy=getattr(device,'protection_policy',None)
@@ -185,7 +185,7 @@ def snapshot(device,now=None):
         'checked':health.protection_checked_at.isoformat() if health and health.protection_checked_at else None,
         'requirements':{'ips':required_ips,'zenarmor':bool(policy and policy.require_zenarmor),'clamav':bool(policy and policy.require_clamav)}}
     digest=hashlib.sha256(json.dumps(payload,sort_keys=True).encode()).hexdigest()
-    linked={i.fingerprint:i for i in Incident.objects.filter(device=device,fingerprint__startswith='protection-')}
+    linked={i.fingerprint:i for i in Incident.objects.filter(device=device,fingerprint__startswith='protection-')} if incidents else {}
     for g in gaps:g['incident']=linked.get(incident_key(device,g['code']))
     return {'device':device,'health':health,'policy':policy,'controls':controls,'sources':sources,'gaps':gaps,'status':status,'attribution':getattr(device,'attribution_catalog',None),'zenarmor_export':getattr(device,'zenarmor_export_request',None),
         'label':{'paused':'Pausado','maintenance':'Mantenimiento','attention':'Requiere atención','partial':'Comprobaciones pendientes','observed':'Comprobaciones satisfechas'}[status],

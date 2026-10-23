@@ -7,6 +7,7 @@ from django.urls import reverse
 from .models import Client,Site,Device,StaffAccess,CustomerPublication,WeeklyReport,DeviceHealth,DeviceObservation,Asset,SecurityEvidence,Incident
 from .service_development import record_observation,monthly_context,monthly_pdf,intelligence_rows,is_outbound
 from .operations_views import StaffForm
+from .testing_access import collected_report
 
 @override_settings(SECURE_SSL_REDIRECT=False,SOC_MFA_REQUIRED=False)
 class ServiceDevelopmentTests(TestCase):
@@ -45,6 +46,9 @@ class ServiceDevelopmentTests(TestCase):
             self.assertEqual(self.client.get(reverse('customer_weekly',args=[r.pk])).status_code,404)
             self.assertEqual(self.client.get(reverse('customer_weekly_pdf',args=[r.pk])).status_code,404)
         CustomerPublication.objects.create(client=self.c,title='Report',summary='Approved',visible=True,weekly_report=mine)
+        # Una publicación que enlaza un borrador no lo publica: hace falta una recopilación completa.
+        self.assertEqual(self.client.get(reverse('customer_weekly',args=[mine.pk])).status_code,404)
+        WeeklyReport.objects.filter(pk=mine.pk).update(sources=['192.0.2.1']);mine.refresh_from_db();collected_report(mine)
         Incident.objects.create(client=self.c,site=self.site,device=self.device,title='PRIVATE INCIDENT TITLE',observed_at=timezone.make_aware(__import__('datetime').datetime(2026,9,29,12)))
         self.assertNotContains(self.client.get(reverse('customer_weekly',args=[mine.pk])),'PRIVATE INCIDENT TITLE')
         self.assertTrue(self.client.get(reverse('customer_weekly_pdf',args=[mine.pk])).content.startswith(b'%PDF'))

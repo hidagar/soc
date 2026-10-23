@@ -14,6 +14,8 @@ from datetime import timedelta
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q
+from django.db.models.fields.json import KT
+from django.db.models.functions import Length, TruncDate
 from django.http import Http404
 from django.shortcuts import render
 from django.utils import timezone
@@ -96,14 +98,15 @@ def firewall_rows(client, now=None):
     """Estado de cada firewall activo del cliente, sin textos internos del SOC."""
     now = now or timezone.now()
     devices = (Device.objects.filter(site__client=client, active=True, site__active=True)
-               .select_related('site__client', 'health', 'protection_policy').prefetch_related('feeds')
+               .select_related('site__client', 'health', 'protection_policy', 'attribution_catalog', 'zenarmor_export_request')
+               .prefetch_related('feeds')
                .order_by('site__name', 'name'))
     week = evidence_queryset(client, 7)
     counts = {row['device_id']: row for row in week.values('device_id').annotate(
         total=Count('uid'), blocked=Count('uid', filter=Q(action='blocked')), allowed=Count('uid', filter=Q(action='allowed')))}
     rows = []
     for device in devices:
-        item = snapshot(device, now)
+        item = snapshot(device, now, incidents=False)  # el cliente no ve los casos internos vinculados
         label, css = STATUS[item['status']]
         health = item['health']
         silent = any(gap['code'] == 'silence' for gap in item['gaps'])
@@ -121,35 +124,51 @@ def firewall_rows(client, now=None):
     return rows
 
 
+def _family(kind, category, signature, engine):
+    kind = kind or family({'category': category, 'signature': signature, 'engine': engine, 'security': True})
+    return FAMILIES.get(kind, FAMILIES['intrusion'])
+
+
 def detection_summary(qs, days, now=None):
+    """Resumen del periodo con agregados en la base de datos: no recorre cada detección en Python.
+
+    Mismo resultado que aplicar `detection_row` a cada fila (familia, país de origen solo si es
+    entrante y está ubicado, orígenes públicos); los empates se ordenan por nombre.
+    """
     now = now or timezone.now()
+    qs = qs.order_by()
     totals = qs.aggregate(total=Count('uid'), blocked=Count('uid', filter=Q(action='blocked')),
                           allowed=Count('uid', filter=Q(action='allowed')), last=Max('observed_at'))
     totals['unknown'] = totals['total'] - totals['blocked'] - totals['allowed']
-    days_count = Counter()
-    families, signatures, countries, origins, firewalls = Counter(), Counter(), Counter(), Counter(), Counter()
-    signature_actions = {}
-    for row in qs.values(*FIELDS).order_by().iterator(chunk_size=2000):
-        item = detection_row(row)
-        days_count[timezone.localtime(item['observed_at']).date()] += 1
-        families[item['family']] += 1
-        signatures[item['signature']] += 1
-        signature_actions.setdefault(item['signature'], Counter())[item['action']] += 1
-        firewalls[item['firewall']] += 1
-        if item['country']:
-            countries[item['country']] += 1
-            if _public(item['source']):
-                origins[item['source']] += 1
+    # TruncDate usa la zona horaria activa (Europe/Madrid), igual que timezone.localtime.
+    days_count = {row['day']: row['n'] for row in qs.annotate(day=TruncDate('observed_at')).values('day').annotate(n=Count('uid'))}
+    families = Counter()
+    for row in qs.values('category', 'signature', 'engine', kind=KT('interpretation__event_family')).annotate(n=Count('uid')):
+        families[_family(row['kind'], row['category'], row['signature'], row['engine'])] += row['n']
+    signatures = list(qs.values('signature').annotate(
+        count=Count('uid'), blocked=Count('uid', filter=Q(action='blocked')),
+        allowed=Count('uid', filter=Q(action='allowed'))).order_by('-count', 'signature')[:10])
+    firewalls = [(row['device__name'], row['n']) for row in
+                 qs.values('device__name').annotate(n=Count('uid')).order_by('-n', 'device__name')]
+    # Las comparaciones usan las búsquedas JSON de Django (KT = valor exacto falla en SQLite).
+    located = qs.filter(geography__direction='inbound', geography__status='located').annotate(
+        country=KT('geography__country')).annotate(country_length=Length('country')).filter(country_length__gt=0)
+    countries = [(row['country'], row['n']) for row in
+                 located.values('country').annotate(n=Count('uid')).order_by('-n', 'country')[:10]]
+    origins = []
+    for row in located.values('source_ip').annotate(n=Count('uid')).order_by('-n', 'source_ip').iterator(chunk_size=500):
+        if _public(row['source_ip']):
+            origins.append((row['source_ip'], row['n']))
+            if len(origins) == 10:
+                break
     today = timezone.localtime(now).date()
-    timeline = [{'date': today - timedelta(days=offset), 'count': days_count[today - timedelta(days=offset)]}
+    timeline = [{'date': today - timedelta(days=offset), 'count': days_count.get(today - timedelta(days=offset), 0)}
                 for offset in range(days, -1, -1)]  # incluye el día parcial en que empieza la ventana
     peak = max([day['count'] for day in timeline] + [1])
     for day in timeline:
         day['height'] = max(2, round(100 * day['count'] / peak)) if day['count'] else 0
-    return {'totals': totals, 'timeline': timeline, 'families': families.most_common(),
-            'signatures': [{'signature': name, 'count': count, 'blocked': signature_actions[name]['blocked'],
-                            'allowed': signature_actions[name]['allowed']} for name, count in signatures.most_common(10)],
-            'countries': countries.most_common(10), 'origins': origins.most_common(10), 'firewalls': firewalls.most_common()}
+    return {'totals': totals, 'timeline': timeline, 'families': sorted(families.items(), key=lambda item: (-item[1], item[0])),
+            'signatures': signatures, 'countries': countries, 'origins': origins, 'firewalls': firewalls}
 
 
 def _selection(request):

@@ -9,6 +9,7 @@ from django.urls import reverse
 from .models import Client, CustomerPublication, MailSettings, ReportVersion, Site, StaffAccess, WeeklyReport
 from .report_sharing import create_report_link
 from .report_versions import PDF_PLACEHOLDER, published_version
+from .testing_access import collected_report
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
@@ -19,6 +20,7 @@ class ReportVersionTests(TestCase):
         Site.objects.create(client=self.company, name='Sede original', code='s1')
         self.report = WeeklyReport.objects.create(client=self.company, week_start=date(2026, 9, 21),
                                                   sources=['192.0.2.1'], security_count=4, blocked_count=4)
+        collected_report(self.report)  # recopilación completa: publicable
         CustomerPublication.objects.create(client=self.company, title='Publicación', summary='x', visible=True,
                                            weekly_report=self.report)
         MailSettings.objects.create(pk=1, from_email='soc@example.test', enabled=True, last_test_ok=True,

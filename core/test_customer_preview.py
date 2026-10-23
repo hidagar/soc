@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from .models import (AuditEvent, Client, CustomerPublication, CustomerTask, Device, Incident, SecurityEvidence, Site,
                      StaffAccess, WeeklyReport)
+from .testing_access import collected_report
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
@@ -29,6 +30,7 @@ class CustomerPreviewTests(TestCase):
                                                 visible=True)
         self.report = WeeklyReport.objects.create(client=self.company, week_start=date(2026, 9, 21), sources=['192.0.2.1'],
                                                   security_count=1, blocked_count=1)
+        collected_report(self.report)
         CustomerPublication.objects.create(client=self.company, title='Aviso publicado', summary='Texto publicado',
                                            visible=True, weekly_report=self.report)
         self.customer = get_user_model().objects.create_user('cliente')
@@ -116,3 +118,35 @@ class CustomerPreviewTests(TestCase):
             self.assertContains(page, reverse(name))
         self.assertContains(self.client.get(reverse('customer_reports')), reverse('customer_weekly', args=[self.report.pk]))
         self.assertContains(self.client.get(reverse('customer_tasks')), reverse('customer_task_reply', args=[self.task.pk]))
+
+    def test_report_and_task_pages_keep_the_portal_navigation_and_clear_states(self):
+        from .report_versions import freeze_first
+        freeze_first(self.report)
+        self.client.force_login(self.customer)
+        listing = self.client.get(reverse('customer_reports'))
+        self.assertContains(listing, 'Publicado el')
+        self.assertNotContains(listing, 'detecciones recibidas', msg_prefix='sin cifras vivas que difieran del informe')
+        report = self.client.get(reverse('customer_weekly', args=[self.report.pk]))
+        self.assertContains(report, 'aria-label="Área de cliente"')
+        self.assertContains(report, reverse('customer_tasks'))
+        reply = reverse('customer_task_reply', args=[self.task.pk])
+        page = self.client.get(reply)
+        self.assertContains(page, 'aria-label="Área de cliente"')
+        self.assertContains(page, 'Enviar respuesta al SOC')
+        response = self.client.post(reply, {'response': 'Acceso RDP retirado.'})
+        self.assertRedirects(response, reply + '?enviada=1')
+        page = self.client.get(reply + '?enviada=1')
+        self.assertContains(page, 'Respuesta enviada. El SOC la revisará')
+        self.assertNotContains(page, 'Enviar respuesta al SOC')
+        self.assertContains(self.client.get(reverse('customer_tasks')), 'Ver la respuesta enviada')
+        CustomerTask.objects.filter(pk=self.task.pk).update(status='cancelled')
+        self.assertContains(self.client.get(reply), 'no es necesario hacer nada más')
+        # Mapa del cliente: sin detalle de eventos y sin consultas cada 15 s.
+        map_page = self.client.get(reverse('customer_map'))
+        self.assertContains(map_page, 'data-min-refresh="60000"')
+        self.assertEqual(self.client.get(reverse('customer_map_data')).json()['recent'], [])
+        # Vista previa del SOC: mismo informe con su aviso y la vuelta al SOC.
+        self.client.force_login(self.admin)
+        preview = self.client.get(reverse('customer_preview_report', args=[self.company.pk, self.report.pk]))
+        self.assertContains(preview, 'Vista previa como Conservas Roselló')
+        self.assertContains(preview, reverse('client_detail', args=[self.company.pk]))

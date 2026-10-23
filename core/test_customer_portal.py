@@ -136,3 +136,61 @@ class CustomerPortalTests(TestCase):
             self.assertContains(self.client.get(reverse('customer_firewalls')), 'Panel avanzado (Wazuh)')
         Client.objects.filter(pk=self.company.pk).update(customer_live_map_enabled=True)
         self.assertContains(self.client.get(reverse('customer_detections')), reverse('customer_map'))
+
+
+class DetectionSummaryTests(TestCase):
+    """El resumen agregado en la base de datos coincide con aplicar la proyección fila a fila."""
+
+    def reference(self, qs, days, now):
+        from collections import Counter
+        from .customer_portal import FIELDS, _public, detection_row
+        days_count, families, signatures, countries, origins, firewalls = (Counter() for _ in range(6))
+        actions = {}
+        for row in qs.values(*FIELDS):
+            item = detection_row(row)
+            days_count[timezone.localtime(item['observed_at']).date()] += 1
+            families[item['family']] += 1
+            signatures[item['signature']] += 1
+            actions.setdefault(item['signature'], Counter())[item['action']] += 1
+            firewalls[item['firewall']] += 1
+            if item['country']:
+                countries[item['country']] += 1
+                if _public(item['source']):
+                    origins[item['source']] += 1
+        top = lambda counter, n=None: sorted(counter.items(), key=lambda x: (-x[1], x[0]))[:n]  # noqa: E731
+        today = timezone.localtime(now).date()
+        return {'timeline': [days_count[today - timedelta(days=o)] for o in range(days, -1, -1)],
+                'families': top(families), 'countries': top(countries, 10), 'origins': top(origins, 10),
+                'firewalls': top(firewalls),
+                'signatures': [{'signature': s, 'count': c, 'blocked': actions[s]['blocked'], 'allowed': actions[s]['allowed']}
+                               for s, c in top(signatures, 10)]}
+
+    def test_aggregates_match_the_row_by_row_projection(self):
+        from .customer_portal import detection_summary
+        from .investigation import evidence_queryset
+        now = timezone.now()
+        company = Client.objects.create(name='Empresa', code='empresa')
+        site = Site.objects.create(client=company, name='Sede', code='s')
+        devices = [Device.objects.create(site=site, name=name, vendor='opnsense') for name in ('FW-A', 'FW-B')]
+        geo = [{'status': 'located', 'country': 'Países Bajos', 'direction': 'inbound'},
+               {'status': 'located', 'country': 'China', 'direction': 'inbound'},
+               {'status': 'located', 'country': 'China', 'direction': 'outbound'},  # destino: no cuenta como origen
+               {'status': 'unknown', 'direction': 'inbound'}, {}, 'texto']
+        sources = ['45.155.205.233', '218.92.0.35', '10.0.0.9', None, '185.220.101.4']
+        kinds = [{'event_family': 'malware'}, {'event_family': 'scan'}, {}, {'event_family': 'inexistente'}]
+        signatures = ['ET SCAN Escaneo SSH', 'ET MALWARE Trojan', 'Credenciales robadas', 'Firma genérica', 'ET POLICY x']
+        for index in range(60):
+            SecurityEvidence.objects.create(
+                uid=f'{index:064x}', device=devices[index % 2], observed_at=now - timedelta(hours=index * 2 + 1),
+                engine=('suricata', 'zenarmor')[index % 2], signature=signatures[index % 5], category=('', 'malware', 'scan')[index % 3],
+                action=('blocked', 'allowed', 'unknown', 'otra')[index % 4], level=5, source_ip=sources[index % 5],
+                destination_ip='10.0.0.5', geography=geo[index % 6], interpretation=kinds[index % 4],
+                client_scope_id=company.pk)
+        for days in (1, 7):
+            qs = evidence_queryset(company, days)
+            summary = detection_summary(qs, days, now)
+            expected = self.reference(qs, days, now)
+            self.assertEqual([d['count'] for d in summary['timeline']], expected['timeline'])
+            for key in ('families', 'countries', 'origins', 'firewalls', 'signatures'):
+                self.assertEqual(list(summary[key]), expected[key], (days, key))
+            self.assertEqual(summary['totals']['total'], qs.count())

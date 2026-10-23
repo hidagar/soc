@@ -6,11 +6,12 @@ from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404,render,redirect
 from django.utils import timezone
+from django.urls import reverse
 from django.views.decorators.http import require_POST,require_http_methods
 from .models import (Incident,IncidentUpdate,IncidentAction,RunbookStep,CustomerTask,CustomerTaskEntry,
     Device,ProtectionValidation,SecurityEvidence,ConfigurationArchive,UrgentAlert,NetworkCoverage)
 from .security import audit
-from .service_development import customer_client
+from .service_development import _portal_base,customer_client
 from .forms import ScopedModelForm
 
 def runbook_titles(incident):
@@ -124,9 +125,10 @@ def customer_task_reply(request,pk):
                     CustomerTaskEntry.objects.create(task=task,kind='response',status='submitted',text=text,author=request.user)
                     IncidentUpdate.objects.create(incident=task.incident,author=request.user,text='Respuesta recibida del cliente para la tarea «'+task.title+'». Pendiente de verificación SOC.')
                     audit('customer.task_response',task,{'status':'submitted'})
-                    return redirect('customer_home')
+                    return redirect(reverse('customer_task_reply',args=[task.pk])+'?enviada=1')
                 error='Esta tarea ya está respondida o validada. El SOC revisará la respuesta.'
-    return render(request,'customer_task_reply.html',{'client':client,'task':task,'error':error})
+    return render(request,'customer_task_reply.html',{**_portal_base(client,False,'tasks'),'task':task,'error':error,
+        'sent':request.GET.get('enviada')=='1' and task.status=='submitted'})
 
 class ValidationForm(ScopedModelForm):
     class Meta:

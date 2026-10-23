@@ -15,8 +15,8 @@ from django.views.decorators.http import require_GET
 from .customer_portal import detections_context, firewalls_context
 from .models import Client, StaffAccess
 from .security import audit
-from .service_development import (customer_geography, customer_home_context, customer_map_context, customer_reports_context,
-                                  customer_tasks_context, customer_version)
+from .service_development import (_portal_base, customer_geography, customer_home_context, customer_map_context,
+                                  customer_reports_context, customer_tasks_context, customer_version)
 
 
 def preview_client(request, pk, section):
@@ -103,7 +103,8 @@ def report(request, pk, report_pk):
     version, suffix = customer_version(request, report_pk, client, create=False)
     base = reverse('customer_preview_report', args=[client.pk, report_pk])
     return version_page(request, version, reverse('customer_preview_report_pdf', args=[client.pk, report_pk]) + suffix,
-                        base='customer_report_base.html', versions=version.report.versions.all(), version_url=base)
+                        base='customer_report_base.html', versions=version.report.versions.all(), version_url=base,
+                        extra={**_portal_base(client, True, 'reports'), 'preview_back': reverse('client_detail', args=[client.pk])})
 
 
 @login_required
