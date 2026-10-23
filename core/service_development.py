@@ -31,6 +31,15 @@ class PublicationForm(forms.ModelForm):
         self.fields['incident'].queryset=Incident.objects.filter(client=client)
         self.fields['weekly_report'].queryset=WeeklyReport.objects.filter(client=client)
         for field in self.fields.values():field.widget.attrs['class']='input'
+    def clean(self):
+        data=super().clean()
+        report=data.get('weekly_report')
+        # Publicar un informe lo congela: solo si está terminado y verificado, o si ya estaba congelado o enviado.
+        if report and data.get('visible') and not report.sent_at and not report.versions.exists():
+            from .reporting import release_problem
+            problem=release_problem(report)
+            if problem:self.add_error('weekly_report','Este informe aún no puede publicarse: '+problem)
+        return data
     def clean_summary(self):
         value=self.cleaned_data['summary'].strip()
         if len(value)>6000:raise forms.ValidationError('Máximo 6000 caracteres.')
@@ -52,6 +61,9 @@ def publish(request,client_pk):
     if request.method=='POST' and form.is_valid():
         item=form.save(commit=False);item.client=client;item.save()
         audit('customer.publication',item,{'status':item.status,'fields':form.changed_data})
+        if item.visible and item.weekly_report_id and not item.weekly_report.versions.exists():
+            from .report_versions import freeze_first
+            freeze_first(item.weekly_report,request.user)
         return redirect('customer_publish',client_pk=client.pk)
     return render(request,'customer_publish.html',{'client':client,'form':form,'publications':CustomerPublication.objects.filter(client=client)[:100]})
 
@@ -142,6 +154,7 @@ def customer_geography(request,client=None):
     payload=map_data(client,days,action,direction)
     # All event detail and internal operational state are discarded before serialization.
     payload['recent']=[];payload['geo_error']='';payload['history_pending']=False
+    payload['watch']={k:v for k,v in payload['watch'].items() if k!='critical'}  # nivel de Wazuh: dato interno
     return client,payload,days,action,direction
 
 @login_required
@@ -161,11 +174,11 @@ def customer_map_context(request,client,preview=False):
 def customer_map_data(request):
     return JsonResponse(customer_geography(request)[1])
 
-def customer_version(request,pk,client=None):
+def customer_version(request,pk,client=None,create=True):
     from .report_versions import published_version
     report=get_object_or_404(released_reports(client or customer_client(request)),pk=pk)
     raw=request.GET.get('version','')
-    version=published_version(report,int(raw) if raw.isdigit() and len(raw)<6 else None)
+    version=published_version(report,int(raw) if raw.isdigit() and len(raw)<6 else None,create=create)
     if not version:raise Http404
     return version,('?version='+str(version.number) if raw else '')
 

@@ -69,6 +69,12 @@ class CustomerPreviewTests(TestCase):
         self.assertEqual(self.client.get(reverse('customer_preview_map', args=[self.company.pk])).status_code, 200)
         data = self.client.get(reverse('customer_preview_map_data', args=[self.company.pk])).json()
         self.assertEqual((data['total'], data['recent']), (1, []))
+        from .models import ReportVersion
+        from .report_versions import freeze_first
+        self.assertEqual(self.client.get(reverse('customer_preview_report', args=[self.company.pk, self.report.pk])).status_code,
+                         404, 'la vista previa nunca congela un informe')
+        self.assertFalse(ReportVersion.objects.exists())
+        freeze_first(self.report)
         report = self.client.get(reverse('customer_preview_report', args=[self.company.pk, self.report.pk]))
         self.assertEqual(report.status_code, 200)
         self.assertEqual(self.client.get(reverse('customer_preview_report_pdf', args=[self.company.pk, self.report.pk]))['Content-Type'],

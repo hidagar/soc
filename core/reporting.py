@@ -259,6 +259,29 @@ def report_context(report):
     }
 
 
+def release_problem(report, now=None):
+    """Motivo por el que un informe aún no puede publicarse al cliente; cadena vacía si puede.
+
+    Publicarlo lo congela (bloque 6): no debe congelarse una semana abierta ni un borrador
+    sin fuentes o con la propiedad histórica pendiente de verificar.
+    """
+    now = now or timezone.now()
+    if report.week_start + timedelta(days=7) > timezone.localdate(now):
+        return 'la semana del informe aún no ha terminado.'
+    if not report.sources:
+        return 'no hay una fuente de eventos verificada para este cliente.'
+    from .source_ownership import report_scope
+    try:
+        _, _, fingerprint = report_scope(report.client, report.week_start)
+    except ValueError:
+        fingerprint = None
+    coverage = report.coverage or {}
+    if (coverage.get('collection_schema') != 2 or coverage.get('ownership_fingerprint') != fingerprint
+            or coverage.get('ownership_pending')):
+        return 'requiere una recopilación completa con la propiedad histórica verificada; actualiza el informe.'
+    return ''
+
+
 def send_report(report):
     client = report.client
     if report.sent_at or not client.active or not client.weekly_reports_enabled or not client.report_email:

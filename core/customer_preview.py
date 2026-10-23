@@ -100,7 +100,7 @@ def map_data(request, pk):
 def report(request, pk, report_pk):
     from .report_versions import version_page
     client = preview_client(request, pk, 'informe')
-    version, suffix = customer_version(request, report_pk, client)
+    version, suffix = customer_version(request, report_pk, client, create=False)
     base = reverse('customer_preview_report', args=[client.pk, report_pk])
     return version_page(request, version, reverse('customer_preview_report_pdf', args=[client.pk, report_pk]) + suffix,
                         base='customer_report_base.html', versions=version.report.versions.all(), version_url=base)
@@ -112,5 +112,5 @@ def report(request, pk, report_pk):
 def report_pdf(request, pk, report_pk):
     from .report_versions import version_pdf
     client = preview_client(request, pk, '')
-    version, _ = customer_version(request, report_pk, client)
+    version, _ = customer_version(request, report_pk, client, create=False)
     return version_pdf(version, f'informe-semanal-v{version.number}.pdf')

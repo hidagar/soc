@@ -142,7 +142,7 @@ def detection_summary(qs, days, now=None):
                 origins[item['source']] += 1
     today = timezone.localtime(now).date()
     timeline = [{'date': today - timedelta(days=offset), 'count': days_count[today - timedelta(days=offset)]}
-                for offset in range(days - 1, -1, -1)]
+                for offset in range(days, -1, -1)]  # incluye el día parcial en que empieza la ventana
     peak = max([day['count'] for day in timeline] + [1])
     for day in timeline:
         day['height'] = max(2, round(100 * day['count'] / peak)) if day['count'] else 0
