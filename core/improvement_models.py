@@ -238,6 +238,9 @@ class UnifiBlocklistBinding(models.Model):
     enabled=models.BooleanField(default=True)
     pushed_fingerprint=models.CharField(max_length=64,blank=True)
     pushed_count=models.PositiveIntegerField(default=0)
+    # Políticas de bloqueo creadas por el SOC en UniFi (nacen desactivadas): [{'id','name'}].
+    policies=models.JSONField(default=list,blank=True)
+    policies_enabled=models.BooleanField(default=False)
     synced_at=models.DateTimeField(null=True,blank=True)
     error=models.CharField(max_length=240,blank=True)
     error_at=models.DateTimeField(null=True,blank=True)

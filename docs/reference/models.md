@@ -339,6 +339,8 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `enabled` | BooleanField |  |
 | `pushed_fingerprint` | CharField | max_length=64; blank=True |
 | `pushed_count` | PositiveIntegerField |  |
+| `policies` | JSONField | blank=True |
+| `policies_enabled` | BooleanField |  |
 | `synced_at` | DateTimeField | null=True; blank=True |
 | `error` | CharField | max_length=240; blank=True |
 | `error_at` | DateTimeField | null=True; blank=True |
