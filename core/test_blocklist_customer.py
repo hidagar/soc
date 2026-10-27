@@ -36,7 +36,7 @@ class CustomerProtectionTests(TestCase):
 
     def test_projection_has_only_aggregates_and_needs_an_active_rule_and_list(self):
         data = client_protection(self.company, now=self.now)
-        self.assertEqual(data, {'inbound': {'entries': 2, 'packets': 42, 'firewalls': ['FW-Rosello'], 'measured': True}})
+        self.assertEqual(data, {'inbound': {'entries': 2, 'packets': 42, 'firewalls': ['FW-Rosello'], 'measured': True, 'measuring': True}})
         BlocklistFeed.objects.filter(pk=self.feed.pk).update(stopped=True)
         self.assertIsNone(client_protection(self.company, now=self.now), 'con el freno echado no se presume protección')
         BlocklistFeed.objects.filter(pk=self.feed.pk).update(stopped=False)

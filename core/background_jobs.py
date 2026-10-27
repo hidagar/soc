@@ -133,7 +133,10 @@ def execute(name):
         return refresh()
     if name=='blocklists':
         from .blocklist import refresh_feeds
-        return refresh_feeds()
+        from .unifi_blocklist import sync_all
+        count=refresh_feeds()
+        sync_all()  # UniFi no descarga por URL: el SOC escribe la lista en cada consola vinculada
+        return count
     if name=='blocklist_efficacy':
         from .blocklist_efficacy import refresh as measure_rules
         return measure_rules()

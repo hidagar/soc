@@ -322,6 +322,27 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `last_fetch_at` | DateTimeField | null=True; blank=True |
 | `observation` | JSONField | blank=True |
 | `updated_at` | DateTimeField |  |
+## UnifiBlocklistBinding
+
+Fuente: [core/improvement_models.py](../../core/improvement_models.py).
+
+Ámbito declarado: `'device__site__client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `device` | ForeignKey | → 'core.Device'; on_delete=models.CASCADE |
+| `direction` | CharField | max_length=4 |
+| `site_id` | CharField | max_length=36 |
+| `list_id` | CharField | max_length=36 |
+| `list_name` | CharField | max_length=240 |
+| `item_format` | CharField | max_length=8 |
+| `enabled` | BooleanField |  |
+| `pushed_fingerprint` | CharField | max_length=64; blank=True |
+| `pushed_count` | PositiveIntegerField |  |
+| `synced_at` | DateTimeField | null=True; blank=True |
+| `error` | CharField | max_length=240; blank=True |
+| `error_at` | DateTimeField | null=True; blank=True |
+| `created_at` | DateTimeField |  |
 ## ManualBlock
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

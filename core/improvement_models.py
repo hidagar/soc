@@ -223,6 +223,29 @@ class BlocklistFeed(models.Model):
     updated_at=models.DateTimeField(auto_now=True)
     objects=ScopedManager();customer_lookup='client_id'
 
+class UnifiBlocklistBinding(models.Model):
+    """Lista de IPs de una consola UniFi cuyo contenido mantiene el SOC (UniFi no descarga listas por URL).
+
+    El operador crea en UniFi la lista (nombre «SOC…», con una IP de prueba) y la política de bloqueo
+    que la usa; el SOC solo sustituye las direcciones. `item_format` se aprende de la propia lista.
+    """
+    device=models.ForeignKey('core.Device',on_delete=models.CASCADE,related_name='unifi_blocklists')
+    direction=models.CharField(max_length=4,default='in',choices=[('in','Entrada'),('out','Salida (C2)')])
+    site_id=models.CharField(max_length=36)
+    list_id=models.CharField(max_length=36)
+    list_name=models.CharField(max_length=240)
+    item_format=models.CharField(max_length=8)
+    enabled=models.BooleanField(default=True)
+    pushed_fingerprint=models.CharField(max_length=64,blank=True)
+    pushed_count=models.PositiveIntegerField(default=0)
+    synced_at=models.DateTimeField(null=True,blank=True)
+    error=models.CharField(max_length=240,blank=True)
+    error_at=models.DateTimeField(null=True,blank=True)
+    created_at=models.DateTimeField(default=timezone.now)
+    objects=ScopedManager();customer_lookup='device__site__client_id'
+    class Meta:
+        constraints=[models.UniqueConstraint(fields=['device','direction'],name='unifi_blocklist_one_per_direction')]
+
 class ManualBlock(models.Model):
     """Bloqueo decidido por un analista del SOC: IP o red, motivo y caducidad obligatoria.
 
