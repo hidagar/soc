@@ -73,6 +73,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
+| [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 11 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
 | [core/test_unifi_zone_scope.py](../../core/test_unifi_zone_scope.py) | 18 |
 | [core/test_wazuh_customer_isolation.py](../../core/test_wazuh_customer_isolation.py) | 10 |
@@ -148,3 +149,5 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0057_evidence_indexes.py](../../core/migrations/0057_evidence_indexes.py)
 - [core/migrations/0058_manual_blocks.py](../../core/migrations/0058_manual_blocks.py)
 - [core/migrations/0059_outbound_blocklist.py](../../core/migrations/0059_outbound_blocklist.py)
+- [core/migrations/0060_unifi_blocklist.py](../../core/migrations/0060_unifi_blocklist.py)
+- [core/migrations/0061_unifi_policies.py](../../core/migrations/0061_unifi_policies.py)

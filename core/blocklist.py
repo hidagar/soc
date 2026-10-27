@@ -450,6 +450,117 @@ def plan_preview_outbound(device):
             'zenarmor': [], 'suricata': []}
 
 
+def _unifi_devices(client):
+    return Device.objects.filter(site__client=client, active=True, vendor=Device.Vendor.UNIFI,
+                                 unifi_cloud__isnull=False).exclude(unifi_cloud__remote_host_id='').select_related('site')
+
+
+def sync_unifi(client):
+    """Escribe ya las listas UniFi de un cliente (freno de emergencia, vincular, desvincular)."""
+    from .models import UnifiBlocklistBinding
+    from .unifi_blocklist import sync
+    for binding in UnifiBlocklistBinding._base_manager.filter(device__site__client=client).select_related('device__site',
+                                                                                                          'device__unifi_cloud'):
+        sync(binding, force=True)
+
+
+def unifi_action(request, client, feed, action):
+    """Buscar listas «SOC…» en la consola, vincular una o dejar de gestionarla. None = volver a pintar la página."""
+    from .models import UnifiBlocklistBinding
+    from .unifi_blocklist import candidates, create_list, create_policies, delete_policies, set_policies, sync
+    from .unifi_cloud import UnifiCloudError
+    if action in ('unifi_policy_enable', 'unifi_policy_disable'):
+        binding = get_object_or_404(UnifiBlocklistBinding.objects.filter(device__site__client=client).exclude(policies=[]),
+                                    pk=request.POST.get('binding', '0') or 0)
+        enabled = action == 'unifi_policy_enable'
+        try:
+            set_policies(binding, enabled)
+        except UnifiCloudError as exc:
+            messages.error(request, f'No se pudo cambiar la política en UniFi: {exc}')
+            return redirect('blocklist_detail', client_pk=client.pk)
+        UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(policies_enabled=enabled)
+        audit('blocklist.unifi_policy_' + ('enable' if enabled else 'disable'), client, {'status': binding.direction})
+        messages.success(request, 'Política de bloqueo activada en UniFi.' if enabled else
+                         'Política de bloqueo desactivada en UniFi: deja de bloquear al momento.')
+        return redirect('blocklist_detail', client_pk=client.pk)
+    if action == 'unifi_unbind':
+        binding = get_object_or_404(UnifiBlocklistBinding.objects.filter(device__site__client=client),
+                                    pk=request.POST.get('binding', '0') or 0)
+        # Primero se retiran las políticas que creó el SOC; después se vacía la lista: una lista
+        # abandonada seguiría bloqueando sin control.
+        try:
+            delete_policies(binding)
+        except UnifiCloudError as exc:
+            messages.error(request, f'No se pudieron retirar las políticas del SOC en UniFi: {exc}')
+            return redirect('blocklist_detail', client_pk=client.pk)
+        UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(enabled=False, policies=[], policies_enabled=False)
+        binding.refresh_from_db()
+        if not sync(binding, force=True):
+            messages.error(request, 'No se pudo vaciar la lista en UniFi; sigue vinculada y desactivada. Revisa el error.')
+            return redirect('blocklist_detail', client_pk=client.pk)
+        audit('blocklist.unifi_unbind', client, {'status': binding.direction})
+        binding.delete()
+        messages.success(request, 'Políticas del SOC retiradas y lista de UniFi vaciada y desvinculada.')
+        return redirect('blocklist_detail', client_pk=client.pk)
+    device = get_object_or_404(_unifi_devices(client), pk=request.POST.get('device', '0') or 0)
+    direction = request.POST.get('direction', 'in')
+    if direction not in ('in', 'out'):
+        raise Http404
+    if direction == 'out' and action == 'unifi_create' and not feed.outbound_enabled:
+        request.unifi_error = 'Activa primero la lista de salida (C2) de este cliente.'
+        return None
+    try:
+        if action == 'unifi_create':
+            created = create_list(device, direction)
+            audit('blocklist.unifi_create', client, {'status': direction})
+            found = [created]
+        else:
+            found = candidates(device)
+    except UnifiCloudError as exc:
+        request.unifi_error = str(exc)
+        return None
+    if action == 'unifi_lists':
+        request.unifi_candidates, request.unifi_device = found, device
+        return None
+    chosen = found[0] if action == 'unifi_create' else next((c for c in found if c['id'] == request.POST.get('list_id')), None)
+    if not chosen:
+        raise Http404
+    if not chosen['format']:
+        request.unifi_error = ('La lista no tiene una IP de prueba con formato reconocible. Añade una IP en UniFi '
+                               'para que el SOC aprenda el formato y vuelve a intentarlo.')
+        return None
+    if direction == 'out' and not feed.outbound_enabled:
+        request.unifi_error = 'Activa primero la lista de salida (C2) de este cliente.'
+        return None
+    current = UnifiBlocklistBinding.objects.filter(list_id=chosen['id']).first()
+    if current and not (action == 'unifi_create' and current.device_id == device.pk and current.direction == direction):
+        request.unifi_error = 'Esa lista de UniFi ya está vinculada.'
+        return None
+    binding = current or UnifiBlocklistBinding.objects.update_or_create(device=device, direction=direction, defaults={
+        'site_id': chosen['site'], 'list_id': chosen['id'], 'list_name': chosen['name'], 'item_format': chosen['format'],
+        'enabled': True, 'pushed_fingerprint': '', 'error': ''})[0]
+    if not current:
+        audit('blocklist.unifi_bind', client, {'status': direction})
+    if not sync(binding, force=True):
+        messages.error(request, 'Lista vinculada, pero la escritura falló. Revisa el error en esta página.')
+        return redirect('blocklist_detail', client_pk=client.pk)
+    if action != 'unifi_create':
+        messages.success(request, f'Lista «{chosen["name"]}» vinculada y actualizada en UniFi. Comprueba en UniFi que la '
+                                  'política de bloqueo que la usa está activa.')
+        return redirect('blocklist_detail', client_pk=client.pk)
+    # «Crear lista y política»: las políticas nacen desactivadas; activarlas es otro paso con MFA.
+    try:
+        created = binding.policies or create_policies(binding)
+    except UnifiCloudError as exc:
+        messages.error(request, f'Lista creada y actualizada, pero no se pudo crear la política en UniFi: {exc}')
+        return redirect('blocklist_detail', client_pk=client.pk)
+    UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(policies=created)
+    audit('blocklist.unifi_policy_create', client, {'status': direction, 'count': len(created)})
+    messages.success(request, f'Lista «{chosen["name"]}» creada con las IPs del SOC y {len(created)} política(s) de bloqueo '
+                              'creadas DESACTIVADAS en UniFi. Revisa el orden de las políticas en UniFi y pulsa «Activar».')
+    return redirect('blocklist_detail', client_pk=client.pk)
+
+
 def _devices(client):
     return Device.objects.filter(site__client=client, active=True, vendor=Device.Vendor.OPNSENSE,
                                  management_method='api').select_related('site')
@@ -536,7 +647,7 @@ def detail(request, client_pk):
     if request.method == 'POST':
         action = request.POST.get('action', '')
         # Detener o retirar un bloqueo solo deja de bloquear: no exige repetir el MFA para no retrasar una emergencia.
-        if action not in ('stop', 'manual_revoke') and not mfa_fresh(request):
+        if action not in ('stop', 'manual_revoke', 'unifi_unbind', 'unifi_policy_disable') and not mfa_fresh(request):
             return redirect('mfa_challenge')
         if action == 'settings':
             try:
@@ -582,6 +693,7 @@ def detail(request, client_pk):
                 stopped = action == 'stop'
                 BlocklistFeed.objects.filter(pk=feed.pk).update(stopped=stopped, stopped_at=timezone.now() if stopped else None)
             audit('blocklist.' + action, client)
+            sync_unifi(client)  # UniFi no descarga: se escribe ya (vacía al detener)
             messages.success(request, 'Lista detenida: los firewalls recibirán una lista vacía en su próxima descarga.'
                              if action == 'stop' else 'Lista reanudada.')
             return redirect('blocklist_detail', client_pk=client.pk)
@@ -592,6 +704,13 @@ def detail(request, client_pk):
             audit('blocklist.token_rotated', client)
             messages.success(request, 'Token nuevo. Actualiza la URL en los firewalls: la anterior deja de funcionar.')
             return redirect('blocklist_detail', client_pk=client.pk)
+        elif action in ('unifi_lists', 'unifi_bind', 'unifi_unbind', 'unifi_create', 'unifi_policy_enable', 'unifi_policy_disable'):
+            if not request.user.has_perm('core.manage_connections'):
+                return HttpResponseForbidden('Permiso de conexiones requerido.')
+            result = unifi_action(request, client, feed, action)
+            if result is not None:
+                return result
+            error = getattr(request, 'unifi_error', '')
         elif action in ('plan', 'plan_out'):
             if not request.user.has_perm('core.manage_connections'):
                 return HttpResponseForbidden('Permiso de conexiones requerido.')
@@ -641,9 +760,16 @@ def detail(request, client_pk):
         if state and state.details.get('error'):
             warnings.append(state.details['error'] + ' Las detecciones del SOC se dejan de incluir una hora después de la última lectura correcta.')
     manual = active_manual(client, now).select_related('created_by')
+    unifi_devices = list(_unifi_devices(client))
+    unifi_unlinked = list(Device.objects.filter(site__client=client, active=True, vendor=Device.Vendor.UNIFI)
+                          .exclude(pk__in=[d.pk for d in unifi_devices]).order_by('name').values_list('name', flat=True))
+    from .models import UnifiBlocklistBinding
+    unifi_bindings = UnifiBlocklistBinding.objects.filter(device__site__client=client).select_related('device')
     return render(request, 'blocklist_detail.html', {
         'warnings': warnings, 'manual_blocks': manual, 'global_access': global_access(request.user),
         'prefill_network': request.GET.get('network', '')[:64],
+        'unifi_devices': unifi_devices, 'unifi_bindings': unifi_bindings, 'unifi_unlinked': unifi_unlinked,
+        'unifi_candidates': getattr(request, 'unifi_candidates', None), 'unifi_device': getattr(request, 'unifi_device', None),
         'manual_max_days': MANUAL_MAX_DAYS,
         'client': client, 'feed': feed, 'entries': feed.entries[:300], 'count': len(feed.entries),
         'url': feed_url(feed) if show_url and feed.enabled else '', 'error': error or allowlist_error,

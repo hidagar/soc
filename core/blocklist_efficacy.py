@@ -169,11 +169,26 @@ def client_protection(client, first_day=None, last_day=None, now=None):
             continue
         key = 'outbound' if outbound else 'inbound'
         item = result.setdefault(key, {'entries': len(feed.outbound_entries if outbound else feed.entries),
-                                       'packets': 0, 'firewalls': [], 'measured': False})
+                                       'packets': 0, 'firewalls': [], 'measured': False, 'measuring': False})
         item['firewalls'].append(plan.device.name)
+        item['measuring'] = True
         state = WorkerState.objects.filter(name=state_name(plan)).first()
         history = (state.details.get('history') or {}) if state else {}
         if state and state.details.get('checked_at'):
             item['measured'] = True
             item['packets'] += sum(v for d, v in history.items() if first_day.isoformat() <= d <= last_day.isoformat())
+    # Consolas UniFi con la lista escrita por el SOC y sus políticas de bloqueo activas (no se presume
+    # protección por una política hecha a mano que el SOC no ve). UniFi no ofrece contadores por regla.
+    from .models import UnifiBlocklistBinding
+    for binding in UnifiBlocklistBinding._base_manager.filter(device__site__client=client, device__active=True, enabled=True,
+                                                              synced_at__isnull=False, error='',
+                                                              policies_enabled=True).select_related('device'):
+        outbound = binding.direction == 'out'
+        if outbound and not feed.outbound_enabled:
+            continue
+        item = result.setdefault('outbound' if outbound else 'inbound',
+                                 {'entries': len(feed.outbound_entries if outbound else feed.entries), 'packets': 0,
+                                  'firewalls': [], 'measured': False, 'measuring': False})
+        if binding.device.name not in item['firewalls']:
+            item['firewalls'].append(binding.device.name)
     return result or None
