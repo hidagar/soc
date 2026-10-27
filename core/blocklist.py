@@ -467,7 +467,7 @@ def sync_unifi(client):
 def unifi_action(request, client, feed, action):
     """Buscar listas «SOC…» en la consola, vincular una o dejar de gestionarla. None = volver a pintar la página."""
     from .models import UnifiBlocklistBinding
-    from .unifi_blocklist import candidates, sync
+    from .unifi_blocklist import candidates, create_list, sync
     from .unifi_cloud import UnifiCloudError
     if action == 'unifi_unbind':
         binding = get_object_or_404(UnifiBlocklistBinding.objects.filter(device__site__client=client),
@@ -483,17 +483,27 @@ def unifi_action(request, client, feed, action):
         messages.success(request, 'Lista de UniFi vaciada y desvinculada. Retira la política en UniFi si ya no la necesitas.')
         return redirect('blocklist_detail', client_pk=client.pk)
     device = get_object_or_404(_unifi_devices(client), pk=request.POST.get('device', '0') or 0)
+    direction = request.POST.get('direction', 'in')
+    if direction not in ('in', 'out'):
+        raise Http404
+    if direction == 'out' and action == 'unifi_create' and not feed.outbound_enabled:
+        request.unifi_error = 'Activa primero la lista de salida (C2) de este cliente.'
+        return None
     try:
-        found = candidates(device)
+        if action == 'unifi_create':
+            created = create_list(device, direction)
+            audit('blocklist.unifi_create', client, {'status': direction})
+            found = [created]
+        else:
+            found = candidates(device)
     except UnifiCloudError as exc:
         request.unifi_error = str(exc)
         return None
     if action == 'unifi_lists':
         request.unifi_candidates, request.unifi_device = found, device
         return None
-    chosen = next((c for c in found if c['id'] == request.POST.get('list_id')), None)
-    direction = request.POST.get('direction', 'in')
-    if not chosen or direction not in ('in', 'out'):
+    chosen = found[0] if action == 'unifi_create' else next((c for c in found if c['id'] == request.POST.get('list_id')), None)
+    if not chosen:
         raise Http404
     if not chosen['format']:
         request.unifi_error = ('La lista no tiene una IP de prueba con formato reconocible. Añade una IP en UniFi '
@@ -660,7 +670,7 @@ def detail(request, client_pk):
             audit('blocklist.token_rotated', client)
             messages.success(request, 'Token nuevo. Actualiza la URL en los firewalls: la anterior deja de funcionar.')
             return redirect('blocklist_detail', client_pk=client.pk)
-        elif action in ('unifi_lists', 'unifi_bind', 'unifi_unbind'):
+        elif action in ('unifi_lists', 'unifi_bind', 'unifi_unbind', 'unifi_create'):
             if not request.user.has_perm('core.manage_connections'):
                 return HttpResponseForbidden('Permiso de conexiones requerido.')
             result = unifi_action(request, client, feed, action)

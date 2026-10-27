@@ -20,11 +20,16 @@ class FakeConsole:
         item = {'type': 'IP_ADDRESS', 'value': '185.191.171.99'} if typed else '185.191.171.99'
         self.lists = {SOC_LIST: {'id': SOC_LIST, 'name': 'SOC Bloqueo', 'type': 'IPV4_ADDRESSES', 'items': [item]},
                       CLIENT_LIST: {'id': CLIENT_LIST, 'name': 'Proveedores', 'type': 'IPV4_ADDRESSES', 'items': [item]}}
-        self.writes, self.drop_on_write = [], False
+        self.writes, self.drop_on_write, self.posts = [], False, []
 
     def __call__(self, api_key, host_id, path, method='GET', payload=None):
         if path == '/v1/sites':
             return {'data': [{'id': SITE, 'internalReference': 'default'}]}
+        if method == 'POST':
+            uid = '55555555-5555-5555-5555-55555555555' + str(len(self.lists))
+            self.posts.append(payload)
+            self.lists[uid] = {'id': uid, **payload}
+            return {'data': self.lists[uid]}
         if path.endswith('/traffic-matching-lists'):
             return {'data': list(self.lists.values()) + [{'id': '44444444-4444-4444-4444-444444444444', 'name': 'SOC Puertos',
                                                            'type': 'PORTS', 'items': []}]}
@@ -87,6 +92,25 @@ class UnifiBlocklistTests(TestCase):
         # Sin cambios no se vuelve a escribir.
         unifi_blocklist.sync_all(self.now)
         self.assertEqual(len(self.console.writes), 1)
+
+    def test_soc_creates_its_own_list_once_and_manages_it(self):
+        url = self.login()
+        self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'in'})
+        self.assertEqual(self.console.posts, [{'type': 'IPV4_ADDRESSES', 'name': 'SOC Bloqueo entrada',
+                                               'items': [{'type': 'IP_ADDRESS', 'value': PLACEHOLDER}]}])
+        binding = UnifiBlocklistBinding.objects.get()
+        self.assertEqual((binding.list_name, binding.pushed_count, binding.error), ('SOC Bloqueo entrada', 2, ''))
+        self.assertEqual(self.console.lists[binding.list_id]['items'][1], {'type': 'IP_ADDRESS', 'value': '45.155.205.233'})
+        # Repetir no crea otra lista: reutiliza la existente (y avisa de que ya está vinculada).
+        page = self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'in'})
+        self.assertEqual(len(self.console.posts), 1)
+        self.assertContains(page, 'ya está vinculada')
+        # Solo se pueden crear listas «SOC…» de IPv4.
+        from .unifi_cloud import UnifiCloudError
+        mock.patch.stopall()
+        for body in ({'type': 'IPV4_ADDRESSES', 'name': 'Proveedores'}, {'type': 'PORTS', 'name': 'SOC puertos'}):
+            with self.assertRaises(UnifiCloudError):
+                unifi_blocklist.call('k', 'host-1', f'/v1/sites/{SITE}/traffic-matching-lists', 'POST', body)
 
     def test_emergency_stop_and_unbind_leave_only_the_documentation_address(self):
         url = self.login()
