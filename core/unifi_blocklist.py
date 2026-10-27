@@ -40,10 +40,14 @@ def call(api_key, host_id, path, method='GET', payload=None):
     if not isinstance(host_id, str) or not re.fullmatch(r'[A-Za-z0-9:-]{1,200}', host_id):
         raise UnifiCloudError('Consola UniFi no válida.')
     allowed = (method == 'GET' and (path == '/v1/sites' or re.fullmatch(r'/v1/sites/[0-9a-f-]{36}/traffic-matching-lists', path))) or (
+        # Alta solo de listas «SOC…» de IPv4 con la dirección de documentación (ver create_list).
+        method == 'POST' and re.fullmatch(r'/v1/sites/[0-9a-f-]{36}/traffic-matching-lists', path)
+        and isinstance(payload, dict) and payload.get('type') == 'IPV4_ADDRESSES'
+        and str(payload.get('name', '')).startswith(PREFIX)) or (
         method in ('GET', 'PUT') and re.fullmatch(r'/v1/sites/[0-9a-f-]{36}/traffic-matching-lists/[0-9a-f-]{36}', path))
     if not allowed:
         raise UnifiCloudError('Operación de UniFi no permitida.')
-    collection = path == '/v1/sites' or path.endswith('/traffic-matching-lists')
+    collection = method == 'GET' and (path == '/v1/sites' or path.endswith('/traffic-matching-lists'))
     query = '?' + parse.urlencode({'offset': 0, 'limit': 200}) if collection else ''
     url = ('https://api.ui.com/v1/connector/consoles/' + parse.quote(host_id, safe='') + '/proxy/network/integration' + path + query)
     data = json.dumps(payload).encode() if payload is not None else None
@@ -132,6 +136,31 @@ def candidates(device):
         result.append({'id': _uuid(row.get('id')), 'name': name, 'count': len(row.get('items') or []),
                        'format': item_format(row.get('items')), 'site': site})
     return result
+
+
+NAMES = {'in': 'SOC Bloqueo entrada', 'out': 'SOC Bloqueo salida C2'}
+
+
+def create_list(device, direction):
+    """Crea en la consola la lista «SOC…» de esa dirección, o reutiliza la que ya exista con ese nombre.
+
+    Nace con la dirección de documentación como único contenido: una lista sin política no cambia el
+    tráfico, y la política de bloqueo la crea el operador en UniFi. Formato {type, value}, el de las
+    listas IPV4_ADDRESSES de Network 10 (comprobado en una consola real).
+    """
+    name = NAMES[direction]
+    found = next((c for c in candidates(device) if c['name'] == name), None)
+    if found:
+        return found
+    connection = device.unifi_cloud
+    key = decrypt_api_key(connection.encrypted_api_key)
+    site = default_site(key, connection.remote_host_id)
+    call(key, connection.remote_host_id, f'/v1/sites/{site}/traffic-matching-lists', 'POST',
+         {'type': 'IPV4_ADDRESSES', 'name': name, 'items': [{'type': 'IP_ADDRESS', 'value': PLACEHOLDER}]})
+    created = next((c for c in candidates(device) if c['name'] == name), None)
+    if not created or not created['format']:
+        raise UnifiCloudError('UniFi no confirmó la creación de la lista.')
+    return created
 
 
 def desired(binding, now=None):
