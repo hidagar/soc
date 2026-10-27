@@ -246,7 +246,7 @@ class FakeOpnsenseWithAliases(FakeOpnsense):
                 return {'alias': dict(self.aliases.get(path.rsplit('/', 1)[1], {}))}
             if path.startswith('/api/firewall/alias/del_item/'):
                 uid = path.rsplit('/', 1)[1]
-                if any(rule.get('source_net') == self.aliases[uid]['name'] for rule in self.rules.values()):
+                if any(self.aliases[uid]['name'] in (rule.get('source_net'), rule.get('destination_net')) for rule in self.rules.values()):
                     raise ValueError('Alias en uso')
                 self.aliases.pop(uid)
                 return {'result': 'deleted'}

@@ -14,6 +14,10 @@ El SOC hace de puente entre CrowdSec y los firewalls, con frenos:
 Fase 2: el SOC orquesta también decisiones propias, siempre con las mismas excepciones:
 - Bloqueos manuales del analista (`ManualBlock`): IP o red pública acotada, motivo y caducidad.
 - Atacantes detectados por el motor CrowdSec del propio SOC (opcional por cliente).
+- Lista de salida (C2): destinos a los que los equipos del cliente no deben conectarse, con su
+  propia URL y plantilla (regla de salida en WAN). Fuentes: bloqueos manuales de salida y destinos
+  de detecciones salientes de malware/control remoto que se repiten (2 días o 2 clientes). Por
+  privacidad no se consulta a CrowdSec por destinos de conexiones salientes (docs/security.md).
 """
 import hashlib
 import hmac
@@ -26,6 +30,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, Q
+from django.db.models.functions import TruncDate
 from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -43,6 +48,11 @@ FEED_MAX_AGE = timedelta(hours=24)  # una lista sin recalcular más tiempo se si
 FETCH_STALE = timedelta(hours=2)
 MAX_ALLOWLIST = 200
 TEMPLATE = 'crowdsec'
+TEMPLATE_OUT = 'crowdsec_out'
+TEMPLATES = (TEMPLATE, TEMPLATE_OUT)
+TITLE_OUT = 'Bloqueo de salida (C2) del SOC'
+C2_MIN_DAYS = 2      # un destino visto un solo día en un solo cliente puede ser un falso positivo de firma
+C2_MIN_CLIENTS = 2
 MANUAL_MAX_DAYS = 90
 MANUAL_LIMIT = 500  # bloqueos manuales vigentes por alcance
 MIN_PREFIX = {4: 24, 6: 48}  # una red más amplia bloquearía a demasiada gente por error
@@ -102,10 +112,64 @@ def conflict(network, allow, protected):
     return ''
 
 
-def active_manual(client, now):
-    """Bloqueos manuales vigentes que afectan a un cliente: los suyos y los de todos los clientes."""
-    return (ManualBlock._base_manager.filter(Q(client=client) | Q(client=None), revoked_at=None, expires_at__gt=now)
-            .order_by('created_at', 'pk'))
+def active_manual(client, now, direction=None):
+    """Bloqueos manuales vigentes que afectan a un cliente: los suyos y los de todos los clientes.
+
+    `direction` 'in' o 'out' filtra los que aplican a esa lista ('both' aplica a las dos).
+    """
+    rows = ManualBlock._base_manager.filter(Q(client=client) | Q(client=None), revoked_at=None, expires_at__gt=now)
+    if direction:
+        rows = rows.filter(direction__in=(direction, 'both'))
+    return rows.order_by('created_at', 'pk')
+
+
+def manual_entries(feed, now, allow, protected, direction):
+    """Entradas de los bloqueos manuales de una dirección y las redes que cubren."""
+    manual, covered = [], []
+    for block in active_manual(feed.client, now, direction):
+        network = ipaddress.ip_network(block.network, strict=False)
+        if conflict(network, allow, protected) or any(network.subnet_of(n) for n in covered if n.version == network.version):
+            continue
+        covered.append(network)
+        manual.append({'ip': _label(network), 'reasons': ['Bloqueo manual: ' + block.reason[:80]], 'manual': block.pk,
+                       'scope': 'todos' if block.client_id is None else 'cliente', 'until': block.expires_at.isoformat(),
+                       'clients': 0, 'events': 0, 'here': 0, 'here_allowed': 0})
+    return manual, covered
+
+
+def c2_destinations(now):
+    """Destinos externos de detecciones salientes de malware o control remoto (7 días), con su recurrencia.
+
+    Solo datos del propio SOC: no se consulta a terceros por destinos de conexiones salientes.
+    """
+    rows = (SecurityEvidence._base_manager.filter(observed_at__gte=now - WINDOW, client_scope_id__isnull=False,
+                                                  destination_ip__isnull=False, geography__direction='outbound',
+                                                  interpretation__event_family='malware')
+            .values('destination_ip')
+            .annotate(events=Count('uid'), days=Count(TruncDate('observed_at'), distinct=True),
+                      clients=Count('client_scope_id', distinct=True)))
+    result = {}
+    for row in rows.order_by().iterator(chunk_size=1000):
+        if row['days'] >= C2_MIN_DAYS or row['clients'] >= C2_MIN_CLIENTS:
+            result[row['destination_ip']] = row
+    return result
+
+
+def build_outbound(feed, c2, protected, now):
+    """Lista de salida de un cliente: bloqueos manuales de salida y, si se activa, destinos C2 recurrentes."""
+    allow = parse_allowlist(feed.allowlist)
+    manual, covered = manual_entries(feed, now, allow, protected, 'out')
+    automatic = []
+    if feed.include_c2_detections:
+        for ip, row in c2.items():
+            address = ipaddress.ip_address(ip)
+            if not address.is_global or conflict(ipaddress.ip_network(ip), allow, protected) or any(
+                    address.version == n.version and address in n for n in covered):
+                continue
+            automatic.append({'ip': ip, 'reasons': [f'Destino C2/malware: {row["events"]} detecciones en {row["days"]} días'],
+                              'c2': True, 'clients': row['clients'], 'events': row['events'], 'here': 0, 'here_allowed': 0})
+        automatic.sort(key=lambda e: (-e['clients'], -e['events'], e['ip']))
+    return manual + automatic[:feed.max_entries]
 
 
 def soc_detections(now):
@@ -202,15 +266,7 @@ def build(feed, candidates, stats, protected, now, soc=None):
     """Entradas de un cliente: primero los bloqueos manuales vigentes, después lo detectado por el
     propio SOC y lo que atacó a algún cliente (le atacaron a él, a más clientes, más veces), hasta el máximo."""
     allow = parse_allowlist(feed.allowlist)
-    manual, covered = [], []
-    for block in active_manual(feed.client, now):
-        network = ipaddress.ip_network(block.network, strict=False)
-        if conflict(network, allow, protected) or any(network.subnet_of(n) for n in covered if n.version == network.version):
-            continue
-        covered.append(network)
-        manual.append({'ip': _label(network), 'reasons': ['Bloqueo manual: ' + block.reason[:80]], 'manual': block.pk,
-                       'scope': 'todos' if block.client_id is None else 'cliente', 'until': block.expires_at.isoformat(),
-                       'clients': 0, 'events': 0, 'here': 0, 'here_allowed': 0})
+    manual, covered = manual_entries(feed, now, allow, protected, 'in')
 
     def inside(ip):
         address = ipaddress.ip_address(ip)
@@ -260,18 +316,20 @@ def refresh_feeds(now=None):
         return 0
     candidates = qualifying(now)
     soc = soc_detections(now) if any(f.include_soc_detections for f in feeds) else {}
+    c2 = c2_destinations(now) if any(f.outbound_enabled for f in feeds) else {}
     stats = activity(set(candidates) | {ip for ip in soc if '/' not in ip}, now)
     protected = protected_addresses()
     for feed in feeds:
         try:
             entries = build(feed, candidates, stats, protected, now, soc)
+            outbound = build_outbound(feed, c2, protected, now) if feed.outbound_enabled else []
         except ValueError:
             continue  # Excepciones no válidas: se conserva la última lista buena y se avisa en su página.
         before = {e['ip'] for e in feed.entries}
         after = {e['ip'] for e in entries}
         # Solo si la configuración no cambió mientras se calculaba; si cambió, se recalcula en la próxima pasada.
         if not BlocklistFeed.objects.filter(pk=feed.pk, updated_at=feed.updated_at).update(
-                entries=entries, generated_at=now, observation=observation(entries, now)):
+                entries=entries, outbound_entries=outbound, generated_at=now, observation=observation(entries, now)):
             continue
         if before != after:
             audit('blocklist.generated', feed.client, {'count': len(after),
@@ -293,7 +351,7 @@ def rotate_token(feed):
     return token
 
 
-def servable(feed, now=None):
+def servable(feed, now=None, outbound=False):
     """IPs que se sirven ahora: vacía si está desactivada, detenida o sin recalcular; sin excepciones ni protegidas.
 
     Las excepciones y las IPs protegidas se vuelven a aplicar al servir: un cambio del operador
@@ -301,7 +359,7 @@ def servable(feed, now=None):
     """
     now = now or timezone.now()
     if not (feed.enabled and not feed.stopped and feed.client.active and feed.generated_at
-            and now - feed.generated_at <= FEED_MAX_AGE):
+            and now - feed.generated_at <= FEED_MAX_AGE) or (outbound and not feed.outbound_enabled):
         return []
     try:
         allow = parse_allowlist(feed.allowlist)
@@ -310,7 +368,7 @@ def servable(feed, now=None):
     protected = protected_addresses()
     stamp = now.isoformat()
     result = []
-    for entry in feed.entries:
+    for entry in (feed.outbound_entries if outbound else feed.entries):
         if entry.get('until') and entry['until'] <= stamp:
             continue  # Bloqueo manual caducado desde el último recálculo.
         if not conflict(ipaddress.ip_network(entry['ip'], strict=False), allow, protected):
@@ -318,18 +376,22 @@ def servable(feed, now=None):
     return result
 
 
-def feed_url(feed):
+def feed_url(feed, outbound=False):
     """URL completa con el token, para el firewall. Solo se construye para quien gestiona conexiones."""
     from .invitations import origin
     if not feed.encrypted_token:
         return ''
-    return origin() + reverse('blocklist_serve', args=[feed.client_id, decrypt(feed.encrypted_token)])
+    return origin() + reverse('blocklist_serve_out' if outbound else 'blocklist_serve',
+                              args=[feed.client_id, decrypt(feed.encrypted_token)])
 
 
 @never_cache
 @require_GET
-def serve(request, client_pk, token):
-    """Descarga del firewall: una IP por línea. Vacía si la lista está desactivada o detenida."""
+def serve(request, client_pk, token, outbound=False):
+    """Descarga del firewall: una IP por línea. Vacía si la lista está desactivada o detenida.
+
+    La lista de salida usa el mismo token y el mismo freno de emergencia.
+    """
     feed = BlocklistFeed._base_manager.filter(client_id=client_pk).select_related('client').first()
     digest = _hash(token)
     if feed and feed.previous_token_hash and hmac.compare_digest(feed.previous_token_hash, digest):
@@ -340,13 +402,21 @@ def serve(request, client_pk, token):
         raise Http404
     else:
         BlocklistFeed._base_manager.filter(pk=feed.pk).update(last_fetch_at=timezone.now())
-        body = ''.join(ip + '\n' for ip in servable(feed))
+        body = ''.join(ip + '\n' for ip in servable(feed, outbound=outbound))
     response = HttpResponse(body, content_type='text/plain; charset=utf-8')
     response['X-Content-Type-Options'] = 'nosniff'
     return response
 
 
+@never_cache
+@require_GET
+def serve_outbound(request, client_pk, token):
+    return serve(request, client_pk, token, outbound=True)
+
+
 def alias_name(plan):
+    if plan.template == TEMPLATE_OUT:
+        return f'SOC_C2_{plan.pk}'
     return f'SOC_CROWDSEC_{plan.pk}'
 
 
@@ -362,6 +432,21 @@ def plan_preview(device):
                        'La regla bloquea conexiones entrantes en WAN desde las IPs de la lista; no afecta al tráfico saliente.',
                        'El firewall debe poder descargar la URL del SOC por HTTPS; la tabla se actualiza aproximadamente cada hora.',
                        'Freno de emergencia: detener la lista en el SOC vacía la tabla en la siguiente descarga; revertir la regla la retira.'],
+            'zenarmor': [], 'suricata': []}
+
+
+def plan_preview_outbound(device):
+    """Plantilla de salida: tabla de destinos del SOC y regla que bloquea conexiones salientes hacia ellos."""
+    return {'profile': TITLE_OUT, 'version': VERSION, 'networks': [], 'interface': 'wan',
+            'alias': {'type': 'urltable', 'updatefreq': '0.04', 'description': 'Lista de salida del SOC (C2)'},
+            'rules': [{'enabled': '0', 'sequence': '1', 'action': 'block', 'quick': '1', 'interface': 'wan',
+                       'direction': 'out', 'ipprotocol': 'inet46', 'protocol': 'any', 'source_net': 'any',
+                       'destination_net': 'Lista de salida del SOC', 'destination_port': '', 'log': '1'}],
+            'checks': ['Revisar en la lista de salida cada destino: un servidor compartido (CDN, nube) puede alojar también servicios legítimos.',
+                       'Añadir a las excepciones del cliente los proveedores, servicios en la nube y socios imprescindibles.',
+                       'La regla bloquea conexiones salientes por WAN hacia las IPs de la lista, desde cualquier red interna.',
+                       'Un equipo que intente conectar con un destino bloqueado puede estar infectado: revisar la detección asociada.',
+                       'Freno de emergencia: detener la lista en el SOC vacía también la tabla de salida; revertir la regla la retira.'],
             'zenarmor': [], 'suricata': []}
 
 
@@ -400,8 +485,11 @@ def add_manual(request, client):
     problem = conflict(network, parse_allowlist(client.blocklist_feed.allowlist) if target else [], protected_addresses())
     if problem:
         return f'No se puede bloquear {_label(network)}: {problem}.'
+    direction = request.POST.get('direction', 'in')
+    if direction not in ('in', 'out', 'both'):
+        return 'Dirección no válida.'
     block = ManualBlock.objects.create(client=target, network=_label(network), reason=reason, created_by=request.user,
-                                       expires_at=now + timedelta(days=days))
+                                       direction=direction, expires_at=now + timedelta(days=days))
     audit('blocklist.manual_add', block, {'status': 'todos' if target is None else 'cliente',
                                           'until': block.expires_at.isoformat()})
     return ''
@@ -426,7 +514,7 @@ def overview(request):
     feeds = {f.client_id: f for f in BlocklistFeed.objects.all()}
     now = timezone.now()
     blocked = {}
-    for plan in ChangePlan.objects.filter(template=TEMPLATE, status='active').select_related('device__site'):
+    for plan in ChangePlan.objects.filter(template__in=TEMPLATES, status='active').select_related('device__site'):
         measured = summary(plan, now)
         if measured:
             blocked[plan.device.site.client_id] = blocked.get(plan.device.site.client_id, 0) + measured['week']
@@ -464,9 +552,11 @@ def detail(request, client_pk):
                 feed.include_lists = request.POST.get('include_lists') == 'on'
                 feed.include_cti = request.POST.get('include_cti') == 'on'
                 feed.include_soc_detections = request.POST.get('include_soc_detections') == 'on'
+                feed.outbound_enabled = request.POST.get('outbound_enabled') == 'on'
+                feed.include_c2_detections = request.POST.get('include_c2_detections') == 'on'
                 feed.enabled = request.POST.get('enabled') == 'on'
                 feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'include_soc_detections',
-                                         'enabled', 'updated_at'])
+                                         'outbound_enabled', 'include_c2_detections', 'enabled', 'updated_at'])
                 if feed.enabled and not feed.token_hash:
                     rotate_token(feed)
                 audit('blocklist.settings', client, {'status': 'enabled' if feed.enabled else 'disabled',
@@ -502,17 +592,20 @@ def detail(request, client_pk):
             audit('blocklist.token_rotated', client)
             messages.success(request, 'Token nuevo. Actualiza la URL en los firewalls: la anterior deja de funcionar.')
             return redirect('blocklist_detail', client_pk=client.pk)
-        elif action == 'plan':
+        elif action in ('plan', 'plan_out'):
             if not request.user.has_perm('core.manage_connections'):
                 return HttpResponseForbidden('Permiso de conexiones requerido.')
             device = get_object_or_404(_devices(client), pk=request.POST.get('device', '0') or 0)
-            if not feed.enabled or not feed.token_hash:
-                messages.error(request, 'Activa primero la lista y revisa la observación.')
+            outbound = action == 'plan_out'
+            if not feed.enabled or not feed.token_hash or (outbound and not feed.outbound_enabled):
+                messages.error(request, 'Activa primero la lista (y la de salida, para el bloqueo C2) y revisa sus entradas.')
                 return redirect('blocklist_detail', client_pk=client.pk)
-            plan = ChangePlan.objects.create(device=device, template=TEMPLATE, template_version=VERSION, title=TITLE,
-                                             parameters={'client': client.pk}, preview=plan_preview(device),
+            template = TEMPLATE_OUT if outbound else TEMPLATE
+            plan = ChangePlan.objects.create(device=device, template=template, template_version=VERSION,
+                                             title=TITLE_OUT if outbound else TITLE, parameters={'client': client.pk},
+                                             preview=plan_preview_outbound(device) if outbound else plan_preview(device),
                                              requested_by=request.user)
-            audit('change.draft', plan, {'template': TEMPLATE})
+            audit('change.draft', plan, {'template': template})
             return redirect('change_detail', pk=plan.pk)
         else:
             raise Http404
@@ -524,7 +617,7 @@ def detail(request, client_pk):
     except ValueError as exc:
         allowlist_error = str(exc)
     from .blocklist_efficacy import summary
-    plans = list(ChangePlan.objects.filter(template=TEMPLATE, device__site__client=client).select_related('device').order_by('-pk')[:10])
+    plans = list(ChangePlan.objects.filter(template__in=TEMPLATES, device__site__client=client).select_related('device').order_by('-pk')[:10])
     now = timezone.now()
     warnings = []
     for plan in plans:
@@ -553,4 +646,6 @@ def detail(request, client_pk):
         'manual_max_days': MANUAL_MAX_DAYS,
         'client': client, 'feed': feed, 'entries': feed.entries[:300], 'count': len(feed.entries),
         'url': feed_url(feed) if show_url and feed.enabled else '', 'error': error or allowlist_error,
+        'url_out': feed_url(feed, outbound=True) if show_url and feed.enabled and feed.outbound_enabled else '',
+        'outbound': feed.outbound_entries[:300], 'outbound_count': len(feed.outbound_entries),
         'devices': _devices(client), 'plans': plans, 'observation': feed.observation})

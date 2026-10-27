@@ -76,7 +76,14 @@ El SOC hace de puente entre CrowdSec y los firewalls de cada cliente (`core/bloc
    - **Tabla vacía:** si la regla está activa pero la tabla está vacía, la página lo avisa (el firewall no está descargando la lista).
    - **Lectura:** son paquetes bloqueados, no ataques; una conexión rechazada puede ser varios paquetes.
 
-Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: bloqueo saliente (C2), UniFi y Hillstone, y la eficacia por IP (qué atacantes concretos cortó) a partir de los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
+9. **Lista de salida (C2):** opción por cliente, desactivada por defecto. Publica destinos a los que los equipos del cliente no deben conectarse, en `GET /feeds/bloqueo/<cliente>/<token>/salida/`. Usa el mismo token y el mismo freno de emergencia que la lista de entrada.
+   - **Fuentes:**
+     - bloqueos manuales con dirección «Salida» o «Entrada y salida»;
+     - si se activa «Incluir destinos C2», destinos de detecciones **salientes** de la familia malware/control remoto de los últimos 7 días que se repiten en al menos 2 días o en 2 clientes. Un destino visto una sola vez puede ser un falso positivo de firma.
+   - **Exclusiones:** las mismas que la lista de entrada. Por privacidad, estos destinos **no** se consultan en CrowdSec (ni CTI ni motor).
+   - **Plantilla «Bloqueo de salida (C2) del SOC»:** alias `SOC_C2_<plan>` de tipo URL table y regla `block` en WAN con dirección `out` y destino el alias, creada desactivada. Sigue el mismo control de cambios y se mide igual que la de entrada. Antes de activarla, revisar que ningún destino sea un servicio compartido legítimo (CDN, nube) y completar las excepciones.
+
+Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: UniFi y Hillstone, y la eficacia por IP (qué atacantes concretos cortó) a partir de los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
 
 ## Listas de CrowdSec guiadas por los ataques reales (Service API)
 
