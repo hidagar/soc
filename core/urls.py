@@ -88,6 +88,7 @@ urlpatterns = [
     path('operations/crowdsec/lists/<int:pk>/',crowdsec_catalog.action,name='crowdsec_list_action'),
     path('operations/blocklists/<int:client_pk>/',blocklist.detail,name='blocklist_detail'),
     path('feeds/bloqueo/<int:client_pk>/<str:token>/',blocklist.serve,name='blocklist_serve'),
+    path('feeds/bloqueo/<int:client_pk>/<str:token>/salida/',blocklist.serve_outbound,name='blocklist_serve_out'),
     path('operations/protection/',protection_views.protection_list,name='protection_list'),
     path('operations/protection/<int:pk>/',protection_views.protection_device,name='protection_device'),
     path('operations/exposure/',exposure_views.exposure_list,name='exposure_list'),

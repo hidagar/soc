@@ -69,6 +69,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `operations/crowdsec/lists/<int:pk>/` | `crowdsec_list_action` | `crowdsec_catalog.action` |
 | `operations/blocklists/<int:client_pk>/` | `blocklist_detail` | `blocklist.detail` |
 | `feeds/bloqueo/<int:client_pk>/<str:token>/` | `blocklist_serve` | `blocklist.serve` |
+| `feeds/bloqueo/<int:client_pk>/<str:token>/salida/` | `blocklist_serve_out` | `blocklist.serve_outbound` |
 | `operations/protection/` | `protection_list` | `protection_views.protection_list` |
 | `operations/protection/<int:pk>/` | `protection_device` | `protection_views.protection_device` |
 | `operations/exposure/` | `exposure_list` | `exposure_views.exposure_list` |

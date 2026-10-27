@@ -117,10 +117,10 @@ def measure(plan, now=None):
 
 def refresh(now=None):
     """Trabajo `blocklist_efficacy`: mide cada regla de bloqueo del SOC activa en un OPNsense por API."""
-    from .blocklist import TEMPLATE
+    from .blocklist import TEMPLATES
     now = now or timezone.now()
     measured = 0
-    plans = ChangePlan._base_manager.filter(template=TEMPLATE, status='active', device__vendor='opnsense',
+    plans = ChangePlan._base_manager.filter(template__in=TEMPLATES, status='active', device__vendor='opnsense',
                                             device__management_method='api', device__active=True).select_related('device')
     for plan in plans:
         measured += int(measure(plan, now))

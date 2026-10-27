@@ -307,6 +307,9 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `include_lists` | BooleanField |  |
 | `include_cti` | BooleanField |  |
 | `include_soc_detections` | BooleanField |  |
+| `outbound_enabled` | BooleanField |  |
+| `include_c2_detections` | BooleanField |  |
+| `outbound_entries` | JSONField | blank=True |
 | `allowlist` | TextField | blank=True |
 | `max_entries` | PositiveIntegerField |  |
 | `token_hash` | CharField | max_length=64; blank=True |
@@ -329,6 +332,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 |---|---|---|
 | `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE; null=True; blank=True |
 | `network` | CharField | max_length=64 |
+| `direction` | CharField | max_length=8 |
 | `reason` | CharField | max_length=300 |
 | `created_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
 | `created_at` | DateTimeField |  |

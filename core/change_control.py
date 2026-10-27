@@ -117,12 +117,14 @@ def stage_zenarmor(plan,c):
 
 def stage_blocklist_alias(plan,c):
     """Tabla de IPs que el firewall descarga de la lista del SOC. Sin regla activa no bloquea nada."""
-    from .blocklist import alias_name,feed_url
+    from .blocklist import TEMPLATE_OUT,alias_name,feed_url
     from .models import BlocklistFeed
+    outbound=plan.template==TEMPLATE_OUT
     feed=BlocklistFeed.objects.filter(client_id=plan.parameters.get('client'),enabled=True).first()
     if not feed or feed.client_id!=plan.device.site.client_id: raise ValueError('La lista del cliente no está activada.')
+    if outbound and not feed.outbound_enabled: raise ValueError('La lista de salida del cliente no está activada.')
     name=alias_name(plan);description=f'SOC PLAN {plan.pk} alias'
-    desired={'enabled':'1','name':name,'type':'urltable','content':feed_url(feed),
+    desired={'enabled':'1','name':name,'type':'urltable','content':feed_url(feed,outbound=outbound),
         'updatefreq':plan.preview['alias']['updatefreq'],'description':description}
     rows=api(c,'/api/firewall/alias/search_item?rowCount=-1').get('rows',[])
     found=next((r for r in rows if r.get('name')==name),None)
@@ -148,13 +150,14 @@ def stage(plan):
     plan.baseline_hash=digest(baseline)
     plan.status='staging'; plan.save()
     try:
-        crowdsec=plan.template=='crowdsec'
+        from .blocklist import TEMPLATE_OUT,TEMPLATES,alias_name
+        crowdsec=plan.template in TEMPLATES
         if crowdsec: stage_blocklist_alias(plan,c)
         for index,desired in enumerate(plan.preview['rules']):
             rule={**desired,'description':f'SOC PLAN {plan.pk} v{plan.template_version} {index+1}'}
             if crowdsec:
-                from .blocklist import alias_name
-                rule['source_net']=alias_name(plan)
+                # Entrada: bloquea orígenes de la lista; salida (C2): bloquea destinos de la lista.
+                rule['destination_net' if plan.template==TEMPLATE_OUT else 'source_net']=alias_name(plan)
             # The description is an idempotency key, including recovery after a process interruption.
             rows=snapshot(c).get('rows',[])
             found=next((r for r in rows if r.get('description')==rule['description']),None)

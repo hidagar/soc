@@ -204,6 +204,10 @@ class BlocklistFeed(models.Model):
     include_lists=models.BooleanField('Incluir IPs en listas de CrowdSec',default=True)
     include_cti=models.BooleanField('Incluir IPs maliciosas según la API CTI',default=True)
     include_soc_detections=models.BooleanField('Incluir atacantes detectados por el propio SOC',default=False)
+    # Lista de salida (C2): destinos a los que los equipos del cliente no deben conectarse.
+    outbound_enabled=models.BooleanField('Publicar la lista de salida (C2)',default=False)
+    include_c2_detections=models.BooleanField('Incluir destinos C2 detectados por el SOC',default=True)
+    outbound_entries=models.JSONField(default=list,blank=True)
     allowlist=models.TextField('Excepciones (nunca bloquear)',blank=True,help_text='Una IP o red CIDR por línea: proveedores, socios, oficinas remotas.')
     max_entries=models.PositiveIntegerField('Máximo de entradas',default=2000)
     token_hash=models.CharField(max_length=64,blank=True)
@@ -228,6 +232,7 @@ class ManualBlock(models.Model):
     """
     client=models.ForeignKey('core.Client',on_delete=models.CASCADE,null=True,blank=True,related_name='manual_blocks')
     network=models.CharField(max_length=64)
+    direction=models.CharField(max_length=8,default='in',choices=[('in','Entrada'),('out','Salida (C2)'),('both','Entrada y salida')])
     reason=models.CharField(max_length=300)
     created_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True,related_name='+')
     created_at=models.DateTimeField(default=timezone.now)
