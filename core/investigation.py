@@ -96,7 +96,13 @@ def ip_detail(request):
         chart.append({'date':key,'count':timeline[key],'height':max(3,round(timeline[key]/max(1,*timeline.values())*90))})
     from .asn import lookup as asn_lookup
     from .reputation import lookup as reputation_lookup
-    return render(request,'ip_investigation.html',{'asn':asn_lookup(address),'reputation':reputation_lookup(address),'address':address,'public':ipaddress.ip_address(address).is_global,'selected':client,'days':days,
+    # Acceso directo para bloquearla en la lista de cada cliente afectado (solo IPs públicas y con permiso).
+    block_clients=[]
+    if ipaddress.ip_address(address).is_global and request.user.has_perm('core.manage_operations'):
+        ids=set(qs.order_by().values_list('client_scope_id',flat=True).distinct())
+        block_clients=[{'name':c.name,'url':reverse('blocklist_detail',args=[c.pk])+'?'+urlencode({'network':address})+'#bloqueo-manual'}
+                       for c in Client.objects.filter(pk__in=ids,active=True).order_by('name')]
+    return render(request,'ip_investigation.html',{'block_clients':block_clients,'asn':asn_lookup(address),'reputation':reputation_lookup(address),'address':address,'public':ipaddress.ip_address(address).is_global,'selected':client,'days':days,
         'metrics':summarize(qs),'limited':count>LIMIT,'sample':len(rows),'first':qs.order_by('observed_at').first().observed_at,'last':rows[0].observed_at,
         'events':rows[:100],'targets':sorted(targets.values(),key=lambda x:-x['count'])[:50],'timeline':chart,'ports':ports.most_common(12),
         'engines':engines.most_common(),'countries':list(countries),'recommendations':[r for r,_ in recommendations.most_common(3)]})

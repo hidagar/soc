@@ -143,3 +143,37 @@ def summary(plan, now=None):
             'total': details.get('total_packets', 0), 'since': parse_datetime(details.get('since') or ''),
             'checked_at': parse_datetime(details.get('checked_at') or ''), 'loaded': details.get('loaded_entries'),
             'error': details.get('error', ''), 'resets': details.get('resets', 0)}
+
+
+def client_protection(client, first_day=None, last_day=None, now=None):
+    """Proyección para el cliente (invariante 3): solo cifras agregadas de las reglas activas del SOC.
+
+    IPs en sus listas y paquetes bloqueados en el periodo (por defecto, los últimos 7 días).
+    Nunca IPs, motivos, bloqueos manuales ni errores internos. None si no hay ninguna regla activa
+    con la lista publicada. `measured` es False hasta que haya una lectura de los contadores.
+    """
+    from .blocklist import TEMPLATE_OUT, TEMPLATES
+    from .models import BlocklistFeed
+    now = now or timezone.now()
+    last_day = last_day or timezone.localtime(now).date()
+    first_day = first_day or last_day - timedelta(days=6)
+    feed = BlocklistFeed._base_manager.filter(client=client, enabled=True, stopped=False).first()
+    if not feed:
+        return None
+    plans = ChangePlan._base_manager.filter(template__in=TEMPLATES, status='active', device__site__client=client,
+                                            device__active=True).select_related('device').order_by('device__name')
+    result = {}
+    for plan in plans:
+        outbound = plan.template == TEMPLATE_OUT
+        if outbound and not feed.outbound_enabled:
+            continue
+        key = 'outbound' if outbound else 'inbound'
+        item = result.setdefault(key, {'entries': len(feed.outbound_entries if outbound else feed.entries),
+                                       'packets': 0, 'firewalls': [], 'measured': False})
+        item['firewalls'].append(plan.device.name)
+        state = WorkerState.objects.filter(name=state_name(plan)).first()
+        history = (state.details.get('history') or {}) if state else {}
+        if state and state.details.get('checked_at'):
+            item['measured'] = True
+            item['packets'] += sum(v for d, v in history.items() if first_day.isoformat() <= d <= last_day.isoformat())
+    return result or None

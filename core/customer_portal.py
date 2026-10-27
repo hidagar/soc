@@ -191,8 +191,10 @@ def _selection(request):
 
 
 def firewalls_context(client, preview=False):
+    from .blocklist_efficacy import client_protection
     rows = firewall_rows(client)
     return {'client': client, 'rows': rows, 'portal_section': 'firewalls', 'wazuh_ready': wazuh_ready(client),
+            'proactive': client_protection(client),
             'portal': portal_links(client, preview), 'attention': sum(r['status_class'] == 'attention' for r in rows)}
 
 

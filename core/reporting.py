@@ -268,7 +268,14 @@ def report_context(report):
         "priority_actions": priority_actions,
         "provisional": report.week_start + timedelta(days=7) > timezone.localdate(),
         "report_stale": not report.sent_at and timezone.now()-report.collected_at > timedelta(minutes=15),
+        # Bloqueo proactivo del SOC en sus firewalls durante la semana: se congela con la versión publicada.
+        "proactive": _proactive(client, report.week_start),
     }
+
+
+def _proactive(client, week_start):
+    from .blocklist_efficacy import client_protection
+    return client_protection(client, week_start, week_start + timedelta(days=6))
 
 
 def release_problem(report, now=None):

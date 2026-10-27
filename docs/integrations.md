@@ -83,6 +83,9 @@ El SOC hace de puente entre CrowdSec y los firewalls de cada cliente (`core/bloc
    - **Exclusiones:** las mismas que la lista de entrada. Por privacidad, estos destinos **no** se consultan en CrowdSec (ni CTI ni motor).
    - **Plantilla «Bloqueo de salida (C2) del SOC»:** alias `SOC_C2_<plan>` de tipo URL table y regla `block` en WAN con dirección `out` y destino el alias, creada desactivada. Sigue el mismo control de cambios y se mide igual que la de entrada. Antes de activarla, revisar que ningún destino sea un servicio compartido legítimo (CDN, nube) y completar las excepciones.
 
+10. **Lo que ve el cliente:** con la lista publicada (no detenida) y una regla activa, el portal (Firewalls) y el informe semanal muestran «Bloqueo proactivo del SOC». Solo se publican cifras agregadas (`blocklist_efficacy.client_protection`): número de IPs en la lista de entrada y de salida, firewalls con la regla y paquetes bloqueados en el periodo (últimos 7 días en el portal, la semana del informe en el informe, que queda congelado con su versión). Nunca IPs, motivos, bloqueos manuales ni errores. Sin medición todavía, se dice que está empezando; con el freno de emergencia echado no se muestra nada.
+11. **Desde la investigación:** «Investigar IP» ofrece, para una IP pública y a quien tiene `manage_operations`, «Bloquear en la lista de <cliente>» para cada cliente afectado. Abre el formulario de bloqueo manual con la IP ya escrita; el motivo, la caducidad y el MFA siguen siendo obligatorios.
+
 Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: UniFi y Hillstone, y la eficacia por IP (qué atacantes concretos cortó) a partir de los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
 
 ## Listas de CrowdSec guiadas por los ataques reales (Service API)

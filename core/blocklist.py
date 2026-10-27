@@ -643,6 +643,7 @@ def detail(request, client_pk):
     manual = active_manual(client, now).select_related('created_by')
     return render(request, 'blocklist_detail.html', {
         'warnings': warnings, 'manual_blocks': manual, 'global_access': global_access(request.user),
+        'prefill_network': request.GET.get('network', '')[:64],
         'manual_max_days': MANUAL_MAX_DAYS,
         'client': client, 'feed': feed, 'entries': feed.entries[:300], 'count': len(feed.entries),
         'url': feed_url(feed) if show_url and feed.enabled else '', 'error': error or allowlist_error,
