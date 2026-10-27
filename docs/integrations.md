@@ -55,7 +55,18 @@ El SOC hace de puente entre CrowdSec y los firewalls de cada cliente (`core/bloc
 
    Activarla sigue el flujo existente: aprobación con MFA y nombre del equipo, savepoint, verificación del acceso de gestión y confirmación, o reversión automática. El plan no guarda el token. Revertir con borrado elimina primero la regla y después el alias, y nunca reutiliza un alias con el mismo nombre que no sea suyo.
 
-Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: bloqueos manuales del analista con caducidad, bloqueo saliente (C2), UniFi y Hillstone, y la medición de eficacia con los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
+6. **Bloqueos manuales del analista (fase 2):** en la lista de cada cliente, una IP o red pública (como máximo /24 en IPv4 y /48 en IPv6) con motivo y caducidad de 1 a 90 días.
+   - **Alcance:** solo ese cliente, o todos los clientes con la lista activada (exige acceso global; se ven en la página general).
+   - **Prioridad:** entran primero y no cuentan para el máximo de entradas, aunque la IP aún no haya atacado.
+   - **Límites:** las excepciones del cliente y las IPs protegidas siguen mandando; si chocan, no se crea el bloqueo y se explica por qué.
+   - **Permisos:** crear exige MFA reciente; retirar no, como el freno de emergencia. Ambas acciones se auditan (`blocklist.manual_add` / `manual_revoke`) y la lista se recalcula al momento.
+   - **Caducidad:** un bloqueo caducado deja de servirse aunque la lista aún no se haya recalculado.
+7. **Atacantes detectados por el propio SOC (fase 2, opcional por cliente):** decisiones `ban` del motor CrowdSec de la VM del SOC con origen `crowdsec`, leídas en cada recálculo con `SOC_PORTAL_CROWDSEC_LAPI_KEY`.
+   - **Orden:** entran tras los manuales y antes de la lista automática, aunque no hayan atacado a ese cliente: protección preventiva.
+   - **Exclusiones:** solo IPs públicas y redes acotadas, con las mismas excepciones.
+   - **Motor caído:** se usa la última lectura correcta durante una hora y después no se incluyen (estado seguro). La página lo avisa.
+
+Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: bloqueo saliente (C2), UniFi y Hillstone, y la medición de eficacia con los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
 
 ## Listas de CrowdSec guiadas por los ataques reales (Service API)
 

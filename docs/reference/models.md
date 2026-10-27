@@ -306,6 +306,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `stopped_at` | DateTimeField | null=True; blank=True |
 | `include_lists` | BooleanField |  |
 | `include_cti` | BooleanField |  |
+| `include_soc_detections` | BooleanField |  |
 | `allowlist` | TextField | blank=True |
 | `max_entries` | PositiveIntegerField |  |
 | `token_hash` | CharField | max_length=64; blank=True |
@@ -318,6 +319,22 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `last_fetch_at` | DateTimeField | null=True; blank=True |
 | `observation` | JSONField | blank=True |
 | `updated_at` | DateTimeField |  |
+## ManualBlock
+
+Fuente: [core/improvement_models.py](../../core/improvement_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE; null=True; blank=True |
+| `network` | CharField | max_length=64 |
+| `reason` | CharField | max_length=300 |
+| `created_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `created_at` | DateTimeField |  |
+| `expires_at` | DateTimeField |  |
+| `revoked_at` | DateTimeField | null=True; blank=True |
+| `revoked_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
 ## CrowdsecBlocklist
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

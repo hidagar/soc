@@ -10,10 +10,15 @@ El SOC hace de puente entre CrowdSec y los firewalls, con frenos:
 - El firewall descarga la lista con un token propio del cliente. El freno de emergencia
   sirve una lista vacía. La regla de bloqueo se crea con el control de cambios (borrador
   desactivado, aprobación, savepoint y reversión), nunca desde esta página directamente.
+
+Fase 2: el SOC orquesta también decisiones propias, siempre con las mismas excepciones:
+- Bloqueos manuales del analista (`ManualBlock`): IP o red pública acotada, motivo y caducidad.
+- Atacantes detectados por el motor CrowdSec del propio SOC (opcional por cliente).
 """
 import hashlib
 import hmac
 import ipaddress
+import os
 import secrets
 from datetime import timedelta
 
@@ -28,7 +33,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 
-from .models import BlocklistFeed, ChangePlan, Client, Device, IpReputation, SecurityEvidence
+from .models import BlocklistFeed, ChangePlan, Client, Device, IpReputation, ManualBlock, SecurityEvidence, WorkerState
 from .reputation import TTL, protected_addresses
 from .security import audit, decrypt, encrypt
 
@@ -38,6 +43,12 @@ FEED_MAX_AGE = timedelta(hours=24)  # una lista sin recalcular más tiempo se si
 FETCH_STALE = timedelta(hours=2)
 MAX_ALLOWLIST = 200
 TEMPLATE = 'crowdsec'
+MANUAL_MAX_DAYS = 90
+MANUAL_LIMIT = 500  # bloqueos manuales vigentes por alcance
+MIN_PREFIX = {4: 24, 6: 48}  # una red más amplia bloquearía a demasiada gente por error
+SOC_STATE = 'soc-detections'
+SOC_STALE = timedelta(hours=1)  # si el motor no responde, la última lectura vale una hora
+SOC_LIMIT = 5000
 TITLE = 'Bloqueo CrowdSec del SOC'
 VERSION = '1.0'
 
@@ -56,6 +67,98 @@ def parse_allowlist(text):
     if len(networks) > MAX_ALLOWLIST:
         raise ValueError(f'Como máximo {MAX_ALLOWLIST} excepciones.')
     return networks
+
+
+def parse_manual(value):
+    """Red de un bloqueo manual: pública y no más amplia que /24 (IPv4) o /48 (IPv6)."""
+    try:
+        network = ipaddress.ip_network((value or '').strip(), strict=False)
+    except ValueError:
+        raise ValueError('Indica una IP o una red CIDR válida.') from None
+    if not network.is_global:
+        raise ValueError('Solo se pueden bloquear direcciones públicas.')
+    if network.prefixlen < MIN_PREFIX[network.version]:
+        raise ValueError(f'Red demasiado amplia: como máximo /{MIN_PREFIX[4]} en IPv4 y /{MIN_PREFIX[6]} en IPv6.')
+    return network
+
+
+def _label(network):
+    """IP sola si es una dirección; CIDR si es una red. Es lo que descarga el firewall."""
+    return str(network.network_address) if network.num_addresses == 1 else str(network)
+
+
+def conflict(network, allow, protected):
+    """Motivo por el que no se puede bloquear esa red; '' si se puede."""
+    if any(network.version == item.version and network.overlaps(item) for item in allow):
+        return 'coincide con una excepción del cliente'
+    if any(network.version == item.version and network.overlaps(item) for item in getattr(protected, 'networks', [])):
+        return 'coincide con una excepción de un cliente'
+    if network.num_addresses == 1:
+        if str(network.network_address) in protected:
+            return 'es una IP de un cliente o del SOC'
+    elif any(address.version == network.version and address in network
+             for address in (ipaddress.ip_address(ip) for ip in protected)):
+        return 'contiene una IP de un cliente o del SOC'
+    return ''
+
+
+def active_manual(client, now):
+    """Bloqueos manuales vigentes que afectan a un cliente: los suyos y los de todos los clientes."""
+    return (ManualBlock._base_manager.filter(Q(client=client) | Q(client=None), revoked_at=None, expires_at__gt=now)
+            .order_by('created_at', 'pk'))
+
+
+def soc_detections(now):
+    """{IP o red: escenario} detectados por el motor CrowdSec del propio SOC (origen `crowdsec`).
+
+    Si el motor no responde, se usa la última lectura correcta durante una hora; después no se
+    incluye nada (estado seguro: dejar de bloquear antes que bloquear con datos viejos).
+    """
+    from django.utils.dateparse import parse_datetime
+    from .reputation import EngineUnavailable, KeyRejected, _read, lapi_url
+    from urllib import error as urlerror, parse as urlparse, request as urlrequest
+    state = WorkerState.objects.filter(name=SOC_STATE).first()
+    previous = state.details if state else {}
+    key = os.environ.get('SOC_PORTAL_CROWDSEC_LAPI_KEY', '').strip()
+    items, error = None, ''
+    if not key:
+        error = 'Falta SOC_PORTAL_CROWDSEC_LAPI_KEY: no se pueden leer las detecciones del motor del SOC.'
+    else:
+        try:
+            req = urlrequest.Request(lapi_url() + '/v1/decisions?' + urlparse.urlencode({'origins': 'crowdsec'}),
+                                     headers={'X-Api-Key': key, 'User-Agent': 'ib-red-SOC/1'})
+            try:
+                data = _read(req, 'LAPI')
+            except urlerror.HTTPError as exc:
+                raise KeyRejected() if exc.code in (401, 403) else exc
+            except (urlerror.URLError, ConnectionError, TimeoutError):
+                raise EngineUnavailable() from None
+            if data is not None and not isinstance(data, list):
+                raise ValueError('Respuesta no válida')
+            items = {}
+            for decision in (data or [])[:SOC_LIMIT]:
+                if not isinstance(decision, dict) or str(decision.get('type', 'ban')).lower() != 'ban':
+                    continue
+                try:
+                    network = ipaddress.ip_network(str(decision.get('value', '')), strict=False)
+                except ValueError:
+                    continue
+                if network.is_global and network.prefixlen >= MIN_PREFIX[network.version]:
+                    items[_label(network)] = str(decision.get('scenario') or 'detección local')[:120]
+        except KeyRejected:
+            error = 'El motor CrowdSec del SOC rechazó la clave.'
+        except (EngineUnavailable, ValueError, OSError):
+            error = 'El motor CrowdSec del SOC no responde.'
+    if items is None:
+        at = parse_datetime(previous.get('at') or '')
+        items = previous.get('items', {}) if at and now - at <= SOC_STALE else {}
+        details = {**previous, 'error': error}
+    else:
+        details = {'at': now.isoformat(), 'items': items, 'error': ''}
+    with transaction.atomic():
+        WorkerState.reserve(SOC_STATE)
+        WorkerState.objects.filter(name=SOC_STATE).update(details=details)
+    return items
 
 
 def qualifying(now):
@@ -95,11 +198,39 @@ def activity(ips, now):
     return stats
 
 
-def build(feed, candidates, stats, protected, now):
-    """Entradas de un cliente, de más a menos relevante: le atacaron a él, a más clientes, más veces."""
+def build(feed, candidates, stats, protected, now, soc=None):
+    """Entradas de un cliente: primero los bloqueos manuales vigentes, después lo detectado por el
+    propio SOC y lo que atacó a algún cliente (le atacaron a él, a más clientes, más veces), hasta el máximo."""
     allow = parse_allowlist(feed.allowlist)
+    manual, covered = [], []
+    for block in active_manual(feed.client, now):
+        network = ipaddress.ip_network(block.network, strict=False)
+        if conflict(network, allow, protected) or any(network.subnet_of(n) for n in covered if n.version == network.version):
+            continue
+        covered.append(network)
+        manual.append({'ip': _label(network), 'reasons': ['Bloqueo manual: ' + block.reason[:80]], 'manual': block.pk,
+                       'scope': 'todos' if block.client_id is None else 'cliente', 'until': block.expires_at.isoformat(),
+                       'clients': 0, 'events': 0, 'here': 0, 'here_allowed': 0})
+
+    def inside(ip):
+        address = ipaddress.ip_address(ip)
+        return any(address.version == n.version and address in n for n in covered)
+
+    detected = []
+    if feed.include_soc_detections:
+        for value, scenario in sorted((soc or {}).items()):
+            network = ipaddress.ip_network(value, strict=False)
+            if conflict(network, allow, protected) or any(network.subnet_of(n) for n in covered if n.version == network.version):
+                continue
+            item = stats.get(value, {'count': 0, 'clients': {}})
+            here = item['clients'].get(feed.client_id, (0, 0))
+            detected.append({'ip': value, 'reasons': ['Detectado por el SOC: ' + scenario], 'soc': True,
+                             'clients': len(item['clients']), 'events': item['count'], 'here': here[0], 'here_allowed': here[1]})
+    seen = {e['ip'] for e in detected}
     entries = []
     for ip, info in candidates.items():
+        if ip in seen or inside(ip):
+            continue
         if not (feed.include_lists and info['listed']) and not (feed.include_cti and info['cti']):
             continue
         item = stats.get(ip)
@@ -110,7 +241,8 @@ def build(feed, candidates, stats, protected, now):
         entries.append({'ip': ip, 'reasons': info['reasons'], 'clients': len(item['clients']), 'events': item['count'],
                         'here': here[0], 'here_allowed': here[1]})
     entries.sort(key=lambda e: (-e['here'], -e['clients'], -e['events'], e['ip']))
-    return entries[:feed.max_entries]
+    # Los manuales no cuentan para el máximo: son decisiones explícitas y con caducidad.
+    return manual + (detected + entries)[:feed.max_entries]
 
 
 def observation(entries, now):
@@ -127,11 +259,12 @@ def refresh_feeds(now=None):
     if not feeds:
         return 0
     candidates = qualifying(now)
-    stats = activity(candidates, now)
+    soc = soc_detections(now) if any(f.include_soc_detections for f in feeds) else {}
+    stats = activity(set(candidates) | {ip for ip in soc if '/' not in ip}, now)
     protected = protected_addresses()
     for feed in feeds:
         try:
-            entries = build(feed, candidates, stats, protected, now)
+            entries = build(feed, candidates, stats, protected, now, soc)
         except ValueError:
             continue  # Excepciones no válidas: se conserva la última lista buena y se avisa en su página.
         before = {e['ip'] for e in feed.entries}
@@ -175,11 +308,12 @@ def servable(feed, now=None):
     except ValueError:
         allow = []  # La lista guardada ya se calculó con las últimas excepciones válidas.
     protected = protected_addresses()
+    stamp = now.isoformat()
     result = []
     for entry in feed.entries:
-        address = ipaddress.ip_address(entry['ip'])
-        if entry['ip'] not in protected and not any(address in network for network in allow
-                                                     if network.version == address.version):
+        if entry.get('until') and entry['until'] <= stamp:
+            continue  # Bloqueo manual caducado desde el último recálculo.
+        if not conflict(ipaddress.ip_network(entry['ip'], strict=False), allow, protected):
             result.append(entry['ip'])
     return result
 
@@ -236,6 +370,53 @@ def _devices(client):
                                  management_method='api').select_related('site')
 
 
+def global_access(user):
+    """Bloqueos para todos los clientes: solo quien tiene acceso global al SOC."""
+    from .models import StaffAccess
+    access = StaffAccess.objects.filter(user=user).first()
+    return user.is_superuser or bool(access and access.all_clients and access.role != 'customer')
+
+
+def add_manual(request, client):
+    """Crea un bloqueo manual desde el formulario. Devuelve un error legible o ''."""
+    try:
+        network = parse_manual(request.POST.get('network', ''))
+        days = int(request.POST.get('days', '7'))
+        if not 1 <= days <= MANUAL_MAX_DAYS:
+            raise ValueError(f'La caducidad debe estar entre 1 y {MANUAL_MAX_DAYS} días.')
+    except ValueError as exc:
+        return str(exc)
+    reason = ' '.join(request.POST.get('reason', '').split())[:300]
+    if len(reason) < 5:
+        return 'Indica el motivo del bloqueo (se mostrará en la lista y en la auditoría del SOC).'
+    target = None if request.POST.get('scope') == 'all' else client
+    if target is None and not global_access(request.user):
+        return 'Bloquear para todos los clientes requiere acceso global al SOC.'
+    now = timezone.now()
+    current = ManualBlock._base_manager.filter(client=target, revoked_at=None, expires_at__gt=now)
+    if current.count() >= MANUAL_LIMIT:
+        return f'Hay {MANUAL_LIMIT} bloqueos manuales vigentes en este alcance; retira alguno antes de añadir otro.'
+    # Las excepciones de este cliente (y las IPs protegidas) mandan: se avisa en lugar de crear un bloqueo inútil.
+    problem = conflict(network, parse_allowlist(client.blocklist_feed.allowlist) if target else [], protected_addresses())
+    if problem:
+        return f'No se puede bloquear {_label(network)}: {problem}.'
+    block = ManualBlock.objects.create(client=target, network=_label(network), reason=reason, created_by=request.user,
+                                       expires_at=now + timedelta(days=days))
+    audit('blocklist.manual_add', block, {'status': 'todos' if target is None else 'cliente',
+                                          'until': block.expires_at.isoformat()})
+    return ''
+
+
+def revoke_manual(request, client):
+    block = get_object_or_404(ManualBlock._base_manager.filter(Q(client=client) | Q(client=None), revoked_at=None),
+                              pk=request.POST.get('block', '0') or 0)
+    if block.client_id is None and not global_access(request.user):
+        return HttpResponseForbidden('Retirar un bloqueo de todos los clientes requiere acceso global al SOC.')
+    ManualBlock._base_manager.filter(pk=block.pk, revoked_at=None).update(revoked_at=timezone.now(), revoked_by=request.user)
+    audit('blocklist.manual_revoke', block, {'status': 'todos' if block.client_id is None else 'cliente'})
+    return None
+
+
 @login_required
 @require_GET
 def overview(request):
@@ -243,7 +424,9 @@ def overview(request):
         return HttpResponseForbidden('Permiso de operaciones requerido.')
     feeds = {f.client_id: f for f in BlocklistFeed.objects.all()}
     rows = [{'client': c, 'feed': feeds.get(c.pk)} for c in Client.objects.filter(active=True).order_by('name')]
-    return render(request, 'blocklists.html', {'rows': rows})
+    now = timezone.now()
+    shared = ManualBlock._base_manager.filter(client=None, revoked_at=None, expires_at__gt=now).select_related('created_by')
+    return render(request, 'blocklists.html', {'rows': rows, 'shared_blocks': shared})
 
 
 @login_required
@@ -257,8 +440,8 @@ def detail(request, client_pk):
     error = ''
     if request.method == 'POST':
         action = request.POST.get('action', '')
-        # Detener solo deja de bloquear: no exige repetir el MFA para no retrasar una emergencia.
-        if action != 'stop' and not mfa_fresh(request):
+        # Detener o retirar un bloqueo solo deja de bloquear: no exige repetir el MFA para no retrasar una emergencia.
+        if action not in ('stop', 'manual_revoke') and not mfa_fresh(request):
             return redirect('mfa_challenge')
         if action == 'settings':
             try:
@@ -273,8 +456,10 @@ def detail(request, client_pk):
                 feed.max_entries = maximum
                 feed.include_lists = request.POST.get('include_lists') == 'on'
                 feed.include_cti = request.POST.get('include_cti') == 'on'
+                feed.include_soc_detections = request.POST.get('include_soc_detections') == 'on'
                 feed.enabled = request.POST.get('enabled') == 'on'
-                feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'enabled', 'updated_at'])
+                feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'include_soc_detections',
+                                         'enabled', 'updated_at'])
                 if feed.enabled and not feed.token_hash:
                     rotate_token(feed)
                 audit('blocklist.settings', client, {'status': 'enabled' if feed.enabled else 'disabled',
@@ -282,6 +467,19 @@ def detail(request, client_pk):
                 refresh_feeds()
                 messages.success(request, 'Configuración guardada y lista recalculada.')
                 return redirect('blocklist_detail', client_pk=client.pk)
+        elif action == 'manual_add':
+            error = add_manual(request, client)
+            if not error:
+                refresh_feeds()
+                messages.success(request, 'Bloqueo añadido. Los firewalls lo aplicarán en su próxima descarga (aprox. 1 h).')
+                return redirect('blocklist_detail', client_pk=client.pk)
+        elif action == 'manual_revoke':
+            denied = revoke_manual(request, client)
+            if denied:
+                return denied
+            refresh_feeds()
+            messages.success(request, 'Bloqueo retirado. Los firewalls dejarán de aplicarlo en su próxima descarga.')
+            return redirect('blocklist_detail', client_pk=client.pk)
         elif action in ('stop', 'resume'):
             with transaction.atomic():
                 stopped = action == 'stop'
@@ -332,8 +530,14 @@ def detail(request, client_pk):
             and (not feed.last_fetch_at or now - feed.last_fetch_at > FETCH_STALE)):
         warnings.append('Hay una regla activa, pero ningún firewall ha descargado la lista en las últimas 2 horas. '
                         'Revisa la conexión del firewall con el SOC.')
+    if feed.include_soc_detections:
+        state = WorkerState.objects.filter(name=SOC_STATE).first()
+        if state and state.details.get('error'):
+            warnings.append(state.details['error'] + ' Las detecciones del SOC se dejan de incluir una hora después de la última lectura correcta.')
+    manual = active_manual(client, now).select_related('created_by')
     return render(request, 'blocklist_detail.html', {
-        'warnings': warnings,
+        'warnings': warnings, 'manual_blocks': manual, 'global_access': global_access(request.user),
+        'manual_max_days': MANUAL_MAX_DAYS,
         'client': client, 'feed': feed, 'entries': feed.entries[:300], 'count': len(feed.entries),
         'url': feed_url(feed) if show_url and feed.enabled else '', 'error': error or allowlist_error,
         'devices': _devices(client), 'plans': plans, 'observation': feed.observation})

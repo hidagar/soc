@@ -203,6 +203,7 @@ class BlocklistFeed(models.Model):
     stopped_at=models.DateTimeField(null=True,blank=True)
     include_lists=models.BooleanField('Incluir IPs en listas de CrowdSec',default=True)
     include_cti=models.BooleanField('Incluir IPs maliciosas según la API CTI',default=True)
+    include_soc_detections=models.BooleanField('Incluir atacantes detectados por el propio SOC',default=False)
     allowlist=models.TextField('Excepciones (nunca bloquear)',blank=True,help_text='Una IP o red CIDR por línea: proveedores, socios, oficinas remotas.')
     max_entries=models.PositiveIntegerField('Máximo de entradas',default=2000)
     token_hash=models.CharField(max_length=64,blank=True)
@@ -217,6 +218,25 @@ class BlocklistFeed(models.Model):
     observation=models.JSONField(default=dict,blank=True)
     updated_at=models.DateTimeField(auto_now=True)
     objects=ScopedManager();customer_lookup='client_id'
+
+class ManualBlock(models.Model):
+    """Bloqueo decidido por un analista del SOC: IP o red, motivo y caducidad obligatoria.
+
+    Se publica en las listas de bloqueo aunque la IP aún no haya atacado. `client` vacío =
+    todos los clientes con la lista activada (solo con acceso global). Las excepciones del
+    cliente y las IPs protegidas siguen mandando. Retirarlo deja `revoked_at`; no se borra.
+    """
+    client=models.ForeignKey('core.Client',on_delete=models.CASCADE,null=True,blank=True,related_name='manual_blocks')
+    network=models.CharField(max_length=64)
+    reason=models.CharField(max_length=300)
+    created_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True,related_name='+')
+    created_at=models.DateTimeField(default=timezone.now)
+    expires_at=models.DateTimeField()
+    revoked_at=models.DateTimeField(null=True,blank=True)
+    revoked_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.SET_NULL,null=True,blank=True,related_name='+')
+    objects=ScopedManager();customer_lookup='client_id'
+    class Meta:
+        ordering=['-created_at']
 
 class CrowdsecBlocklist(models.Model):
     """Lista del catálogo de CrowdSec (Service API) y su utilidad medida con los atacantes reales.
