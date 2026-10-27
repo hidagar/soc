@@ -15,6 +15,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
 | [core/test_blocklist.py](../../core/test_blocklist.py) | 12 |
+| [core/test_blocklist_efficacy.py](../../core/test_blocklist_efficacy.py) | 4 |
 | [core/test_blocklist_phase2.py](../../core/test_blocklist_phase2.py) | 7 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
