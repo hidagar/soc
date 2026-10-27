@@ -128,3 +128,16 @@ class UnifiBlocklistTests(TestCase):
                              (f'/v1/sites/{SITE}/traffic-matching-lists/{SOC_LIST}', 'DELETE'), ('/v1/sites/../x', 'GET')):
             with self.assertRaises(UnifiCloudError, msg=(path, method)):
                 unifi_blocklist.call('k', 'host-1', path, method)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
+class UnifiSectionVisibilityTests(TestCase):
+    def test_section_is_shown_with_the_list_disabled_and_explains_missing_console_links(self):
+        company = Client.objects.create(name='BCM', code='bcm')
+        site = Site.objects.create(client=company, name='Sede', code='s')
+        Device.objects.create(site=site, name='UDM-sin-consola', vendor='unifi')
+        admin = get_user_model().objects.create_superuser('admin', 'a@example.test', 'x')
+        self.client.force_login(admin)
+        page = self.client.get(reverse('blocklist_detail', args=[company.pk]))
+        self.assertContains(page, 'Bloqueo en UniFi')
+        self.assertContains(page, 'Equipos UniFi sin la consola vinculada: UDM-sin-consola')

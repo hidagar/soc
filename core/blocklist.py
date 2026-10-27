@@ -717,12 +717,14 @@ def detail(request, client_pk):
             warnings.append(state.details['error'] + ' Las detecciones del SOC se dejan de incluir una hora después de la última lectura correcta.')
     manual = active_manual(client, now).select_related('created_by')
     unifi_devices = list(_unifi_devices(client))
+    unifi_unlinked = list(Device.objects.filter(site__client=client, active=True, vendor=Device.Vendor.UNIFI)
+                          .exclude(pk__in=[d.pk for d in unifi_devices]).order_by('name').values_list('name', flat=True))
     from .models import UnifiBlocklistBinding
     unifi_bindings = UnifiBlocklistBinding.objects.filter(device__site__client=client).select_related('device')
     return render(request, 'blocklist_detail.html', {
         'warnings': warnings, 'manual_blocks': manual, 'global_access': global_access(request.user),
         'prefill_network': request.GET.get('network', '')[:64],
-        'unifi_devices': unifi_devices, 'unifi_bindings': unifi_bindings,
+        'unifi_devices': unifi_devices, 'unifi_bindings': unifi_bindings, 'unifi_unlinked': unifi_unlinked,
         'unifi_candidates': getattr(request, 'unifi_candidates', None), 'unifi_device': getattr(request, 'unifi_device', None),
         'manual_max_days': MANUAL_MAX_DAYS,
         'client': client, 'feed': feed, 'entries': feed.entries[:300], 'count': len(feed.entries),
