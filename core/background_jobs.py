@@ -27,6 +27,7 @@ JOBS={
     'reputation':(900,'Reputación CrowdSec'),
     'blocklists':(900,'Listas de bloqueo del SOC'),
     'crowdsec_lists':(300,'Listas de CrowdSec'),
+    'blocklist_efficacy':(3600,'Eficacia de las reglas de bloqueo'),
 }
 BUDGET=180
 
@@ -133,6 +134,9 @@ def execute(name):
     if name=='blocklists':
         from .blocklist import refresh_feeds
         return refresh_feeds()
+    if name=='blocklist_efficacy':
+        from .blocklist_efficacy import refresh as measure_rules
+        return measure_rules()
     if name=='crowdsec_lists':
         from .crowdsec_catalog import refresh as refresh_lists
         return refresh_lists()

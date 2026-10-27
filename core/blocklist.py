@@ -422,9 +422,16 @@ def revoke_manual(request, client):
 def overview(request):
     if not request.user.has_perm('core.manage_operations'):
         return HttpResponseForbidden('Permiso de operaciones requerido.')
+    from .blocklist_efficacy import summary
     feeds = {f.client_id: f for f in BlocklistFeed.objects.all()}
-    rows = [{'client': c, 'feed': feeds.get(c.pk)} for c in Client.objects.filter(active=True).order_by('name')]
     now = timezone.now()
+    blocked = {}
+    for plan in ChangePlan.objects.filter(template=TEMPLATE, status='active').select_related('device__site'):
+        measured = summary(plan, now)
+        if measured:
+            blocked[plan.device.site.client_id] = blocked.get(plan.device.site.client_id, 0) + measured['week']
+    rows = [{'client': c, 'feed': feeds.get(c.pk), 'blocked_week': blocked.get(c.pk)}
+            for c in Client.objects.filter(active=True).order_by('name')]
     shared = ManualBlock._base_manager.filter(client=None, revoked_at=None, expires_at__gt=now).select_related('created_by')
     return render(request, 'blocklists.html', {'rows': rows, 'shared_blocks': shared})
 
@@ -516,9 +523,15 @@ def detail(request, client_pk):
         allowlist_error = ''
     except ValueError as exc:
         allowlist_error = str(exc)
-    plans = ChangePlan.objects.filter(template=TEMPLATE, device__site__client=client).select_related('device').order_by('-pk')[:10]
+    from .blocklist_efficacy import summary
+    plans = list(ChangePlan.objects.filter(template=TEMPLATE, device__site__client=client).select_related('device').order_by('-pk')[:10])
     now = timezone.now()
     warnings = []
+    for plan in plans:
+        plan.efficacy = summary(plan, now) if plan.status == 'active' else None
+        if plan.efficacy and plan.efficacy['loaded'] == 0 and feed.entries and not feed.stopped:
+            warnings.append(f'{plan.device.name} tiene la regla activa pero su tabla del SOC está vacía: '
+                            'revisa que el firewall descarga la URL de la lista.')
     if feed.enabled and feed.generated_at and now - feed.generated_at > FEED_MAX_AGE:
         warnings.append('La lista no se recalcula desde el ' + timezone.localtime(feed.generated_at).strftime('%d/%m %H:%M')
                         + ': se sirve vacía hasta que el trabajo «Listas de bloqueo del SOC» vuelva a funcionar.')

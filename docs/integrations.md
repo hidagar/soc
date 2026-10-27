@@ -66,7 +66,17 @@ El SOC hace de puente entre CrowdSec y los firewalls de cada cliente (`core/bloc
    - **Exclusiones:** solo IPs públicas y redes acotadas, con las mismas excepciones.
    - **Motor caído:** se usa la última lectura correcta durante una hora y después no se incluyen (estado seguro). La página lo avisa.
 
-Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: bloqueo saliente (C2), UniFi y Hillstone, y la medición de eficacia con los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
+8. **Eficacia en el firewall:** el trabajo protegido `blocklist_efficacy` (cada hora) lee por API, de cada regla «Bloqueo CrowdSec del SOC» activa en un OPNsense:
+   - los contadores de la regla (`/api/firewall/filter_util/rule_stats`, OPNsense 23.7 o posterior);
+   - cuántas IPs de la tabla tiene cargadas el firewall (`/api/firewall/alias_util/list/<alias>`).
+
+   La página del cliente muestra los paquetes bloqueados hoy, en 7 días y desde la primera medición, y las IPs cargadas frente a las publicadas. La página general añade la columna de 7 días.
+   - **Reinicios:** los contadores de pf vuelven a cero al recargar reglas o reiniciar; se acumula por diferencias y se cuenta el reinicio.
+   - **Fallos:** un fallo de la API conserva lo medido y muestra un texto fijo, sin la respuesta del proveedor.
+   - **Tabla vacía:** si la regla está activa pero la tabla está vacía, la página lo avisa (el firewall no está descargando la lista).
+   - **Lectura:** son paquetes bloqueados, no ataques; una conexión rechazada puede ser varios paquetes.
+
+Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de IPs por URL con la misma dirección. Pendiente de fases siguientes: bloqueo saliente (C2), UniFi y Hillstone, y la eficacia por IP (qué atacantes concretos cortó) a partir de los registros de la regla. Antes de usar las listas de CrowdSec para proteger redes de terceros, revisar sus condiciones de uso para proveedores de servicios.
 
 ## Listas de CrowdSec guiadas por los ataques reales (Service API)
 
