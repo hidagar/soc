@@ -1,0 +1,113 @@
+/* Componentes comunes del Centro SOC y del portal del cliente (revisión de la interfaz, 10/2026).
+   Se carga después de portal.css: define piezas reutilizables y corrige maquetación compartida. */
+
+/* Cabecera de página: título a la izquierda, una o dos acciones visibles y el resto en «Más acciones». */
+.page-head{flex-wrap:wrap}
+.page-head>div:first-child{min-width:260px;flex:1 1 380px}
+.page-head .actions{align-items:center;justify-content:flex-end}
+.more-actions{position:relative}
+.more-actions>summary{list-style:none;cursor:pointer}
+.more-actions>summary::-webkit-details-marker{display:none}
+.more-actions>summary:after{content:'▾';font-size:11px;margin-left:2px}
+.more-actions[open]>summary{background:#eff6f6}
+.more-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:250px;background:white;border:1px solid #dce5e9;
+  border-radius:12px;box-shadow:0 14px 40px #063B2B22;padding:6px;display:grid}
+.more-menu a,.more-menu button{display:block;text-align:left;padding:9px 12px;border-radius:8px;color:#1c3446;font-weight:600;
+  border:0;background:none;font:inherit;cursor:pointer;white-space:nowrap}
+.more-menu a:hover,.more-menu button:hover{background:#eff6f6;text-decoration:none}
+.more-menu hr{border:0;border-top:1px solid #eaf0f3;margin:5px 4px}
+.more-menu small{display:block;padding:8px 12px 2px;color:#83919e;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+
+/* Indicadores: cifra grande, etiqueta y tono. Un indicador puede ser un enlace. */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:0 0 22px}
+.kpi{background:white;border:1px solid #e3e9ee;border-radius:14px;padding:16px 18px;box-shadow:0 3px 14px #063B2B08;color:inherit;display:block}
+a.kpi:hover{border-color:#0B612D55;text-decoration:none}
+.kpi strong{display:block;font-size:30px;line-height:1.1;letter-spacing:-.04em;color:#172a3c}
+.kpi span{display:block;color:#5d6f80;font-weight:600;margin-top:4px}
+.kpi small{display:block;color:#83919e;margin-top:4px}
+.kpi.tone-alert{border-top:3px solid #c0392b}.kpi.tone-alert strong{color:#b03540}
+.kpi.tone-warn{border-top:3px solid #e3a650}
+.kpi.tone-ok{border-top:3px solid #2e9e6b}
+.kpi.tone-muted strong{color:#8794a1}
+
+/* Lista de «requiere atención»: cada fila dice qué pasa y lleva a resolverlo. */
+.attention{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.attention li a,.attention li>div{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #eaf0f3;border-radius:11px;color:#1c3446}
+.attention li a:hover{border-color:#0B612D55;background:#f8fbfa;text-decoration:none}
+.attention .count{min-width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:800;background:#edf2f4;color:#587082}
+.attention .alert .count{background:#ffe7e8;color:#b33642}
+.attention .warn .count{background:#fff0df;color:#a26016}
+.attention .ok .count{background:#e4f6ef;color:#258061}
+.attention b{display:block}.attention small{display:block;color:#7c8c98;margin-top:2px}
+.attention .go{margin-left:auto;color:#0B612D;font-weight:700;white-space:nowrap}
+.all-clear{display:flex;align-items:center;gap:10px;padding:14px;border-radius:11px;background:#e4f6ef;color:#256945;font-weight:600}
+
+/* Barra de filtros compacta: campos en línea y botón al final. */
+.toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 12px;background:white;border:1px solid #e3e9ee;border-radius:14px;
+  padding:12px 14px;margin:0 0 18px;box-shadow:0 3px 14px #063B2B08}
+.toolbar label{display:grid;gap:4px;font-size:12px;font-weight:700;color:#5d6f80;margin:0}
+.toolbar .input,.toolbar select,.toolbar input{width:auto;min-width:150px;max-width:280px;padding:8px 10px}
+.toolbar .button{padding:9px 14px}
+.toolbar .spacer{flex:1}
+.toolbar .chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;padding:7px 12px;border-radius:99px;border:1px solid #dce5e9;background:white;color:#23485a;font-weight:650;font-size:13px}
+.chip[aria-current=true],.chip.active{background:#0B612D;border-color:#0B612D;color:white}
+.chip:hover{text-decoration:none;border-color:#0B612D}
+
+/* Secciones con índice de anclas dentro de una ficha larga. */
+.section-nav{display:flex;gap:6px;flex-wrap:wrap;margin:-12px 0 22px;position:sticky;top:0;z-index:20;padding:10px 0;background:#f5f7fa}
+.section-nav a{padding:7px 12px;border-radius:99px;background:white;border:1px solid #e3e9ee;color:#23485a;font-weight:650;font-size:13px}
+.section-nav a:hover{border-color:#0B612D;text-decoration:none}
+
+/* Datos clave/valor: la nota de origen va debajo del valor, nunca pegada a él. */
+.facts dd small,.facts dd .muted{display:block;color:#83919e;font-size:12px;margin-top:3px}
+.card-head{flex-wrap:wrap}
+.card-head h2{margin-bottom:12px}
+.card>.card-head+p{margin-top:0}
+
+/* Estados de la acción del firewall, en español y con color. */
+.action-blocked{color:#258061;font-weight:700}.action-allowed{color:#b03540;font-weight:700}.action-unknown{color:#6e7e89;font-weight:700}
+
+/* Paginación común. */
+.pager{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.pager span{color:#6c7d8e}
+
+/* Tablas: nunca empujan la página fuera de la pantalla; el desplazamiento queda dentro de la tarjeta. */
+.card{min-width:0}
+.table-wrap{max-width:100%}
+td .button{white-space:nowrap}
+
+/* Portal del cliente: algo más ancho y con más jerarquía. */
+.customer-report-main{max-width:1240px}
+.portal-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+.portal-hero h1{margin:0}
+.portal-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:22px;align-items:start}
+.portal-grid>div{display:grid;gap:22px;min-width:0}
+.portal-grid .card{margin:0}
+.fw-list{display:grid;gap:10px}
+.fw-item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border:1px solid #eaf0f3;border-radius:11px}
+.fw-item b{display:block}.fw-item small{display:block;color:#7c8c98}
+.news{display:grid;gap:0}
+.news article{padding:12px 0;border-top:1px solid #ecf0f3}
+.news article:first-child{border-top:0;padding-top:0}
+.news h3{margin:0 0 4px;font-size:15px;text-transform:none;letter-spacing:0;color:#172a3c}
+.news p{margin:0;color:#3d5262}
+.news time{display:block;color:#83919e;font-size:12px;margin-top:4px}
+
+@media(max-width:900px){
+  .portal-grid{grid-template-columns:1fr}
+  .page-head .actions{justify-content:flex-start}
+  .page-head .actions{position:relative}
+  .more-actions{position:static}
+  .more-menu{left:0;right:0;min-width:0}
+  .more-menu a,.more-menu button{white-space:normal}
+}
+@media(max-width:700px){
+  .toolbar .input,.toolbar select,.toolbar input{max-width:none;width:100%}
+  .toolbar label{flex:1 1 100%}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpi strong{font-size:24px}
+  .section-nav{position:static}
+}
+@media print{.more-actions,.toolbar,.section-nav{display:none!important}}
+@media(max-width:700px){.button{white-space:normal;max-width:100%;text-align:center}}

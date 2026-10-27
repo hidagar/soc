@@ -45,15 +45,51 @@ def _update_opnsense_details(device, api_url, api_key, api_secret, ca_certificat
 
 @login_required
 def dashboard(request):
+    """Portada del SOC: primero lo que requiere atención, después la actividad reciente."""
+    from .improvement_models import CustomerTask
+    from .investigation import evidence_queryset
+    from .models import DeviceHealth, OperationalIssue
+    now = timezone.now()
+    open_incidents = Incident.objects.exclude(status=Incident.Status.RESOLVED)
+    alerts = UrgentAlert.objects.filter(acknowledged_at=None, created_at__gte=now - timedelta(days=7)).exclude(
+        status__in=(UrgentAlert.Status.SUPPRESSED, UrgentAlert.Status.EXPIRED))
+    replies = CustomerTask.objects.filter(status="submitted").select_related("incident__client").order_by("updated_at")
+    silent = DeviceHealth.objects.filter(device__active=True, last_log_at__lt=now - timedelta(hours=2))
+    allowed = evidence_queryset(None, 1, "", "allowed")
+    first_reply = replies.first()
+    attention = [
+        {"tone": "alert", "count": alerts.count(), "title": "Avisos urgentes sin revisar",
+         "hint": "Avisos enviados al cliente en los últimos 7 días pendientes de confirmar por el SOC.",
+         "url": reverse("delivery_status")},
+        {"tone": "alert", "count": open_incidents.filter(severity__in=("high", "critical")).count(),
+         "title": "Incidencias de prioridad alta o crítica", "hint": "Abiertas o en investigación.",
+         "url": reverse("work_queue") + "?queue=priority"},
+        {"tone": "warn", "count": allowed.count(), "title": "Detecciones permitidas en las últimas 24 h",
+         "hint": "El firewall dejó pasar el tráfico: revisar si procede bloquear.",
+         "url": reverse("security_explore") + "?days=1&action=allowed"},
+        {"tone": "warn", "count": replies.count(), "title": "Respuestas de clientes por revisar",
+         "hint": first_reply and f"La más antigua: {first_reply.title} ({first_reply.incident.client.name})" or "",
+         "url": first_reply and reverse("incident_detail", args=[first_reply.incident_id]) or ""},
+        {"tone": "warn", "count": OperationalIssue.objects.filter(active=True, device__active=True).count(),
+         "title": "Problemas de operación activos", "hint": "Integraciones, recepción de registros y trabajos del SOC.",
+         "url": reverse("health_list")},
+        {"tone": "warn", "count": silent.count(), "title": "Equipos sin registros desde hace más de 2 h",
+         "hint": "Sin registros no hay detección: comprobar el envío.", "url": reverse("health_list")},
+        {"tone": "", "count": open_incidents.filter(owner__isnull=True).count(), "title": "Incidencias sin responsable",
+         "hint": "Asignar un analista desde la bandeja de trabajo.", "url": reverse("work_queue") + "?queue=unassigned"},
+    ]
     return render(request, "dashboard.html", {
+        "attention": [item for item in attention if item["count"]],
         "client_count": Client.objects.filter(active=True).count(),
-        "site_count": Site.objects.filter(active=True).count(),
         "device_count": Device.objects.filter(active=True).count(),
-        "connected_count": Device.objects.filter(active=True, integration=Device.Integration.CONNECTED).count(),
-        "open_count": Incident.objects.exclude(status=Incident.Status.RESOLVED).count(),
-        "critical_count": Incident.objects.exclude(status=Incident.Status.RESOLVED).filter(severity=Incident.Severity.CRITICAL).count(),
+        "open_count": open_incidents.count(),
+        "critical_count": open_incidents.filter(severity=Incident.Severity.CRITICAL).count(),
+        "evidence_week": evidence_queryset(None, 7, "", "all").count(),
         "recent_incidents": Incident.objects.select_related("client", "site")[:8],
-        "recent_clients": Client.objects.annotate(site_count=Count("sites", distinct=True), device_count=Count("sites__devices", distinct=True))[:8],
+        "recent_clients": Client.objects.filter(active=True).annotate(
+            site_count=Count("sites", distinct=True), device_count=Count("sites__devices", distinct=True),
+            open_incidents=Count("incidents", filter=~Q(incidents__status=Incident.Status.RESOLVED), distinct=True),
+        ).order_by("-open_incidents", "name")[:8],
     })
 
 
@@ -182,14 +218,22 @@ def client_list(request):
 @login_required
 def client_detail(request, pk):
     client = get_object_or_404(Client, pk=pk)
+    from .improvement_models import CustomerTask
+    from .investigation import evidence_queryset
+    from .models import BlocklistFeed
+    evidence = evidence_queryset(client, 7, "", "all")
     return render(request, "client_detail.html", {
         "client": client,
+        "evidence": {"total": evidence.count(), "allowed": evidence.filter(action="allowed").count()},
+        "open_tasks": CustomerTask.objects.filter(incident__client=client, status__in=("pending", "rework", "submitted")).count(),
+        "replies": CustomerTask.objects.filter(incident__client=client, status="submitted").count(),
+        "feed": BlocklistFeed.objects.filter(client=client).first(),
         "latest_report": client.weekly_reports.first(),
         "sites": client.sites.annotate(device_count=Count("devices")),
         "incidents": client.incidents.select_related("site", "device")[:10],
         "recent_urgent_alerts": client.urgent_alerts.all()[:5],
         "device_count": Device.objects.filter(site__client=client).count(),
-        "client_devices": Device.objects.filter(site__client=client).select_related('site'),
+        "client_devices": Device.objects.filter(site__client=client).select_related('site', 'health'),
         "open_count": client.incidents.exclude(status=Incident.Status.RESOLVED).count(),
     })
 
@@ -245,12 +289,16 @@ def site_delete(request, pk):
 def device_detail(request, pk):
     device = get_object_or_404(Device.objects.select_related("site__client"), pk=pk)
     from .device_inventory import facts
+    from .investigation import evidence_queryset
+    health = getattr(device, 'health', None)
     return render(request, "device_detail.html", {"device": device, "incidents": device.incidents.all()[:8],
                                                   "export": ExportConfiguration.objects.filter(device=device).first(),
                                                   "destinations": available_destinations(),
                                                   "default_destination": default_destination(device), 'inventory_facts': facts(device),
                                                   'gdms_connection': getattr(device, 'gdms_cloud', None) if device.vendor == 'grandstream_gcc' else None,
-                                                  'device_health': getattr(device, 'health', None)})
+                                                  'device_health': health,
+                                                  'log_stale': bool(health and health.last_log_at and timezone.now() - health.last_log_at > timedelta(hours=2)),
+                                                  'evidence_week': evidence_queryset(device.site.client, 7, '', 'all').filter(device=device).count()})
 
 
 @login_required

@@ -145,9 +145,11 @@ def customer_home_context(client,preview=False):
     live=client.customer_live_map_enabled or client.customer_portal_detail_enabled
     tasks,_=portal_tasks(client,preview)
     reports=portal_reports(client,preview)
+    news=CustomerPublication.objects.filter(client=client,visible=True)
     return {**_portal_base(client,preview,'home'),'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
-        'tasks':tasks,'publications':CustomerPublication.objects.filter(client=client,visible=True)[:100],
+        'tasks':tasks,'tasks_to_do':[t for t in tasks if t.status in ('pending','rework')],
+        'publications':news[:6],'publication_count':news.count(),
         'reports':reports[:3],'report_count':len(reports)}
 
 def customer_reports_context(client,preview=False):
@@ -316,8 +318,11 @@ def intelligence(request):
     counts={'listed':sum(row['listed'] for row in rows),'listed_allowed':sum(row['listed_allowed'] for row in rows)}
     if view=='sin_ruido':rows=[row for row in rows if not row['noise']]
     elif view:rows=[row for row in rows if row['listed_allowed' if view=='permitida' else 'listed']]
-    return render(request,'intelligence.html',{'rows':rows,'limited':limited,'clients':Client.objects.all(),'selected':selected,
-        'view':view,'counts':counts})
+    from django.core.paginator import Paginator
+    page=Paginator(rows,50).get_page(request.GET.get('page'))
+    params=request.GET.copy();params.pop('page',None)
+    return render(request,'intelligence.html',{'rows':page,'page':page,'query':params.urlencode(),'total':len(rows),'limited':limited,
+        'clients':Client.objects.all(),'selected':selected,'view':view,'counts':counts})
 
 def monthly_context(client,month,now=None):
     now=now or timezone.now()
