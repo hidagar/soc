@@ -139,6 +139,7 @@ class Command(BaseCommand):
                       f'{names.get(pair[0], "?")} → {names.get(pair[1], "?")} · lista: {used} · '
                       f'orden {index if index is not None else "no informado"}'
                       f'{" · creada por el panel" if p.get("id") in saved else ""}', 2)
+            self.order_line(key, host, site, pair, p.get('id'))
             if before:
                 names_before = ', '.join(f'«{r.get("name")}» (orden {r.get("index")})' for r in before[:10])
                 self.line(f'AVISO: {len(before)} política(s) ALLOW del mismo flujo se evalúan antes: {names_before}. '
@@ -146,3 +147,19 @@ class Command(BaseCommand):
         missing = saved - {p.get('id') for p in rows}
         if missing:
             self.line(f'AVISO: {len(missing)} política(s) guardadas en el panel ya no existen en UniFi.', 1)
+
+    def order_line(self, key, host, site, pair, uid):
+        """Posición en el orden oficial del cruce y si UniFi permite reordenarlo por API."""
+        if not all(isinstance(z, str) for z in pair):
+            return
+        try:
+            _, before, after = ub._ordering(key, host, site, pair)
+        except UnifiCloudError as exc:
+            self.line(f'Orden oficial: no se pudo leer ({exc}).', 3)
+            return
+        ids = before + after
+        where = f'posición {ids.index(uid) + 1} de {len(ids)}' if uid in ids else 'no aparece'
+        legacy = ub.unidentified(ids)
+        self.line(f'Orden oficial del cruce: {where}'
+                  + (f' · {legacy} política(s) antiguas sin identificador: reordenar a mano en UniFi' if legacy
+                     else ' · se puede reordenar desde el panel'), 3)

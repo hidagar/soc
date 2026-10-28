@@ -30,6 +30,7 @@ class FakeConsole:
             'id': '66666666-6666-6666-6666-666666666666', 'name': 'Permitir VPN', 'enabled': True, 'index': 10000,
             'metadata': {'origin': 'USER_DEFINED'}, 'ipProtocolScope': {'ipVersion': 'IPV4_AND_IPV6'}}}
         self.policy_posts, self.order_puts = [], []
+        self.legacy = []  # políticas migradas: UniFi las lista en el orden sin identificador (None)
 
     def pair_ids(self, query):
         pair = (query['sourceFirewallZoneId'], query['destinationFirewallZoneId'])
@@ -47,7 +48,7 @@ class FakeConsole:
                 for position, uid in enumerate(new):
                     self.policies[uid]['index'] = 10000 + position
                 return {}
-            return {'orderedFirewallPolicyIds': {'beforeSystemDefined': ids, 'afterSystemDefined': []}}
+            return {'orderedFirewallPolicyIds': {'beforeSystemDefined': self.legacy + ids, 'afterSystemDefined': []}}
         if path.endswith('/firewall/zones'):
             return {'data': self.zones}
         if path.endswith('/firewall/policies'):
@@ -370,3 +371,19 @@ class PolicyOrderTests(UnifiTestCase):
                                 (query, {'otra': 1})):
             with self.assertRaisesRegex(unifi_blocklist.UnifiCloudError, 'no permitida'):
                 unifi_blocklist.call('k', 'host-1', site, 'PUT' if body else 'GET', body, query=bad_query)
+
+    def test_legacy_policies_without_id_block_reordering_with_a_clear_message(self):
+        self.console.legacy = [None, None]
+        response = self.client.post(self.url, {'action': 'unifi_policy_first', 'binding': self.binding.pk}, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '2 política(s) antiguas sin identificador')
+        self.assertEqual(self.console.order_puts, [])
+
+    def test_check_command_reports_official_order_and_legacy_policies(self):
+        from io import StringIO
+        from django.core.management import call_command
+        self.console.legacy = [None]
+        out = StringIO()
+        call_command('unifi_bloqueo_comprobar', stdout=out)
+        self.assertIn('1 política(s) antiguas sin identificador: reordenar a mano en UniFi', out.getvalue())
+        self.assertIn('Orden oficial del cruce: posición', out.getvalue())

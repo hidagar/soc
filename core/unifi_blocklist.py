@@ -284,6 +284,11 @@ def _ordering(key, host, site, pair):
     return query, list(ids['beforeSystemDefined']), list(ids['afterSystemDefined'])
 
 
+def unidentified(ids):
+    """Entradas del orden sin identificador de la API (políticas migradas del firewall antiguo)."""
+    return sum(1 for uid in ids if not (isinstance(uid, str) and UUID.fullmatch(uid)))
+
+
 def move_first(binding):
     """Pone las políticas del SOC las primeras de su cruce de zonas, sin cambiar el orden de las demás.
 
@@ -304,6 +309,13 @@ def move_first(binding):
         query, before, after = _ordering(key, host, site, pair)
         if before[:len(ours)] == ours:
             continue
+        legacy = unidentified(before + after)
+        if legacy:
+            # La API exige enviar todas las políticas del cruce y estas no tienen identificador:
+            # no se puede reordenar sin arriesgar el resto. Se hace a mano en UniFi.
+            raise UnifiCloudError(f'Este cruce de zonas tiene {legacy} política(s) antiguas sin identificador en la API '
+                                  '(migradas del firewall anterior de UniFi), así que UniFi no permite reordenarlo por API. '
+                                  'Arrastra la política del SOC al principio en UniFi y vuelve a comprobar.')
         if any(uid not in before + after for uid in ours):
             raise UnifiCloudError('UniFi no incluye la política del SOC en el orden de su cruce de zonas.')
         new_before = ours + [uid for uid in before if uid not in ours]
