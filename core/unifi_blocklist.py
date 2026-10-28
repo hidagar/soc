@@ -37,7 +37,7 @@ def _uuid(value):
     return value
 
 
-def call(api_key, host_id, path, method='GET', payload=None):
+def call(api_key, host_id, path, method='GET', payload=None, query=None):
     """Llamada a la API oficial de Network por el conector, con lista cerrada de rutas y métodos."""
     if not isinstance(host_id, str) or not re.fullmatch(r'[A-Za-z0-9:-]{1,200}', host_id):
         raise UnifiCloudError('Consola UniFi no válida.')
@@ -54,11 +54,14 @@ def call(api_key, host_id, path, method='GET', payload=None):
         method == 'POST' and re.fullmatch(r'/v1/sites/[0-9a-f-]{36}/traffic-matching-lists', path)
         and isinstance(payload, dict) and payload.get('type') == 'IPV4_ADDRESSES'
         and str(payload.get('name', '')).startswith(PREFIX)) or (
-        method in ('GET', 'PUT') and re.fullmatch(r'/v1/sites/[0-9a-f-]{36}/traffic-matching-lists/[0-9a-f-]{36}', path))
+        method in ('GET', 'PUT') and re.fullmatch(r'/v1/sites/[0-9a-f-]{36}/traffic-matching-lists/[0-9a-f-]{36}', path)) or (
+        # Orden de un cruce de zonas: solo identificadores; move_first comprueba que no falta ninguno.
+        method in ('GET', 'PUT') and re.fullmatch(site_path + r'firewall/policies/ordering', path)
+        and _ordering_query(query) and (method == 'GET' or _ordering_body(payload)))
     if not allowed:
         raise UnifiCloudError('Operación de UniFi no permitida.')
     collection = method == 'GET' and (path == '/v1/sites' or path.endswith(('/traffic-matching-lists', '/zones', '/policies')))
-    query = '?' + parse.urlencode({'offset': 0, 'limit': 200}) if collection else ''
+    query = '?' + parse.urlencode({'offset': 0, 'limit': 200} if collection else query) if collection or query else ''
     url = ('https://api.ui.com/v1/connector/consoles/' + parse.quote(host_id, safe='') + '/proxy/network/integration' + path + query)
     data = json.dumps(payload).encode() if payload is not None else None
     req = request.Request(url, data=data, method=method, headers={'Accept': 'application/json', 'Content-Type': 'application/json',
@@ -81,6 +84,18 @@ def call(api_key, host_id, path, method='GET', payload=None):
     if not isinstance(result, dict):
         raise UnifiCloudError('UniFi devolvió una respuesta inesperada.')
     return result
+
+
+def _ordering_query(query):
+    return (isinstance(query, dict) and set(query) == {'sourceFirewallZoneId', 'destinationFirewallZoneId'}
+            and all(isinstance(v, str) and UUID.fullmatch(v) for v in query.values()))
+
+
+def _ordering_body(payload):
+    ids = (payload or {}).get('orderedFirewallPolicyIds') if isinstance(payload, dict) else None
+    return (isinstance(payload, dict) and set(payload) == {'orderedFirewallPolicyIds'} and isinstance(ids, dict)
+            and set(ids) == {'beforeSystemDefined', 'afterSystemDefined'}
+            and all(isinstance(v, list) and all(isinstance(i, str) and UUID.fullmatch(i) for i in v) for v in ids.values()))
 
 
 def _vendor_code(exc):
@@ -258,6 +273,49 @@ def set_policies(binding, enabled):
         call(key, host, path, 'PUT', body)
         if _data(call(key, host, path)).get('enabled') is not enabled:
             raise UnifiCloudError('UniFi no confirmó el cambio de la política.')
+
+
+def _ordering(key, host, site, pair):
+    query = {'sourceFirewallZoneId': pair[0], 'destinationFirewallZoneId': pair[1]}
+    result = call(key, host, f'/v1/sites/{site}/firewall/policies/ordering', query=query)
+    ids = _data(result).get('orderedFirewallPolicyIds') if isinstance(_data(result), dict) else None
+    if not isinstance(ids, dict) or not all(isinstance(ids.get(k), list) for k in ('beforeSystemDefined', 'afterSystemDefined')):
+        raise UnifiCloudError('UniFi no devolvió el orden de las políticas.')
+    return query, list(ids['beforeSystemDefined']), list(ids['afterSystemDefined'])
+
+
+def move_first(binding):
+    """Pone las políticas del SOC las primeras de su cruce de zonas, sin cambiar el orden de las demás.
+
+    UniFi evalúa las políticas en orden y gana la primera que coincide: una política del operador
+    que permita ese tráfico y esté antes dejaría pasar a las IPs de la lista. La API exige enviar
+    todas las políticas del cruce; se comprueba que el conjunto no cambia y se verifica leyendo.
+    Devuelve cuántos cruces se reordenaron.
+    """
+    connection = binding.device.unifi_cloud
+    key, host, site = decrypt_api_key(connection.encrypted_api_key), connection.remote_host_id, _uuid(binding.site_id)
+    pairs = {}
+    for policy in binding.policies:
+        current = _own_policy(key, host, site, policy)
+        pair = (_uuid((current.get('source') or {}).get('zoneId')), _uuid((current.get('destination') or {}).get('zoneId')))
+        pairs.setdefault(pair, []).append(policy['id'])
+    moved = 0
+    for pair, ours in pairs.items():
+        query, before, after = _ordering(key, host, site, pair)
+        if before[:len(ours)] == ours:
+            continue
+        if any(uid not in before + after for uid in ours):
+            raise UnifiCloudError('UniFi no incluye la política del SOC en el orden de su cruce de zonas.')
+        new_before = ours + [uid for uid in before if uid not in ours]
+        new_after = [uid for uid in after if uid not in ours]
+        if sorted(new_before + new_after) != sorted(before + after):
+            raise UnifiCloudError('El orden calculado no coincide con las políticas de UniFi; no se cambia.')
+        call(key, host, f'/v1/sites/{site}/firewall/policies/ordering', 'PUT',
+             {'orderedFirewallPolicyIds': {'beforeSystemDefined': new_before, 'afterSystemDefined': new_after}}, query=query)
+        if _ordering(key, host, site, pair)[1][:len(ours)] != ours:
+            raise UnifiCloudError('UniFi no confirmó el nuevo orden de las políticas.')
+        moved += 1
+    return moved
 
 
 def delete_policies(binding):

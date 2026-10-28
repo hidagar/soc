@@ -140,8 +140,9 @@ class Command(BaseCommand):
                       f'orden {index if index is not None else "no informado"}'
                       f'{" · creada por el panel" if p.get("id") in saved else ""}', 2)
             if before:
-                self.line(f'AVISO: {len(before)} política(s) ALLOW del mismo flujo se evalúan antes; '
-                          'revisa el orden en UniFi antes de activar.', 3)
+                names_before = ', '.join(f'«{r.get("name")}» (orden {r.get("index")})' for r in before[:10])
+                self.line(f'AVISO: {len(before)} política(s) ALLOW del mismo flujo se evalúan antes: {names_before}. '
+                          'Usa «Poner las del SOC las primeras» en el panel antes de activar.', 3)
         missing = saved - {p.get('id') for p in rows}
         if missing:
             self.line(f'AVISO: {len(missing)} política(s) guardadas en el panel ya no existen en UniFi.', 1)

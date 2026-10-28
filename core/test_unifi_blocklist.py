@@ -29,9 +29,25 @@ class FakeConsole:
         self.policies = {'66666666-6666-6666-6666-666666666666': {
             'id': '66666666-6666-6666-6666-666666666666', 'name': 'Permitir VPN', 'enabled': True, 'index': 10000,
             'metadata': {'origin': 'USER_DEFINED'}, 'ipProtocolScope': {'ipVersion': 'IPV4_AND_IPV6'}}}
-        self.policy_posts = []
+        self.policy_posts, self.order_puts = [], []
 
-    def __call__(self, api_key, host_id, path, method='GET', payload=None):
+    def pair_ids(self, query):
+        pair = (query['sourceFirewallZoneId'], query['destinationFirewallZoneId'])
+        rows = [p for p in self.policies.values() if ((p.get('source') or {}).get('zoneId'), (p.get('destination') or {}).get('zoneId')) == pair]
+        return [p['id'] for p in sorted(rows, key=lambda p: p['index'])]
+
+    def __call__(self, api_key, host_id, path, method='GET', payload=None, query=None):
+        if path.endswith('/firewall/policies/ordering'):
+            ids = self.pair_ids(query)
+            if method == 'PUT':
+                self.order_puts.append(payload)
+                new = payload['orderedFirewallPolicyIds']['beforeSystemDefined'] + payload['orderedFirewallPolicyIds']['afterSystemDefined']
+                if sorted(new) != sorted(ids):  # como UniFi: hay que enviar todas las políticas del cruce
+                    raise unifi_blocklist.UnifiCloudError('UniFi respondió HTTP 400 (api.firewall.policy.ordering.not-all-firewall-policies-specified).')
+                for position, uid in enumerate(new):
+                    self.policies[uid]['index'] = 10000 + position
+                return {}
+            return {'orderedFirewallPolicyIds': {'beforeSystemDefined': ids, 'afterSystemDefined': []}}
         if path.endswith('/firewall/zones'):
             return {'data': self.zones}
         if path.endswith('/firewall/policies'):
@@ -293,10 +309,64 @@ class CheckCommandTests(UnifiTestCase):
         self.assertIn('Zonas: 3 · necesarias para el bloqueo: todas presentes', output)
         self.assertIn('«SOC Bloqueo entrada External→Internal»: desactivada · acción BLOCK · External → Internal', output)
         self.assertIn('creada por el panel', output)
-        self.assertIn('1 política(s) ALLOW del mismo flujo se evalúan antes', output)
+        self.assertIn('1 política(s) ALLOW del mismo flujo se evalúan antes: «Permitir web» (orden 5)', output)
         for ip in ('45.155.205.233', '185.191.171.99', '192.0.2.1', 'clave-unifi'):
             self.assertNotIn(ip, output)
 
     def test_unlinked_console_is_reported(self):
         self.device.unifi_cloud.delete()
         self.assertIn('Consola UniFi: NO vinculada', self.run_check())
+
+
+class PolicyOrderTests(UnifiTestCase):
+    """«Poner las del SOC las primeras»: solo mueve las del SOC, con la lista completa y MFA."""
+
+    def setUp(self):
+        super().setUp()
+        self.url = self.login()
+        self.client.post(self.url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'in'})
+        self.binding = UnifiBlocklistBinding.objects.get(device=self.device)
+        ext, internal = ZONES['External'], ZONES['Internal']
+        for n, name in enumerate(('Reenvío web', 'Reenvío cámaras')):
+            uid = f'99999999-9999-9999-9999-99999999999{n}'
+            self.console.policies[uid] = {'id': uid, 'name': name, 'enabled': True, 'index': 5 + n, 'action': {'type': 'ALLOW'},
+                                          'source': {'zoneId': ext}, 'destination': {'zoneId': internal}}
+
+    def soc_internal(self):
+        return next(p['id'] for p in self.binding.policies if 'Internal' in p['name'])
+
+    def test_soc_policies_move_first_keeping_the_rest_in_order(self):
+        response = self.client.post(self.url, {'action': 'unifi_policy_first', 'binding': self.binding.pk}, follow=True)
+        self.assertContains(response, 'ya son las primeras')
+        order = self.console.pair_ids({'sourceFirewallZoneId': ZONES['External'], 'destinationFirewallZoneId': ZONES['Internal']})
+        self.assertEqual(order, [self.soc_internal(), '99999999-9999-9999-9999-999999999990', '99999999-9999-9999-9999-999999999991'])
+        self.assertTrue(all(len(p['orderedFirewallPolicyIds']['beforeSystemDefined']) >= 1 for p in self.console.order_puts))
+        self.assertFalse(any(p['enabled'] for p in self.console.policies.values() if p['name'].startswith('SOC')))  # no activa nada
+        # Repetirlo no vuelve a escribir.
+        writes = len(self.console.order_puts)
+        self.client.post(self.url, {'action': 'unifi_policy_first', 'binding': self.binding.pk})
+        self.assertEqual(len(self.console.order_puts), writes)
+
+    def test_renamed_policy_is_not_moved(self):
+        self.console.policies[self.soc_internal()]['name'] = 'Bloqueo renombrado'
+        response = self.client.post(self.url, {'action': 'unifi_policy_first', 'binding': self.binding.pk}, follow=True)
+        self.assertContains(response, 'ha cambiado en UniFi')
+        self.assertEqual(self.console.order_puts, [])
+
+    def test_requires_fresh_mfa(self):
+        session = self.client.session
+        session['soc_mfa_at'] = 0
+        session.save()
+        response = self.client.post(self.url, {'action': 'unifi_policy_first', 'binding': self.binding.pk})
+        self.assertRedirects(response, reverse('mfa_challenge'), fetch_redirect_response=False)
+        self.assertEqual(self.console.order_puts, [])
+
+    def test_allowlist_only_accepts_well_formed_ordering(self):
+        mock.patch.stopall()
+        site = f'/v1/sites/{SITE}/firewall/policies/ordering'
+        query = {'sourceFirewallZoneId': ZONES['External'], 'destinationFirewallZoneId': ZONES['Internal']}
+        for bad_query, body in ((None, None), ({'sourceFirewallZoneId': 'x', 'destinationFirewallZoneId': 'y'}, None),
+                                (query, {'orderedFirewallPolicyIds': {'beforeSystemDefined': ['no-uuid'], 'afterSystemDefined': []}}),
+                                (query, {'otra': 1})):
+            with self.assertRaisesRegex(unifi_blocklist.UnifiCloudError, 'no permitida'):
+                unifi_blocklist.call('k', 'host-1', site, 'PUT' if body else 'GET', body, query=bad_query)

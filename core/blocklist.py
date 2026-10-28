@@ -467,8 +467,20 @@ def sync_unifi(client):
 def unifi_action(request, client, feed, action):
     """Buscar listas «SOC…» en la consola, vincular una o dejar de gestionarla. None = volver a pintar la página."""
     from .models import UnifiBlocklistBinding
-    from .unifi_blocklist import candidates, create_list, create_policies, delete_policies, set_policies, sync
+    from .unifi_blocklist import candidates, create_list, create_policies, delete_policies, move_first, set_policies, sync
     from .unifi_cloud import UnifiCloudError
+    if action == 'unifi_policy_first':
+        binding = get_object_or_404(UnifiBlocklistBinding.objects.filter(device__site__client=client).exclude(policies=[]),
+                                    pk=request.POST.get('binding', '0') or 0)
+        try:
+            moved = move_first(binding)
+        except UnifiCloudError as exc:
+            messages.error(request, f'No se pudo cambiar el orden en UniFi: {exc}')
+            return redirect('blocklist_detail', client_pk=client.pk)
+        audit('blocklist.unifi_policy_first', client, {'status': binding.direction, 'count': moved})
+        messages.success(request, 'Las políticas del SOC ya son las primeras de su cruce de zonas.' if moved else
+                         'Las políticas del SOC ya estaban las primeras; no se ha cambiado nada.')
+        return redirect('blocklist_detail', client_pk=client.pk)
     if action in ('unifi_policy_enable', 'unifi_policy_disable'):
         binding = get_object_or_404(UnifiBlocklistBinding.objects.filter(device__site__client=client).exclude(policies=[]),
                                     pk=request.POST.get('binding', '0') or 0)
@@ -704,7 +716,8 @@ def detail(request, client_pk):
             audit('blocklist.token_rotated', client)
             messages.success(request, 'Token nuevo. Actualiza la URL en los firewalls: la anterior deja de funcionar.')
             return redirect('blocklist_detail', client_pk=client.pk)
-        elif action in ('unifi_lists', 'unifi_bind', 'unifi_unbind', 'unifi_create', 'unifi_policy_enable', 'unifi_policy_disable'):
+        elif action in ('unifi_lists', 'unifi_bind', 'unifi_unbind', 'unifi_create', 'unifi_policy_enable', 'unifi_policy_disable',
+                        'unifi_policy_first'):
             if not request.user.has_perm('core.manage_connections'):
                 return HttpResponseForbidden('Permiso de conexiones requerido.')
             result = unifi_action(request, client, feed, action)
