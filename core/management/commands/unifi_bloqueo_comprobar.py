@@ -143,10 +143,28 @@ class Command(BaseCommand):
             if before:
                 names_before = ', '.join(f'«{r.get("name")}» (orden {r.get("index")})' for r in before[:10])
                 self.line(f'AVISO: {len(before)} política(s) ALLOW del mismo flujo se evalúan antes: {names_before}. '
-                          'Usa «Poner las del SOC las primeras» en el panel antes de activar.', 3)
+                          'Pon la del SOC la primera antes de activar.', 3)
         missing = saved - {p.get('id') for p in rows}
         if missing:
             self.line(f'AVISO: {len(missing)} política(s) guardadas en el panel ya no existen en UniFi.', 1)
+        self.check_state(rows, bindings)
+
+    def check_state(self, rows, bindings):
+        """El panel guarda si sus políticas están activas; si alguien las cambió en UniFi, avisa del desfase."""
+        by_id = {p.get('id'): p for p in rows}
+        for b in bindings:
+            found = [by_id[p['id']] for p in b.policies if p['id'] in by_id]
+            if not found:
+                continue
+            active = sum(1 for p in found if p.get('enabled'))
+            real = 'todas activadas' if active == len(found) else 'todas desactivadas' if not active else f'{active} de {len(found)} activadas'
+            stored = 'activadas' if b.policies_enabled else 'desactivadas'
+            if (active == len(found)) != b.policies_enabled or 0 < active < len(found):
+                action = '«Activar la política de bloqueo»' if active else '«Desactivar la política»'
+                self.line(f'AVISO · {b.get_direction_display()}: el panel las tiene como {stored}, pero en UniFi están {real} '
+                          f'(cambiadas fuera del panel). Pulsa {action} en el panel para alinearlo.', 1)
+            else:
+                self.line(f'Estado de las políticas · {b.get_direction_display()}: {real}, igual en el panel y en UniFi.', 1)
 
     def order_line(self, key, host, site, pair, uid):
         """Posición en el orden oficial del cruce y si UniFi permite reordenarlo por API."""
@@ -160,6 +178,10 @@ class Command(BaseCommand):
         ids = before + after
         where = f'posición {ids.index(uid) + 1} de {len(ids)}' if uid in ids else 'no aparece'
         legacy = ub.unidentified(ids)
-        self.line(f'Orden oficial del cruce: {where}'
-                  + (f' · {legacy} política(s) antiguas sin identificador: reordenar a mano en UniFi' if legacy
-                     else ' · se puede reordenar desde el panel'), 3)
+        if ids[:1] == [uid]:
+            note = 'ya es la primera'
+        elif legacy:
+            note = f'{legacy} política(s) antiguas sin identificador: ponla la primera arrastrándola en UniFi'
+        else:
+            note = 'se puede poner la primera desde el panel'
+        self.line(f'Orden oficial del cruce: {where} · {note}', 3)

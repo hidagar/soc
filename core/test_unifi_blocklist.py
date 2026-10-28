@@ -385,5 +385,38 @@ class PolicyOrderTests(UnifiTestCase):
         self.console.legacy = [None]
         out = StringIO()
         call_command('unifi_bloqueo_comprobar', stdout=out)
-        self.assertIn('1 política(s) antiguas sin identificador: reordenar a mano en UniFi', out.getvalue())
+        self.assertIn('1 política(s) antiguas sin identificador: ponla la primera arrastrándola en UniFi', out.getvalue())
         self.assertIn('Orden oficial del cruce: posición', out.getvalue())
+
+
+class CheckStateTests(UnifiTestCase):
+    def run_check(self):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('unifi_bloqueo_comprobar', stdout=out)
+        return out.getvalue()
+
+    def test_first_position_and_state_drift_are_reported(self):
+        url = self.login()
+        self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'in'})
+        self.console.legacy = [None]
+        binding = UnifiBlocklistBinding.objects.get(device=self.device)
+        output = self.run_check()
+        self.assertIn('Estado de las políticas · Entrada: todas desactivadas, igual en el panel y en UniFi.', output)
+        # Alguien activa una política directamente en UniFi: el panel sigue creyendo que están desactivadas.
+        self.console.policies[binding.policies[0]['id']]['enabled'] = True
+        output = self.run_check()
+        self.assertIn('el panel las tiene como desactivadas, pero en UniFi están 1 de 2 activadas', output)
+        self.assertIn('Pulsa «Activar la política de bloqueo»', output)
+        for p in binding.policies:
+            self.console.policies[p['id']]['enabled'] = True
+        UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(policies_enabled=True)
+        self.assertIn('todas activadas, igual en el panel y en UniFi', self.run_check())
+
+    def test_soc_policy_first_despite_legacy_is_not_flagged(self):
+        url = self.login()
+        self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'in'})
+        self.console.legacy = []  # orden: solo las del SOC, la primera es la suya
+        output = self.run_check()
+        self.assertIn('ya es la primera', output)
