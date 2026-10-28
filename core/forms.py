@@ -133,7 +133,10 @@ class DeviceForm(StyledModelForm):
         super().__init__(*args, **kwargs)
         from .device_inventory import FIELDS, provider, facts
         self.automatic_inventory = bool(self.instance.pk and provider(self.instance)[1])
-        self.display_fields = [self[name] for name in self.fields if name not in FIELDS]
+        # Los datos de conexión los fija el asistente; aquí quedan aparte, como ajuste avanzado.
+        connection = ('management_method', 'log_method', 'management_address', 'ssh_username', 'wazuh_identifier')
+        self.display_fields = [self[name] for name in self.fields if name not in FIELDS and name not in connection]
+        self.connection_fields = [self[name] for name in connection]
         self.manual_inventory_fields = []
         self.inventory_facts = facts(self.instance)
         for name in FIELDS:

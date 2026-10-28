@@ -111,3 +111,12 @@ td .button{white-space:nowrap}
 }
 @media print{.more-actions,.toolbar,.section-nav{display:none!important}}
 @media(max-width:700px){.button{white-space:normal;max-width:100%;text-align:center}}
+
+/* Alta de equipos: aviso compacto de «estás dentro del asistente» y credenciales plegables. */
+.wizard-return{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px;padding:11px 14px;margin:0 0 18px;
+  border:1px solid #cfe5d7;border-radius:11px;background:#eef8f2;color:#1c3446}
+.wizard-return a{font-weight:700;white-space:nowrap}
+.card.editor details>summary{cursor:pointer;margin-bottom:8px}
+.more-menu a.danger-link{color:#b03540}
+details.advanced-fields{margin:6px 0 18px;padding:12px 14px;border:1px solid #e3e9ee;border-radius:12px;background:#fafcfd}
+details.advanced-fields>summary{cursor:pointer;font-weight:700}

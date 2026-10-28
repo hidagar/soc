@@ -4,6 +4,7 @@ import ipaddress
 import json
 import os
 import re
+import socket
 from urllib.parse import urlsplit
 
 from django.conf import settings
@@ -77,15 +78,64 @@ def _api_request(connection, path, payload=None):
     return _get_json(*args) if payload is None else _post_json(*args, payload)
 
 
+def _soc_address(host):
+    """Dirección del SOC a la que apunta un destino, o None. Admite IP o nombre (p. ej. soc.ibred.es)."""
+    host = str(host or "").strip()
+    known = available_destinations()
+    if host in known:
+        return host
+    try:
+        ipaddress.ip_address(host)
+        return None
+    except ValueError:
+        pass
+    if not re.fullmatch(r"[A-Za-z0-9.-]{1,253}", host):
+        return None
+    try:
+        resolved = {info[4][0] for info in socket.getaddrinfo(host, None, socket.AF_INET)}
+    except OSError:
+        return None
+    return next((ip for ip in known if ip in resolved), None)
+
+
+def _soc_rows(rows, port):
+    """Destinos syslog del equipo que ya envían al SOC por este puerto, con la dirección a la que llegan."""
+    found = []
+    for row in rows:
+        if isinstance(row, dict) and str(row.get("port")) == str(port):
+            address = _soc_address(row.get("hostname"))
+            if address:
+                found.append((row, address))
+    return found
+
+
 def _opnsense_api(device, connection, destination, port):
+    """Crea, verifica o adopta el destino syslog hacia el SOC. Devuelve (uuid, destino, aviso).
+
+    Si alguien creó a mano un destino hacia el SOC, se adopta en lugar de crear otro: dos
+    destinos duplicarían cada evento. Solo se corrige lo imprescindible (activado y UDP IPv4)
+    y se conserva su descripción. Con varios destinos hacia el SOC se pide dejar uno.
+    """
     marker = _marker(device)
     result = _api_request(connection, "/api/syslog/settings/search_destinations")
     rows = result.get("rows")
     if not isinstance(rows, list):
         raise ProvisionError("OPNsense no devolvió la lista de destinos syslog esperada.")
-    managed = next((row for row in rows if row.get("description") == marker), None)
-    if managed is None and any(str(row.get("hostname")) == destination and str(row.get("port")) == str(port) for row in rows):
-        raise ProvisionError("Ya existe un destino syslog hacia el SOC creado fuera del panel. Revísalo antes de continuar.")
+    to_soc = _soc_rows(rows, port)
+    managed = next((row for row in rows if isinstance(row, dict) and row.get("description") == marker), None)
+    others = [(row, address) for row, address in to_soc if row is not managed]
+    notice = ""
+    if managed is None and len(others) > 1:
+        names = ", ".join(f"«{row.get('description') or row.get('hostname')}»" for row, _ in others)
+        raise ProvisionError(f"El firewall tiene {len(others)} destinos syslog hacia el SOC ({names}); cada evento llegaría "
+                             "repetido. Deja solo uno en OPNsense y vuelve a probar.")
+    if managed is None and others:
+        managed, destination = others[0]
+        notice = (f"Se ha reutilizado el destino syslog «{managed.get('description') or destination}» que ya existía "
+                  "en el firewall; no se ha creado otro.")
+    elif others:
+        notice = ("Además del destino del panel hay otro destino syslog hacia el SOC creado a mano: los eventos llegarán "
+                  "repetidos. Elimínalo en OPNsense.")
     values = {"enabled": "1", "transport": "udp4", "hostname": destination,
               "port": str(port), "description": marker, "program": "", "level": "", "facility": "", "rfc5424": "0"}
     if managed is None:
@@ -95,8 +145,19 @@ def _opnsense_api(device, connection, destination, port):
         uuid = managed.get("uuid")
         if not isinstance(uuid, str) or not uuid:
             raise ProvisionError("El destino syslog existente no tiene identificador.")
-        if all(str(managed.get(key)) == str(values[key]) for key in ("enabled", "transport", "hostname", "port")):
-            return uuid
+        if managed.get("description") != marker:
+            # Adoptado: se conserva lo que el técnico configuró (nombre, aplicaciones, niveles) y solo se
+            # corrige lo que impide recibir. La búsqueda devuelve textos de pantalla; el detalle, las claves.
+            current = _api_request(connection, f"/api/syslog/settings/get_destination/{uuid}").get("destination")
+            if not isinstance(current, dict):
+                raise ProvisionError("OPNsense no devolvió el destino syslog existente.")
+            current = {key: _option(value) for key, value in current.items()}
+            if str(current.get("enabled")) == "1" and current.get("transport") == "udp4":
+                return uuid, destination, notice
+            values = {**current, "enabled": "1", "transport": "udp4"}
+            notice += " Se ha activado y pasado a UDP IPv4, que es lo que recibe el SOC."
+        elif all(str(managed.get(key)) == str(values[key]) for key in ("enabled", "transport", "hostname", "port")):
+            return uuid, destination, notice
         response = _api_request(connection, f"/api/syslog/settings/set_destination/{uuid}", {"destination": values})
     if response.get("result") not in ("saved", "ok", "success"):
         raise ProvisionError("OPNsense no confirmó el guardado del destino syslog.")
@@ -107,38 +168,76 @@ def _opnsense_api(device, connection, destination, port):
         raise ProvisionError("El destino quedó guardado, pero OPNsense no confirmó su aplicación.")
     verify = _api_request(connection, f"/api/syslog/settings/get_destination/{uuid}")
     current = verify.get("destination")
-    if not isinstance(current, dict) or str(current.get("hostname")) != destination or str(current.get("port")) != str(port):
+    if (not isinstance(current, dict) or _soc_address(_option(current.get("hostname"))) != destination
+            or str(_option(current.get("port"))) != str(port)):
         raise ProvisionError("OPNsense no devolvió el destino esperado después de aplicarlo.")
-    return uuid
+    return uuid, destination, notice.strip()
+
+
+def _option(value):
+    """`get_destination` devuelve las listas como {clave: {value, selected}}; se envía la clave elegida."""
+    if isinstance(value, dict):
+        chosen = [key for key, item in value.items() if isinstance(item, dict) and str(item.get("selected")) in ("1", "True", "true")]
+        return ",".join(chosen)
+    return value
 
 
 _SSH_PHP = r'''<?php
 require_once('/usr/local/opnsense/mvc/script/load_phalcon.php');
 use OPNsense\Syslog\Syslog;
 use OPNsense\Core\Config;
+// Misma política que la API: destino del panel, o se adopta uno hacia el SOC creado a mano.
+function soc_address($host, $known) {
+    $host = trim((string)$host);
+    if (in_array($host, $known, true)) { return $host; }
+    if (filter_var($host, FILTER_VALIDATE_IP) || !preg_match('/^[A-Za-z0-9.-]{1,253}$/', $host)) { return null; }
+    $resolved = gethostbynamel($host) ?: [];
+    foreach ($known as $ip) { if (in_array($ip, $resolved, true)) { return $ip; } }
+    return null;
+}
 try {
     if (posix_geteuid() !== 0) { throw new Exception('La configuración por SSH requiere una cuenta con permisos root.'); }
     $model = new Syslog();
     $marker = __MARKER__;
     $host = __HOST__;
     $port = __PORT__;
-    $managed = null;
+    $known = __KNOWN__;
+    $managed = null; $managedKey = null; $others = [];
     foreach ($model->destinations->destination->iterateItems() as $key => $item) {
-        if ((string)$item->description === $marker) { $managed = $item; break; }
-        if ((string)$item->hostname === $host && (string)$item->port === $port) {
-            throw new Exception('Ya existe un destino syslog hacia el SOC creado fuera del panel.');
-        }
+        if ((string)$item->description === $marker) { $managed = $item; $managedKey = (string)$key; continue; }
+        $address = (string)$item->port === $port ? soc_address((string)$item->hostname, $known) : null;
+        if ($address !== null) { $others[] = [(string)$key, $item, $address]; }
+    }
+    $notice = '';
+    $adopted = false;
+    if ($managed === null && count($others) > 1) {
+        throw new Exception('El firewall tiene ' . count($others) . ' destinos syslog hacia el SOC; cada evento llegaría repetido. Deja solo uno y vuelve a probar.');
+    }
+    if ($managed === null && count($others) === 1) {
+        [$managedKey, $managed, $host] = $others[0];
+        $adopted = true;
+        $notice = 'Se ha reutilizado el destino syslog «' . ((string)$managed->description ?: $host) . '» que ya existía en el firewall; no se ha creado otro.';
+    } elseif (count($others) > 0) {
+        $notice = 'Además del destino del panel hay otro destino syslog hacia el SOC creado a mano: los eventos llegarán repetidos. Elimínalo en OPNsense.';
+    }
+    if ($adopted && (string)$managed->enabled === '1' && (string)$managed->transport === 'udp4') {
+        echo json_encode(['status' => 'ok', 'uuid' => $managedKey, 'host' => $host, 'notice' => $notice]);
+        exit(0);
     }
     if ($managed === null) { $managed = $model->destinations->destination->add(); }
     $managed->enabled = '1';
     $managed->transport = 'udp4';
-    $managed->hostname = $host;
-    $managed->port = $port;
-    $managed->description = $marker;
-    $managed->program = '';
-    $managed->level = '';
-    $managed->facility = '';
-    $managed->rfc5424 = '0';
+    if (!$adopted) {
+        $managed->hostname = $host;
+        $managed->port = $port;
+        $managed->description = $marker;
+        $managed->program = '';
+        $managed->level = '';
+        $managed->facility = '';
+        $managed->rfc5424 = '0';
+    } else {
+        $notice .= ' Se ha activado y pasado a UDP IPv4, que es lo que recibe el SOC.';
+    }
     $issues = $model->performValidation();
     if ($issues->count() !== 0) { throw new Exception('OPNsense rechazó los valores del destino syslog.'); }
     $model->serializeToConfig();
@@ -149,14 +248,15 @@ try {
     if ($code !== 0) { throw new Exception('El destino quedó guardado, pero falló la aplicación de syslog.'); }
     $check = new Syslog();
     foreach ($check->destinations->destination->iterateItems() as $key => $item) {
-        if ((string)$item->description === $marker && (string)$item->hostname === $host && (string)$item->port === $port) {
-            echo json_encode(['status' => 'ok', 'uuid' => (string)$key]);
+        $own = $adopted ? (string)$key === $managedKey : (string)$item->description === $marker;
+        if ($own && (string)$item->enabled === '1' && soc_address((string)$item->hostname, $known) === $host && (string)$item->port === $port) {
+            echo json_encode(['status' => 'ok', 'uuid' => (string)$key, 'host' => $host, 'notice' => $notice]);
             exit(0);
         }
     }
     throw new Exception('No se pudo verificar el destino syslog guardado.');
 } catch (Throwable $error) {
-    echo json_encode(['status' => 'error', 'message' => substr($error->getMessage(), 0, 220)]);
+    echo json_encode(['status' => 'error', 'message' => substr($error->getMessage(), 0, 300)]);
     exit(1);
 }
 '''
@@ -165,7 +265,8 @@ try {
 def _opnsense_ssh(device, connection, destination, port):
     script = (_SSH_PHP.replace("__MARKER__", json.dumps(_marker(device)))
              .replace("__HOST__", json.dumps(destination))
-             .replace("__PORT__", json.dumps(str(port))))
+             .replace("__PORT__", json.dumps(str(port)))
+             .replace("__KNOWN__", json.dumps(available_destinations())))
     uid_status, uid_output, _ = run_command(connection, "id -u")
     if uid_status != 0:
         raise ProvisionError("No se pudieron comprobar los permisos SSH antes de configurar syslog.")
@@ -187,7 +288,8 @@ def _opnsense_ssh(device, connection, destination, port):
         raise ProvisionError("OPNsense no devolvió una respuesta válida al configurar syslog por SSH.") from exc
     if status != 0 or result.get("status") != "ok":
         raise ProvisionError(result.get("message") or "OPNsense rechazó la configuración syslog por SSH.")
-    return str(result.get("uuid") or "")[:160]
+    host = result.get("host") if result.get("host") in available_destinations() else destination
+    return str(result.get("uuid") or "")[:160], host, str(result.get("notice") or "")[:400]
 
 
 UNIFI_CONTENTS = ("admin_activity", "client", "critical", "device", "security_detections", "triggers", "updates", "vpn")
@@ -213,12 +315,16 @@ def _unifi_api(connection, destination, port, managed_identifier=""):
         raise ProvisionError("UniFi no devolvió un identificador de Activity Logging válido.")
     old_ip = str(row.get("ip") or "").strip()
     old_port = str(row.get("port") or "")
+    if (old_ip and identifier != managed_identifier and old_port in ("", "0", str(port))
+            and _soc_address(old_ip) and _soc_address(old_ip) != destination):
+        # Ya envía al SOC por otra de sus direcciones (pública o privada): se respeta la ruta elegida a mano.
+        destination = _soc_address(old_ip)
     if old_ip and (old_ip != destination or old_port not in ("", "0", str(port))) and identifier != managed_identifier:
         raise ProvisionError("UniFi ya exporta a otro servidor SIEM; el panel no cambiará ese destino.")
     wanted = set(UNIFI_CONTENTS)
     existing = {item for item in row.get("contents", []) if isinstance(item, str)}
     if old_ip == destination and old_port == str(port) and row.get("enabled") is True and wanted.issubset(existing):
-        return identifier
+        return identifier, destination
     values = {"ip": destination, "port": port, "enabled": True,
               "contents": sorted(existing | wanted)}
     try:
@@ -237,7 +343,7 @@ def _unifi_api(connection, destination, port, managed_identifier=""):
         raise ProvisionError("UniFi no confirmó el destino SIEM después de guardarlo.")
     if not wanted.issubset(set(verified.get("contents") or [])):
         raise ProvisionError("UniFi no confirmó todas las categorías de Activity Logging.")
-    return identifier
+    return identifier, destination
 
 
 def provision_export(device):
@@ -262,9 +368,10 @@ def provision_export(device):
     config.last_error = ""
     config.last_attempt_at = timezone.now()
     config.save()
+    config.notice = ""  # aviso de esta ejecución (destino adoptado o duplicado); no se guarda
     try:
         if device.vendor == Device.Vendor.UNIFI and device.management_method == Device.ManagementMethod.API:
-            identifier = _unifi_api(device.unifi_cloud, config.destination, PORT, config.remote_identifier)
+            identifier, config.destination = _unifi_api(device.unifi_cloud, config.destination, PORT, config.remote_identifier)
             try:
                 discovered_source = discover_syslog_source(
                     decrypt_api_key(device.unifi_cloud.encrypted_api_key), device.unifi_cloud.remote_host_id, config.destination
@@ -277,12 +384,12 @@ def provision_export(device):
             connection = device.opnsense_api
             if not connection.last_ok:
                 raise ProvisionError("Verifica primero la conexión API.")
-            identifier = _opnsense_api(device, connection, config.destination, PORT)
+            identifier, config.destination, config.notice = _opnsense_api(device, connection, config.destination, PORT)
         elif device.vendor == Device.Vendor.OPNSENSE and device.management_method == Device.ManagementMethod.SSH:
             connection = device.ssh_connection
             if not connection.last_ok:
                 raise ProvisionError("Verifica primero la conexión SSH.")
-            identifier = _opnsense_ssh(device, connection, config.destination, PORT)
+            identifier, config.destination, config.notice = _opnsense_ssh(device, connection, config.destination, PORT)
         else:
             raise ProvisionError("Este fabricante o método aún no admite configuración automática de syslog.")
         config.remote_identifier = identifier

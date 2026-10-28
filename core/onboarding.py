@@ -47,13 +47,18 @@ class MethodForm(forms.Form):
 
     def __init__(self, *args, device, can_manage, **kwargs):
         super().__init__(*args, **kwargs)
-        choices = [('manual', 'Solo envío de logs · configuración guiada, sin credenciales')]
-        if can_manage:choices.insert(0,('https','IP dinámica · envío HTTPS con clave del equipo, sin VPN'))
+        # Primero lo recomendado: si el panel puede configurarlo solo, mejor que a mano.
+        choices = []
         if can_manage and device.vendor in ('unifi', 'opnsense'):
-            choices.append(('api', 'API · el panel configura la exportación automáticamente'))
+            choices.append(('api', 'API · el panel configura el envío por ti (recomendado)'))
         if can_manage and device.vendor == 'opnsense':
-            choices.append(('ssh', 'SSH · el panel configura la exportación automáticamente'))
+            choices.append(('ssh', 'SSH · el panel configura el envío por ti'))
+        if can_manage:
+            choices.append(('https', 'IP dinámica · envío por HTTPS con clave del equipo, sin VPN'))
+        choices.append(('manual', 'Manual · el envío ya está configurado en el equipo o lo configuras tú'))
         self.fields['method'].choices = choices
+        if self.initial.get('method') not in [value for value, _ in choices]:
+            self.initial['method'] = choices[0][0]
         if device.vendor == 'opnsense':
             self.fields['profile'] = forms.ChoiceField(
                 label='Solución del firewall', required=False,
@@ -245,7 +250,7 @@ def device_wizard(request, pk):
     error = ''
     form = None
     if step == 3:
-        form = MethodForm(request.POST or None, device=device, can_manage=can_manage, initial={'method': row.method})
+        form = MethodForm(request.POST or None, device=device, can_manage=can_manage, initial={'method': row.method if config or row.pk and row.method != 'manual' else None})
         if request.method == 'POST' and form.is_valid():
             if config is not None and not can_manage:
                 return HttpResponseForbidden('Tu cuenta necesita permiso de conexiones para cambiar una integración existente.')
@@ -327,6 +332,8 @@ def device_wizard(request, pk):
         'port': PORT, 'cancel_url': reverse('site_detail', args=[device.site_id]),
         'status_url': reverse('onboarding_status', args=[pk]),
         'automatic_ready': automatic_ready,
+        'auto': row.method not in ('manual', 'https'),
+        'ready': bool(config and config.status == ExportConfiguration.Status.CONFIGURED and automatic_ready),
     })
 
 

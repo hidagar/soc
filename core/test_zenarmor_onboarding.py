@@ -52,7 +52,7 @@ class ZenarmorWizardTests(TestCase):
         device = self.device(step=3, enabled=False)
         url = reverse('device_onboarding', args=[device.pk])
         page = self.client.get(url)
-        self.assertEqual([value for value, _ in page.context['form'].fields['method'].choices], ['https', 'manual', 'api', 'ssh'])
+        self.assertEqual([value for value, _ in page.context['form'].fields['method'].choices], ['api', 'ssh', 'https', 'manual'])
         self.client.post(url, {'method': 'manual', 'profile': 'opnsense_zenarmor'})
         device.refresh_from_db()
         self.assertTrue(device.zenarmor_enabled)

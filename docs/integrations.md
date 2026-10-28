@@ -4,6 +4,10 @@
 
 Cliente seleccionado → sede → equipo/perfil → método → instrucciones/configuración → recepción → validación de detección. La sede queda asociada al cliente del contexto; no aceptar otro cliente manipulando POST. OPNsense + Zenarmor es un perfil adicional, no otro fabricante.
 
+El asistente propone primero el método automático (API, luego SSH) cuando el fabricante lo admite; «Manual» queda para envíos ya configurados o sin credenciales. Al terminar la conexión API/SSH/UniFi en su pantalla se vuelve solo al paso 4.
+
+**Destino ya existente hacia el SOC** (`provisioning.py`): si el firewall ya tiene un destino Syslog creado a mano hacia cualquier dirección del SOC (`available_destinations()`, también por nombre DNS) y el mismo puerto, se reutiliza en lugar de crear otro o dar error. En OPNsense se conserva su descripción, aplicaciones y niveles y solo se corrige `enabled` y `udp4`; en UniFi se respeta la dirección del SOC elegida. Con dos o más destinos manuales hacia el SOC se pide dejar uno (cada evento llegaría repetido); si conviven el del panel y uno manual, se avisa sin bloquear. Los destinos hacia otros servidores no se tocan.
+
 API/SSH son opcionales cuando basta Syslog guiado. Inventario intenta descubrir modelo, firmware, serie y versión/edición Zenarmor con datos allowlisted. Desconocido no borra un hecho conocido: mostrar origen, fecha y pendiente. No exigir datos que el conector puede descubrir.
 
 ## Capacidades implementadas
