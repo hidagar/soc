@@ -27,7 +27,7 @@ class ReceiverTransitionTests(SimpleTestCase):
         updated = {**row, 'ip': '141.105.111.250'}
         with mock.patch('core.provisioning.decrypt_api_key', return_value='test-only-key'), \
              mock.patch('core.provisioning.connector_json', side_effect=[{'data': [row]}, {}, {'data': [updated]}]) as connector:
-            self.assertEqual(_unifi_api(connection, '141.105.111.250', 5514, identifier), identifier)
+            self.assertEqual(_unifi_api(connection, '141.105.111.250', 5514, identifier), (identifier, '141.105.111.250'))
         write = connector.call_args_list[1]
         self.assertEqual(write.args[2], '/network/api/s/default/rest/setting/rsyslogd')
         self.assertEqual(write.kwargs['method'], 'PUT')

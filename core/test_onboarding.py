@@ -168,7 +168,7 @@ class OnboardingTests(TestCase):
         self.assertEqual(device.integration, 'pending')
 
     def test_automatic_export_keeps_wizard_log_origin_when_management_uses_another_ip(self):
-        from .provisioning import provision_export
+        from .provisioning import DESTINATION, provision_export
         device = self.make_device(vendor='opnsense', step=4, method='api')
         device.management_method = 'api'
         device.management_address = 'https://192.168.10.1'
@@ -176,7 +176,7 @@ class OnboardingTests(TestCase):
         OpnsenseConnection.objects.create(device=device, api_url=device.management_address,
             encrypted_api_key='encrypted-value', encrypted_api_secret='encrypted-value', last_ok=True)
         ExportConfiguration.objects.create(device=device, source_ip='198.51.100.16', status='pending')
-        with mock.patch('core.provisioning._opnsense_api', return_value='managed-target'):
+        with mock.patch('core.provisioning._opnsense_api', return_value=('managed-target', DESTINATION, '')):
             config = provision_export(device)
         self.assertEqual(config.status, 'configured')
         self.assertEqual(config.source_ip, '198.51.100.16')

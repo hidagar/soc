@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block title %}SSH · {{ device.name }}{% endblock %}
 {% block content %}
+<div class="breadcrumbs"><a href="{% url 'client_detail' device.site.client.pk %}">{{ device.site.client.name }}</a><span>›</span><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a><span>›</span>Conexión SSH</div>
 {% include 'onboarding_connection_return.html' %}
-<div class="breadcrumbs"><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a><span>›</span>Conexión SSH</div>
 <header class="page-head"><div><p class="eyebrow">{{ device.site.client.name }} · {{ device.site.name }}</p><h1>Conexión SSH</h1><p class="muted">{{ device.name }}</p></div></header>
 <p class="help-shortcut"><a href="{% url 'connection_guide' %}?device={{ device.pk }}&amp;method=ssh#ayuda-ssh" target="_blank" rel="noopener noreferrer">Ayuda: usuario, contraseña, shell y huella SSH ↗</a></p>
-{% if error_message %}<section class="card"><p role="alert" class="form-error">{{ error_message }}</p></section>{% endif %}
+{% if error_message %}<p class="notice" role="alert"><strong>No se pudo conectar:</strong> {{ error_message }}</p>{% endif %}
 <section class="card"><h2>Acceso al equipo</h2>
   <p>El panel comprueba la huella SSH antes de guardar la contraseña. Para configurar OPNsense, usa una cuenta administradora con shell y sudo activado; el panel usará la contraseña guardada si sudo la solicita.</p>
   {% if connection %}<p><strong>Credenciales guardadas.</strong> Estado: {% if connection.last_ok %}verificado{% else %}pendiente o con error{% endif %}. Huella fijada: <code>{{ connection.fingerprint }}</code>{% if connection.last_checked_at %} · Última comprobación: {{ connection.last_checked_at|date:'d/m/Y H:i' }}{% endif %}</p>{% endif %}

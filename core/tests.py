@@ -122,7 +122,7 @@ class PortalWorkflowTests(TestCase):
         self.assertEqual(unifi.model, "")
         self.assertEqual(site.devices.get(vendor=Device.Vendor.OPNSENSE).management_method, Device.ManagementMethod.SSH)
         response = self.client.get(reverse("site_detail", args=[site.pk]))
-        self.assertContains(response, "Conexiones de la sede")
+        self.assertContains(response, "Envío sin configurar")
 
     def test_site_creation_saves_unifi_key_and_discovers_model(self):
         self.user.user_permissions.add(Permission.objects.get(codename="manage_connections"))
@@ -632,7 +632,7 @@ class PortalWorkflowTests(TestCase):
         ExportConfiguration.objects.create(device=unifi, destination="141.105.111.227", source_ip="88.18.85.95",
                                            status=ExportConfiguration.Status.CONFIGURED, remote_identifier="0123456789abcdef01234567")
         with mock.patch.dict("os.environ", {"SOC_PORTAL_PUBLIC_SYSLOG_IP": "141.105.111.227"}), \
-             mock.patch("core.provisioning._unifi_api", return_value="0123456789abcdef01234567"), \
+             mock.patch("core.provisioning._unifi_api", return_value=("0123456789abcdef01234567", "141.105.111.227")), \
              mock.patch("core.provisioning.decrypt_api_key", return_value="test-key"), \
              mock.patch("core.provisioning.discover_syslog_source", return_value=None):
             result = provision_export(unifi)

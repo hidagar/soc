@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block title %}API UniFi Cloud · {{ device.name }}{% endblock %}
 {% block content %}
+<div class="breadcrumbs"><a href="{% url 'client_detail' device.site.client.pk %}">{{ device.site.client.name }}</a><span>›</span><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a><span>›</span>API UniFi Cloud</div>
 {% include 'onboarding_connection_return.html' %}
-<div class="breadcrumbs"><a href="{% url 'device_detail' device.pk %}">{{ device.name }}</a><span>›</span>API UniFi Cloud</div>
 <header class="page-head"><div><p class="eyebrow">{{ device.site.client.name }} · {{ device.site.name }}</p><h1>Conexión UniFi Cloud</h1><p class="muted">{{ device.name }} · {{ device.model|default:'UniFi' }}</p></div></header>
 <p class="help-shortcut"><a href="{% url 'connection_guide' %}?device={{ device.pk }}#paso-3" target="_blank" rel="noopener noreferrer">Ayuda: crear la clave API, elegir la consola y enviar los eventos ↗</a></p>
-{% if error_message %}<section class="card"><p role="alert">{{ error_message }}</p></section>{% endif %}
+{% if error_message %}<p class="notice" role="alert"><strong>No se pudo conectar:</strong> {{ error_message }}</p>{% endif %}
 <section class="card">
   <h2>Clave API</h2>
   <p>Genera una clave en UniFi Site Manager, Ajustes → API Keys. Introdúcela aquí; se guarda cifrada y no se vuelve a mostrar. Solo las cuentas con permiso de conexiones pueden modificarla.</p>

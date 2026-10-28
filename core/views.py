@@ -43,6 +43,26 @@ def _update_opnsense_details(device, api_url, api_key, api_secret, ca_certificat
         device.save(update_fields=["software_version"])
 
 
+def _report_export(request, export, done):
+    """Mensaje único tras configurar el envío de registros: resultado y, si lo hay, el aviso (destino reutilizado o duplicado)."""
+    if export.status == ExportConfiguration.Status.CONFIGURED:
+        messages.success(request, done)
+        notice = getattr(export, "notice", "")
+        if notice:
+            (messages.warning if "repetid" in notice else messages.info)(request, notice)
+        return True
+    messages.warning(request, f"No se pudo configurar el envío de registros: {export.last_error}")
+    return False
+
+
+def _wizard_return(device):
+    """Si el equipo está en el paso 4 del asistente, volver a él al terminar la conexión."""
+    from .models import FirewallOnboarding
+    if FirewallOnboarding.objects.filter(device=device, step=4).exists():
+        return redirect("device_onboarding", pk=device.pk)
+    return None
+
+
 @login_required
 def dashboard(request):
     """Portada del SOC: primero lo que requiere atención, después la actividad reciente."""
@@ -241,7 +261,8 @@ def client_detail(request, pk):
 @login_required
 def site_detail(request, pk):
     site = get_object_or_404(Site.objects.select_related("client"), pk=pk)
-    return render(request, "site_detail.html", {"site": site, "devices": site.devices.all(), "incidents": site.incidents.all()[:8]})
+    devices = site.devices.select_related("health", "onboarding", "export_configuration").order_by("-active", "name")
+    return render(request, "site_detail.html", {"site": site, "devices": devices, "incidents": site.incidents.all()[:8]})
 
 
 @login_required
@@ -318,10 +339,7 @@ def export_destination(request, pk):
     export.receiver_ready = False
     export.save(update_fields=["destination", "status", "receiver_ready"])
     result = provision_export(device)
-    if result.status == ExportConfiguration.Status.CONFIGURED:
-        messages.success(request, f"Exportación configurada hacia {destination}:{result.port}.")
-    else:
-        messages.warning(request, f"Destino guardado; exportación pendiente: {result.last_error}")
+    _report_export(request, result, f"Exportación configurada hacia {result.destination}:{result.port}.")
     return redirect("device_detail", pk=pk)
 
 
@@ -537,11 +555,10 @@ def unifi_cloud(request, pk):
                         messages.warning(request, "La sede vinculada ya no está accesible con esta clave.")
                 connection.save()
                 if action == "link" and connection.last_ok:
-                    export = provision_export(device)
-                    if export.status == ExportConfiguration.Status.CONFIGURED:
-                        messages.success(request, "Activity Logging configurado para enviar al SOC.")
-                    else:
-                        messages.warning(request, f"Exportación pendiente: {export.last_error}")
+                    if _report_export(request, provision_export(device), "Activity Logging configurado para enviar al SOC."):
+                        back = _wizard_return(device)
+                        if back:
+                            return back
             elif action == "remove":
                 if connection is not None:
                     connection.delete()
@@ -649,11 +666,10 @@ def opnsense_api(request, pk):
                 if not device.management_address:
                     device.management_address = connection.api_url
                     device.save(update_fields=['management_address'])
-                export = provision_export(device)
-                if export.status == ExportConfiguration.Status.CONFIGURED:
-                    messages.success(request, "Destino syslog creado o verificado en OPNsense.")
-                else:
-                    messages.warning(request, f"Exportación pendiente: {export.last_error}")
+                if _report_export(request, provision_export(device), "Envío de registros al SOC configurado en OPNsense."):
+                    back = _wizard_return(device)
+                    if back:
+                        return back
             elif action == "remove":
                 if connection is not None:
                     connection.delete()
@@ -736,11 +752,10 @@ def ssh_connection(request, pk):
                 from .device_inventory import queue as queue_inventory
                 queue_inventory(device)
                 if device.vendor == Device.Vendor.OPNSENSE:
-                    export = provision_export(device)
-                    if export.status == ExportConfiguration.Status.CONFIGURED:
-                        messages.success(request, "Destino syslog configurado en OPNsense.")
-                    else:
-                        messages.warning(request, f"Exportación pendiente: {export.last_error}")
+                    if _report_export(request, provision_export(device), "Envío de registros al SOC configurado en OPNsense."):
+                        back = _wizard_return(device)
+                        if back:
+                            return back
             elif action == "remove":
                 if connection:
                     connection.delete()

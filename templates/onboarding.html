@@ -28,32 +28,37 @@
   </form>
 </section>
 {% elif step == 3 %}
-<section class="card editor"><h2>Elige cómo enviar los datos</h2><p>Puedes conectar este firewall enviando sus logs al SOC. API y SSH son opciones para que el panel prepare la exportación por ti.</p>
+<section class="card editor"><h2>¿Cómo llegarán los registros al SOC?</h2><p class="muted">Elige una opción. Podrás cambiarla más tarde desde la ficha del equipo.</p>
 {% if device.vendor == 'hillstone' and can_manage %}<p>Para Hillstone puedes <a href="{% url 'hillstone_api' device.pk %}">configurar el acceso API y descubrir el equipo</a>. Después vuelve aquí y continúa con el envío de logs guiado.</p>{% endif %}
 {% if device.vendor == 'grandstream_gcc' and can_manage %}<p>Puedes <a href="{% url 'gdms_cloud' device.pk %}">guardar y comprobar las credenciales de GDMS Networking</a>. Es opcional: continúa aquí con el envío de logs guiado para verificar la recepción en Wazuh.</p>{% endif %}
   <form method="post">{% csrf_token %}{% if form.errors %}<div class="form-error" role="alert">{{ form.errors }}</div>{% endif %}
-  {% if form.profile %}<div class="field wizard-fields"><label for="{{ form.profile.id_for_label }}">{{ form.profile.label }}</label>{{ form.profile }}</div>{% endif %}<div class="wizard-choices">{% for option in form.method %}<label class="wizard-choice">{{ option.tag }}<span>{{ option.choice_label }}{% if option.data.value == 'https' %}<small>Para conexiones sin IP fija: un reenviador local envía los logs por HTTPS 443 con una clave del equipo. Sin VPN ni IP pública manual.</small>{% elif option.data.value == 'manual' %}<small>Envío UDP directo: necesita un origen identificable. Para IP dinámica elige HTTPS.</small>{% endif %}</span></label>{% endfor %}</div>
+  {% if form.profile %}<div class="field wizard-fields"><label for="{{ form.profile.id_for_label }}">{{ form.profile.label }}</label>{{ form.profile }}</div>{% endif %}<div class="wizard-choices">{% for option in form.method %}<label class="wizard-choice">{{ option.tag }}<span>{{ option.choice_label }}{% if option.data.value == 'api' %}<small>Guardas la clave API una vez y el panel crea o reutiliza el destino de registros hacia el SOC. Si ya lo creaste a mano, se aprovecha el existente.</small>{% elif option.data.value == 'ssh' %}<small>Como la API, pero con usuario SSH y huella verificada. Útil si la API no está disponible.</small>{% elif option.data.value == 'manual' %}<small>Sin credenciales. Te damos la IP y el puerto; necesita una IP de origen fija que identifique al equipo.</small>{% elif option.data.value == 'https' %}<small>Para conexiones sin IP fija: un reenviador local envía los registros por HTTPS 443 con una clave del equipo.</small>{% endif %}</span></label>{% endfor %}</div>
   {% if not can_manage %}<p class="notice">Puedes preparar el equipo. Un usuario con permiso de conexiones tendrá que autorizar su IP de origen en el siguiente paso.</p>{% endif %}
   <div class="form-actions"><a class="button secondary" href="{% url 'device_edit' device.pk %}">Editar equipo</a><button class="button primary" type="submit">Siguiente →</button></div></form>
 </section>
 {% elif step == 4 %}
-<section class="card editor"><h2>{% if onboarding.method == 'manual' %}Configura el envío en {{ device.connection_profile_label }}{% else %}Prepara la conexión {{ onboarding.get_method_display }}{% endif %}</h2>
+<section class="card editor"><h2>{% if not auto %}Configura el envío en {{ device.connection_profile_label }}{% elif ready %}Envío configurado: confirma el origen{% else %}Conecta el panel por {{ onboarding.get_method_display }}{% endif %}</h2>
 <form method="post" id="wizard-export-form">{% csrf_token %}
 {% if form.non_field_errors %}<div class="form-error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+{% if auto %}
+{% if ready %}<p class="wizard-success">El panel ha dejado configurado el envío de registros hacia {{ export.destination }}:{{ export.port }} UDP{% if export.remote_identifier %} (destino {{ export.remote_identifier|truncatechars:14 }}){% endif %}. Confirma la IP de origen y comprueba la recepción.</p>
+{% else %}<ol class="wizard-instructions"><li>Pulsa <strong>Configurar {{ onboarding.get_method_display }}</strong> y guarda las credenciales del equipo.</li><li>El panel crea el destino de registros hacia el SOC o <strong>reutiliza el que ya exista</strong>; no hace falta borrarlo.</li><li>Volverás aquí automáticamente para confirmar la IP de origen y comprobar la recepción.</li></ol>
+{% endif %}
+{% endif %}
 <div class="form-grid">
 <div class="field wide"><label for="{{ form.destination.id_for_label }}">{{ form.destination.label }}</label>{{ form.destination }}{{ form.destination.errors }}<small>Usa la dirección pública para clientes externos o la privada si existe una ruta al SOC.</small></div>
-<div class="field wide"><label for="{{ form.source_ip.id_for_label }}">{{ form.source_ip.label }}{% if form.source_ip.field.required %} <span class="required">*</span>{% endif %}</label>{{ form.source_ip }}{% if form.source_ip.errors %}<div class="form-error" role="alert">{{ form.source_ip.errors }}</div>{% endif %}<small>{{ form.source_ip.help_text }}</small></div>
+{% if not auto or ready or form.source_ip.errors or form.source_ip.value %}<div class="field wide"><label for="{{ form.source_ip.id_for_label }}">{{ form.source_ip.label }}{% if form.source_ip.field.required or auto %} <span class="required">*</span>{% endif %}</label>{{ form.source_ip }}{% if form.source_ip.errors %}<div class="form-error" role="alert">{{ form.source_ip.errors }}</div>{% endif %}<small>{{ form.source_ip.help_text }}</small></div>{% endif %}
 </div>
+{% if auto and not ready %}{% if export.last_error %}<p class="notice" role="alert"><strong>Último intento:</strong> {{ export.last_error }}</p>{% endif %}
+<p><button class="button primary" name="action" value="connection" type="submit">Configurar {{ onboarding.get_method_display }} →</button></p>{% endif %}
+{% if auto %}<details class="wizard-trouble"><summary>Datos del destino, por si quieres revisarlo en el firewall</summary>{% endif %}
 <div class="wizard-target"><div><span>Servidor syslog</span><strong id="wizard-destination">{{ destination }}</strong><button type="button" class="button secondary" data-copy="wizard-destination">Copiar IP</button></div><div><span>Puerto y protocolo</span><strong>{{ port }} / UDP</strong><button type="button" class="button secondary" data-copy-value="{{ port }}">Copiar puerto</button></div></div><p id="copy-status" class="muted" role="status"></p>
-{% if onboarding.method == 'manual' %}
+{% if auto %}</details>{% endif %}
+{% if not auto %}
 {% include 'onboarding_instructions.html' %}
 <div class="wizard-confirm"><label>{{ form.configured }} {{ form.configured.label }}</label>{% if form.configured.errors %}<div class="form-error" role="alert">{{ form.configured.errors }}</div>{% endif %}</div>
-{% else %}
-<ol class="wizard-instructions"><li>Confirma arriba el destino. Puedes completar la IP de origen al volver de la conexión.</li><li>Pulsa <strong>Configurar {{ onboarding.get_method_display }}</strong>. El panel te guiará para guardar las credenciales y verificar el acceso.</li><li>Cuando el destino syslog esté configurado, vuelve al asistente, confirma la IP de salida y pulsa <strong>Comprobar recepción</strong>.</li></ol>
-{% if export.status == 'configured' and automatic_ready %}<p class="wizard-success">La exportación automática está configurada. Confirma la IP de salida y continúa.</p>{% elif export.last_error %}<p class="notice" role="alert">{{ export.last_error }}</p>{% endif %}
-<p><button class="button secondary" name="action" value="connection" type="submit">Configurar {{ onboarding.get_method_display }} →</button></p>
 {% endif %}
-{% if device.zenarmor_enabled %}{% include 'onboarding_zenarmor.html' %}{% endif %}<div class="form-actions"><a class="button secondary" href="{% url 'device_onboarding' device.pk %}?step=3">← Anterior</a><button class="button primary" name="action" value="verify" type="submit">{% if onboarding.method == 'manual' %}Siguiente: comprobar recepción{% else %}Comprobar recepción{% endif %} →</button></div>
+{% if device.zenarmor_enabled %}{% include 'onboarding_zenarmor.html' %}{% endif %}<div class="form-actions"><a class="button secondary" href="{% url 'device_onboarding' device.pk %}?step=3">← Cambiar método</a>{% if not auto or ready %}<button class="button primary" name="action" value="verify" type="submit">Comprobar recepción →</button>{% endif %}</div>
 {% if not can_manage %}<p class="notice">Un usuario con permiso de conexiones debe completar este paso para autorizar la recepción.</p>{% endif %}
 </form></section>
 {% elif step == 5 %}

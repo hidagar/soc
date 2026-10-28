@@ -47,6 +47,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_hillstone_security.py](../../core/test_hillstone_security.py) | 8 |
 | [core/test_improvements.py](../../core/test_improvements.py) | 24 |
 | [core/test_indexer_tls.py](../../core/test_indexer_tls.py) | 4 |
+| [core/test_interface.py](../../core/test_interface.py) | 5 |
 | [core/test_interface_topology.py](../../core/test_interface_topology.py) | 12 |
 | [core/test_investigation.py](../../core/test_investigation.py) | 11 |
 | [core/test_key_rotation.py](../../core/test_key_rotation.py) | 4 |
@@ -72,6 +73,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_service_development.py](../../core/test_service_development.py) | 18 |
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
+| [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 5 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
