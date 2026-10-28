@@ -1,12 +1,11 @@
 """Listas de bloqueo del SOC en consolas UniFi (Network 9/10, API oficial por el conector de Site Manager).
 
 UniFi no descarga listas por URL: el SOC escribe las IPs en una «traffic matching list» de tipo
-IPV4_ADDRESSES que el operador creó en UniFi y que usa una política de bloqueo creada también por
-él. Frenos:
-- Solo listas cuyo nombre empieza por «SOC» y de tipo IPV4_ADDRESSES; el SOC nunca crea ni
-  modifica políticas ni otras listas.
-- El formato de cada entrada se aprende de la propia lista (por eso se crea con una IP de prueba):
-  no se adivina el esquema de escritura.
+IPV4_ADDRESSES, creada por el SOC desde el panel o por el operador en UniFi, y que usa una política
+de bloqueo. Frenos:
+- Solo listas cuyo nombre empieza por «SOC» y de tipo IPV4_ADDRESSES; nunca se tocan las demás.
+- El formato de cada entrada se aprende de la propia lista (se crea con una IP de prueba): no se
+  adivina el esquema de escritura.
 - Solo se escribe cuando cambia el contenido, se lee de nuevo para verificarlo y cualquier
   diferencia queda como error. IPv6 no cabe en una lista IPv4 y se omite.
 - Lista vacía, detenida o caducada: se escribe solo PLACEHOLDER (documentación, no enrutable),

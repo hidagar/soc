@@ -268,3 +268,35 @@ class UnifiPolicyTests(UnifiTestCase):
                      {'name': 'SOC x', 'enabled': False, 'action': {'type': 'ALLOW'}}):
             with self.assertRaises(UnifiCloudError):
                 unifi_blocklist.call('k', 'host-1', path, 'POST', body)
+
+
+class CheckCommandTests(UnifiTestCase):
+    """`manage.py unifi_bloqueo_comprobar`: solo lectura y sin IPs en la salida."""
+
+    def run_check(self):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('unifi_bloqueo_comprobar', '--equipo', 'udm-bcm', stdout=out)
+        return out.getvalue()
+
+    def test_reports_lists_policies_and_order_without_writing(self):
+        url = self.login()
+        self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'in'})
+        # Una política del operador que permite el mismo flujo y se evalúa antes que las del SOC.
+        self.console.policies['88888888-8888-8888-8888-888888888888'] = {
+            'id': '88888888-8888-8888-8888-888888888888', 'name': 'Permitir web', 'enabled': True, 'index': 5,
+            'action': {'type': 'ALLOW'}, 'source': {'zoneId': ZONES['External']}, 'destination': {'zoneId': ZONES['Internal']}}
+        writes = (len(self.console.writes), len(self.console.posts), len(self.console.policy_posts))
+        output = self.run_check()
+        self.assertEqual(writes, (len(self.console.writes), len(self.console.posts), len(self.console.policy_posts)))
+        self.assertIn('Zonas: 3 · necesarias para el bloqueo: todas presentes', output)
+        self.assertIn('«SOC Bloqueo entrada External→Internal»: desactivada · acción BLOCK · External → Internal', output)
+        self.assertIn('creada por el panel', output)
+        self.assertIn('1 política(s) ALLOW del mismo flujo se evalúan antes', output)
+        for ip in ('45.155.205.233', '185.191.171.99', '192.0.2.1', 'clave-unifi'):
+            self.assertNotIn(ip, output)
+
+    def test_unlinked_console_is_reported(self):
+        self.device.unifi_cloud.delete()
+        self.assertIn('Consola UniFi: NO vinculada', self.run_check())
