@@ -123,6 +123,7 @@ def portal_reports(client,preview=False,limit=52):
     reports=[report for report in rows.order_by('-week_start')[:limit] if publishable(report)]
     for report in reports:
         report.portal_url=reverse('customer_preview_report',args=[client.pk,report.pk]) if preview else reverse('customer_weekly',args=[report.pk])
+        report.pdf_url=reverse('customer_preview_report_pdf',args=[client.pk,report.pk]) if preview else reverse('customer_weekly_pdf',args=[report.pk])
     return reports
 
 def portal_tasks(client,preview=False):

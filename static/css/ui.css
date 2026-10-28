@@ -162,3 +162,5 @@ details.form-section>summary{margin-bottom:10px}
 .ip-search{display:flex;gap:8px;align-items:center}.ip-search .input{width:240px}
 @media(max-width:700px){.ip-search{margin-top:14px}.ip-search .input{width:100%}}
 .services{display:flex;gap:4px;flex-wrap:wrap;margin:0}
+/* Mapa: el botón de investigar no sale de su panel. */
+#explore-country{display:flex;width:100%;white-space:normal;text-align:center;margin-top:10px}
