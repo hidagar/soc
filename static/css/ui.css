@@ -151,3 +151,14 @@ details.collapsible[open]>summary{margin-bottom:12px}
 .task-item p{margin:6px 0 0}.task-item.rework h3 a{color:#b03540}
 .task-meta{color:#7c8c98;font-size:13px}
 @media(max-width:700px){.task-item{flex-direction:column;align-items:flex-start}}
+
+/* Formularios por secciones. */
+fieldset.form-section{border:0;margin:0 0 22px;padding:0}
+fieldset.form-section>legend{font-size:15px;font-weight:750;color:#172a3c;margin-bottom:12px;padding:0}
+details.form-section{margin:0 0 22px}
+details.form-section>summary{margin-bottom:10px}
+.field.check label{display:flex;align-items:flex-start;gap:9px;font-weight:600;margin:0}
+.field.check input{width:auto;margin-top:3px}
+.ip-search{display:flex;gap:8px;align-items:center}.ip-search .input{width:240px}
+@media(max-width:700px){.ip-search{margin-top:14px}.ip-search .input{width:100%}}
+.services{display:flex;gap:4px;flex-wrap:wrap;margin:0}

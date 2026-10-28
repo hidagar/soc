@@ -32,13 +32,37 @@ class ScopedModelForm(forms.ModelForm):
 
 
 class StyledModelForm(ScopedModelForm):
+    sections = None  # [{'title', 'fields', 'collapsed', 'hint'}]: grupos que pinta object_form.html
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", "input")
 
+    @property
+    def section_list(self):
+        """Secciones con sus campos ligados. Un campo no listado va a la primera; una plegada se abre si tiene errores."""
+        if not self.sections:
+            return None
+        listed = {name for section in self.sections for name in section['fields']}
+        result = []
+        for index, section in enumerate(self.sections):
+            names = [name for name in section['fields'] if name in self.fields]
+            if index == 0:
+                names += [name for name in self.fields if name not in listed]
+            bound = [self[name] for name in names]
+            result.append({**section, 'bound': bound, 'open': any(field.errors for field in bound)})
+        return result
+
 
 class ClientForm(StyledModelForm):
+    sections = [
+        {'title': 'Datos del cliente', 'fields': ['name', 'code', 'contact_email', 'active', 'notes']},
+        {'title': 'Informes y portal del cliente', 'fields': ['report_email', 'weekly_reports_enabled',
+                                                             'customer_portal_detail_enabled', 'customer_live_map_enabled']},
+        {'title': 'Avisos urgentes', 'fields': ['urgent_alerts_enabled', 'urgent_email', 'urgent_availability_enabled']},
+    ]
+
     class Meta:
         model = Client
         fields = ["name", "code", "contact_email", "report_email", "weekly_reports_enabled", "customer_live_map_enabled", "customer_portal_detail_enabled", "urgent_email", "urgent_alerts_enabled", "urgent_availability_enabled", "active", "notes"]
@@ -211,6 +235,17 @@ SiteDeviceFormSet = formset_factory(SiteDeviceForm, extra=1, max_num=20, validat
 
 
 class IncidentForm(StyledModelForm):
+    sections = [
+        {'title': 'Qué ha pasado', 'fields': ['client', 'site', 'device', 'title', 'description']},
+        {'title': 'Clasificación', 'fields': ['severity', 'status', 'owner', 'observed_at']},
+        {'title': 'Cierre y referencias', 'fields': ['resolved_at', 'wazuh_alert_id', 'actions'], 'collapsed': True,
+         'hint': 'La fecha de resolución se rellena sola al marcar «Resuelta». Para el trabajo pendiente usa el plan de acciones de la ficha.'},
+    ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['actions'].label = 'Notas de acciones (texto libre)'
+
     def clean(self):
         values=super().clean()
         if values.get('status')=='resolved' and not values.get('resolved_at'):

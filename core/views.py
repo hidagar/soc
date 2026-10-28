@@ -116,7 +116,8 @@ def dashboard(request):
 @login_required
 def api_connections(request):
     devices = Device.objects.all().select_related(
-        "site__client", "unifi_cloud", "opnsense_api", "hillstone_api", "gdms_cloud", "ssh_connection", "export_configuration"
+        "site__client", "unifi_cloud", "opnsense_api", "hillstone_api", "gdms_cloud", "ssh_connection", "export_configuration",
+        "onboarding"
     )
     rows = []
     for device in devices:
@@ -229,7 +230,10 @@ def mail_settings(request):
 @login_required
 def client_list(request):
     query = request.GET.get("q", "").strip()
-    clients = Client.objects.annotate(site_count=Count("sites", distinct=True), device_count=Count("sites__devices", distinct=True))
+    clients = Client.objects.annotate(
+        site_count=Count("sites", distinct=True), device_count=Count("sites__devices", distinct=True),
+        open_incidents=Count("incidents", filter=~Q(incidents__status=Incident.Status.RESOLVED), distinct=True),
+    ).order_by("-active", "name")
     if query:
         clients = clients.filter(Q(name__icontains=query) | Q(code__icontains=query))
     return render(request, "clients.html", {"clients": clients, "query": query})
