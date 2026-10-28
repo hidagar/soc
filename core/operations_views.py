@@ -110,7 +110,15 @@ def health_list(request):
     if global_access:
         for name,(_,label) in JOBS.items():
             workers.append({'label':label,'state':WorkerState.objects.filter(pk='job:'+name).first()})
-    return render(request,'operations_health.html',{'rows':rows,'clients':Client.objects.all(),'selected_client':client,
+    now=timezone.now()
+    stale=now-timedelta(hours=2)
+    for r in rows:
+        last=r['health'].last_log_at if r['health'] else None
+        r['silent']=not last or last<stale
+    summary={'devices':len(rows),'receiving':sum(not r['silent'] for r in rows),'silent':sum(r['silent'] for r in rows),
+        'api_errors':sum(bool(r['health'] and r['health'].api_ok is False) for r in rows),
+        'job_errors':sum(bool(w['state'] and w['state'].error) for w in workers)}
+    return render(request,'operations_health.html',{'rows':rows,'clients':Client.objects.all(),'selected_client':client,'summary':summary,
         'issues':issues.order_by('severity','opened_at')[:100],
         'monitor':state,'reconciliation':reconciliation,'workers':workers,
         'receipt_metrics':WorkerState.objects.filter(pk='receipts').first() if global_access else None,

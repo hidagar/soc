@@ -50,8 +50,11 @@ def work_queue(request):
         When(severity='critical', then=Value(0)), When(severity='high', then=Value(1)),
         When(severity='medium', then=Value(2)), default=Value(3), output_field=IntegerField(),
     )).order_by('priority_order', 'observed_at', 'pk')
+    queues = [('unassigned', 'Sin responsable'), ('priority', 'Altas y críticas'), ('stale', 'Sin actualizar en 24 h'),
+              ('mine', 'Mis casos'), ('all', 'Todos los abiertos')]
     return render(request, 'work_queue.html', {
         'clients': Client.objects.all(), 'selected_client': selected, 'queue': queue,
+        'queues': queues, 'queue_label': dict(queues)[queue],
         'counts': counts, 'incidents': rows[:100], 'incident_total': rows.count(),
         'overdue_actions': overdue.order_by('due_at', 'pk')[:50],
         'issues': issues.order_by('opened_at', 'pk')[:50], 'issue_total': issues.count(),

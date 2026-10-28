@@ -779,7 +779,13 @@ def incident_list(request):
         incidents = incidents.filter(status=status)
     if client_id.isdigit():
         incidents = incidents.filter(client_id=client_id)
-    return render(request, "incidents.html", {"incidents": incidents[:200], "clients": Client.objects.all(), "selected_status": status, "selected_client": client_id, "statuses": Incident.Status.choices})
+    from django.core.paginator import Paginator
+    page = Paginator(incidents, 50).get_page(request.GET.get("page"))
+    params = request.GET.copy()
+    params.pop("page", None)
+    return render(request, "incidents.html", {"incidents": page, "page": page, "query": params.urlencode(),
+                                              "clients": Client.objects.all(), "selected_status": status,
+                                              "selected_client": client_id, "statuses": Incident.Status.choices})
 
 
 @login_required

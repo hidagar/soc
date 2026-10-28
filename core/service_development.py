@@ -157,7 +157,8 @@ def customer_reports_context(client,preview=False):
 
 def customer_tasks_context(client,preview=False):
     tasks,closed=portal_tasks(client,preview)
-    return {**_portal_base(client,preview,'tasks'),'tasks':tasks,'closed_tasks':closed}
+    return {**_portal_base(client,preview,'tasks'),'tasks':tasks,'closed_tasks':closed,
+        'pending_tasks':[t for t in tasks if t.status!='submitted'],'submitted_tasks':[t for t in tasks if t.status=='submitted']}
 
 def customer_geography(request,client=None):
     from .threat_map import map_data
