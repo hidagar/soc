@@ -83,6 +83,8 @@ SOC_RECEIVER_PORT = int(os.environ.get('SOC_PORTAL_RECEIVER_PORT', '5514'))
 # Proxies cuyo X-Real-IP identifica al navegador, y fallos de login por IP en 15 minutos.
 SOC_TRUSTED_PROXIES = [p.strip() for p in os.environ.get('SOC_PORTAL_TRUSTED_PROXIES', '127.0.0.1,::1').split(',') if p.strip()]
 SOC_LOGIN_IP_LIMIT = int(os.environ.get('SOC_PORTAL_LOGIN_IP_LIMIT', '30'))
+# URL HTTPS de un servicio de latido externo (p. ej. Healthchecks.io); vacía, sin latido.
+SOC_HEARTBEAT_URL = os.environ.get('SOC_PORTAL_HEARTBEAT_URL', '')
 SESSION_COOKIE_AGE = 7200
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_HTTPONLY = True

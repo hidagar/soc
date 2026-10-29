@@ -29,6 +29,20 @@ Copia interna incluye su `etc`, pero no acredita restaurar todas las correlacion
 
 ## Ensayo
 
-VM/red aislada, sin salida a equipos reales, correos ni IP en conflicto. Validar manifiesto/rutas, restaurar claves/configuración/DB/snapshots bajo procedimiento revisado; arrancar dependencias, verificar permisos, scope, HTML/PDF, SSO, colas/trabajos. Comparar IDs, conteos y propiedad. Medir tiempos y faltantes.
+Con copias de VM, «Salud del SOC» avisa (`platform:restore-rehearsal`) si no hay un ensayo registrado con la pérdida de datos y el tiempo medidos, o si tiene más de 6 meses.
+
+Procedimiento:
+
+1. **Aislar.** Restaurar la copia más reciente de la VM como una VM nueva **sin red** o en una red sin salida (sin acceso a los firewalls de clientes, UniFi, CrowdSec, SendGrid ni a la IP de producción). Anotar la hora de inicio.
+2. **Parar lo que habla con el exterior** antes de dar red interna a la VM: `sudo systemctl disable --now 'soc-*.timer'`.
+3. **Arrancar** `soc-portal`, Wazuh y PostgreSQL si lo usa, y ejecutar como en `update.sh`:
+   `sudo bash -c 'eval "$(python3 /srv/soc-portal/deploy/envfile.py --shell /etc/soc-portal/portal.env)"; cd /srv/soc-portal && runuser -u socportal -- /opt/soc-portal-venv/bin/python manage.py comprobar_restauracion'`
+   Es solo lectura. Muestra si quedan temporizadores con salida activos, migraciones, recuentos, el último dato de cada tipo, la cadena de auditoría (que también confirma `SECRET_KEY`) y si las claves descifran los valores guardados. No muestra IPs, clientes ni claves.
+4. **Probar a mano** desde un equipo de la red aislada: acceso con MFA, una ficha de cliente, un informe HTML/PDF y los dashboards de Wazuh. Anotar la hora en que todo funciona.
+5. **Medir.** Pérdida de datos: «Última detección recibida» del clon frente a la hora en que se hizo la copia restaurada (o el mismo dato en producción en ese momento). Tiempo: del paso 1 al paso 4.
+6. **Registrar** en «Copias y recuperación» la fecha, la confirmación de red aislada, la referencia, la pérdida (horas) y el tiempo (minutos). El aviso desaparece.
+7. **Destruir el clon** cuando termine: contiene datos y claves reales.
+
+Requisitos generales: VM/red aislada, sin salida a equipos reales, correos ni IP en conflicto. Validar manifiesto/rutas, restaurar claves/configuración/DB/snapshots bajo procedimiento revisado; arrancar dependencias, verificar permisos, scope, HTML/PDF, SSO, colas/trabajos. Comparar IDs, conteos y propiedad. Medir tiempos y faltantes.
 
 No lanzar recuperación como prueba inocua en producción. Revisar prefijos y limpieza de índices temporales antes de autorizar el ensayo. Bloque 4 debe adaptar backup/restore antes de migrar a PostgreSQL.

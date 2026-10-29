@@ -111,7 +111,8 @@ def execute(name):
         return synchronize()
     if name=='health':
         from .operations_suite import reconcile_validations
-        op.platform_health();reconcile_validations();return check_health()
+        from .continuity import run as continuity
+        op.platform_health();continuity();reconcile_validations();return check_health()
     if name=='notifications':
         from .delivery_tracking import escalate_unacknowledged
         escalate_unacknowledged();return op.notify_issues()

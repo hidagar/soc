@@ -234,6 +234,8 @@ class SocSecurityMiddleware:
         try:
             response = self.get_response(request)
             if request.method == 'POST' and request.path in ('/login/','/admin/login/'):
+                from .continuity import note_login_origin
+                note_login_origin(client_ip(request))
                 if request.soc_password_login_user is None:
                     failed_login(request)
                 else:

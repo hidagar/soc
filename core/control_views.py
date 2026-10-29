@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -115,6 +116,10 @@ class RecoveryForm(forms.Form):
     vm_last_restore_at=forms.DateTimeField(label='Último ensayo de recuperación de VM declarado',required=False,widget=forms.DateTimeInput(format='%Y-%m-%dT%H:%M',attrs={'type':'datetime-local'}))
     vm_restore_isolated=forms.BooleanField(label='Confirmo que el ensayo se realizó en una red aislada de producción',required=False)
     vm_restore_reference=forms.CharField(label='Referencia y resultado del ensayo de VM',max_length=1000,required=False,widget=forms.Textarea(attrs={'rows':3}))
+    vm_restore_rpo_hours=forms.DecimalField(label='Pérdida de datos medida en el ensayo (horas)',min_value=0,max_value=9999,decimal_places=1,required=False,
+        help_text='Diferencia entre el último dato de producción y el último dato restaurado (manage.py comprobar_restauracion).')
+    vm_restore_rto_minutes=forms.IntegerField(label='Tiempo hasta tener el SOC operativo (minutos)',min_value=0,max_value=100000,required=False,
+        help_text='Desde que se empieza a restaurar hasta que el portal y la recepción funcionan.')
     hostname=forms.CharField(label='Servidor SFTP externo',max_length=253,required=False)
     port=forms.IntegerField(label='Puerto',min_value=1,max_value=65535,initial=22)
     username=forms.CharField(label='Usuario SFTP',max_length=120,required=False)
@@ -141,6 +146,9 @@ class RecoveryForm(forms.Form):
                 if values.get(name) and values[name]>timezone.now():self.add_error(name,'La fecha no puede estar en el futuro.')
             if values.get('vm_last_restore_at') and (not values.get('vm_restore_isolated') or len(values.get('vm_restore_reference','').strip())<10):
                 self.add_error('vm_restore_reference','Confirma la red aislada y registra una referencia y resultado del ensayo.')
+            if values.get('vm_last_restore_at'):
+                for name in ('vm_restore_rpo_hours','vm_restore_rto_minutes'):
+                    if values.get(name) is None:self.add_error(name,'Registra lo medido en el ensayo: sin esta cifra la copia no está demostrada.')
         return values
 
 @login_required
@@ -170,7 +178,7 @@ def recovery(request):
             v=form.cleaned_data
             if v['transport']=='vm' and action=='save':
                 cfg.transport='vm'
-                cfg.vm_backup={k:val.isoformat() if hasattr(val,'isoformat') else val for k,val in v.items() if k.startswith('vm_')}
+                cfg.vm_backup={k:val.isoformat() if hasattr(val,'isoformat') else float(val) if isinstance(val,Decimal) else val for k,val in v.items() if k.startswith('vm_')}
                 for k in ('retention_days','evidence_days','operational_email','notify_enabled'):setattr(cfg,k,v[k])
                 cfg.save();audit('recovery.settings',cfg,{'fields':list(v)})
                 messages.success(request,'Datos de copias de VM guardados como declaración del operador. No se han verificado desde el hipervisor.')

@@ -3,6 +3,7 @@ from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 
 from . import campaigns
+from . import continuity
 from . import views
 from . import wazuh_sso
 from . import hillstone_views
@@ -121,6 +122,7 @@ urlpatterns = [
     path('security/mfa/setup/', security.mfa_setup, name='mfa_setup'),
     path('security/mfa/verify/', security.mfa_challenge, name='mfa_challenge'),
     path("reports/health/", report_sharing.report_health, name="report_health"),
+    path("healthz/", continuity.healthz, name="healthz"),
     path("reports/<str:token>/pdf/", report_sharing.customer_report_pdf, name="customer_report_pdf"),
     path("reports/<str:token>/", report_sharing.customer_report, name="customer_report"),
     path("report-links/<int:report_pk>/", report_sharing.manage_report_link, name="manage_report_link"),

@@ -13,6 +13,15 @@ sudo journalctl -u soc-job@transport.service -n 50 --no-pager
 
 Journal es información privada: redactar antes de adjuntarlo a un issue. No imprimir entorno ni reader para diagnosticar.
 
+## Monitor exterior
+
+Las comprobaciones de «Salud del SOC» y el correo de operaciones no pueden avisar si cae la VM entera. Para eso:
+
+- **Latido saliente** (recomendado): crear un control en un servicio externo de latidos (p. ej. Healthchecks.io, periodo 5 minutos y gracia 10) y poner su URL en `SOC_PORTAL_HEARTBEAT_URL`. El trabajo `health` la llama cada 5 minutos si el SOC está sano y llama a `<URL>/fail` al momento si no. El servicio externo avisa por correo o móvil cuando la llamada falta o falla. No se envía ningún dato del SOC.
+- **Consulta** `GET /healthz/`: sin sesión, responde `200 ok` o `503 revisar`, sin más detalle. Sirve para monitores que consultan (UptimeRobot, el monitor de la red); el proxy público debe dejar pasar esa ruta.
+
+«Sano» significa que el trabajo `health` terminó hace menos de 5 minutos y no hay abierto ninguno de estos fallos: portal, Wazuh manager o indexador detenidos, disco por debajo del 15 %, monitor de avisos urgentes atrasado o **ningún equipo ha enviado registros en 30 minutos** (`platform:ingest-silence`, crítico, también por correo). Los avisos menores (IP real, ensayo de recuperación pendiente) no cambian el resultado.
+
 ## Versión instalada
 
 «Salud del SOC» muestra a quien tiene acceso global el commit instalado, su fecha y el motor de base. Lo registra `deploy/update.sh` en `/srv/soc-portal/.deployed-commit`; una instalación que no se haya actualizado con el script aparece como «sin registrar».

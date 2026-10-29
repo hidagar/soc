@@ -101,6 +101,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `security/mfa/setup/` | `mfa_setup` | `security.mfa_setup` |
 | `security/mfa/verify/` | `mfa_challenge` | `security.mfa_challenge` |
 | `reports/health/` | `report_health` | `report_sharing.report_health` |
+| `healthz/` | `healthz` | `continuity.healthz` |
 | `reports/<str:token>/pdf/` | `customer_report_pdf` | `report_sharing.customer_report_pdf` |
 | `reports/<str:token>/` | `customer_report` | `report_sharing.customer_report` |
 | `report-links/<int:report_pk>/` | `manage_report_link` | `report_sharing.manage_report_link` |

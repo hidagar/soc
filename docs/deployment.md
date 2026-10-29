@@ -58,6 +58,16 @@ Pasos manuales equivalentes o adicionales:
 5. Cotejar archivos/versión, esquema y éxito de tareas. Probar HTTPS/scope; no inyectar amenazas ficticias en clientes.
 6. Registrar respaldo privado y aceptación. `active` no acredita recepción.
 
+## IP real detrás de otro proxy
+
+Si el portal se publica a través de otro Nginx (en la instalación actual, el Nginx público 172.20.10.112), el Nginx local ve siempre la IP de ese proxy. Entonces el límite de intentos por IP trata a todo internet como un solo usuario y la auditoría no ve el origen. «Salud del SOC» lo avisa (`platform:real-ip`) cuando todos los accesos de una semana llegan desde una única IP interna.
+
+1. En el proxy público, dentro del bloque que publica el SOC: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;` y recargar.
+2. En la VM del SOC: `sudo deploy/configurar_ip_real.sh 172.20.10.112`. Escribe `/etc/nginx/conf.d/soc-real-ip.conf` (`set_real_ip_from` solo para esa IP), comprueba `nginx -t` y recarga; si la comprobación falla, restaura el archivo anterior. Solo admite IPs o redes privadas de /24 o menos. `--ver` muestra la configuración y `--quitar` la retira.
+3. Comprobar que aparecen IPs públicas en `/var/log/nginx/access.log`. El aviso se resuelve con el primer acceso desde una IP pública.
+
+`update.sh` no modifica Nginx: este paso se hace una vez y se conserva entre actualizaciones.
+
 ## Reversión
 
 Detener escritores/timers y servicios nuevos antes de restaurar código/unidades y base compatible. Retirar archivos nuevos ausentes en versión anterior; no dejar migraciones importándose contra un esquema restaurado. Recargar systemd, regenerar estáticos y arrancar componentes previstos.

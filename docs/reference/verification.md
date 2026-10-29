@@ -24,6 +24,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_campaigns.py](../../core/test_campaigns.py) | 6 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
+| [core/test_continuity.py](../../core/test_continuity.py) | 18 |
 | [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 9 |
 | [core/test_customer_portal.py](../../core/test_customer_portal.py) | 8 |
 | [core/test_customer_preview.py](../../core/test_customer_preview.py) | 5 |
