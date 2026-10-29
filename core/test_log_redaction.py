@@ -62,6 +62,9 @@ class RedactionTests(SimpleTestCase):
         config = runpy.run_path(str(ROOT / 'deploy' / 'gunicorn.conf.py'))
         self.assertIsNone(config['accesslog'])
         self.assertEqual(config['bind'], '127.0.0.1:8000')
+        # Hilos: una acción lenta no deja sin atender la ingesta ni las descargas de los firewalls.
+        self.assertEqual(config['worker_class'], 'gthread')
+        self.assertGreaterEqual(config['workers'] * config['threads'], 8)
         unit = (ROOT / 'deploy' / 'install.sh').read_text()
         self.assertIn('gunicorn -c /srv/soc-portal/deploy/gunicorn.conf.py', unit)
         self.assertNotIn('--access-logfile', unit)

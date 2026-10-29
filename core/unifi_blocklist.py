@@ -22,7 +22,7 @@ from urllib import error, parse, request
 
 from django.utils import timezone
 
-from .models import BlocklistFeed, UnifiBlocklistBinding
+from .models import BlocklistFeed, UnifiBlocklistBinding, WorkerState
 from .unifi_cloud import UnifiCloudError, _NoRedirect, decrypt_api_key
 
 PREFIX = 'SOC'
@@ -371,15 +371,58 @@ def efficacy(binding, now=None):
             total += 1
             allowed += action == 'allowed'
     if networks:
+        counted = set(singles)  # antes una lista: cada evento la recorría entera
         for value, action in events.exclude(**{field: None}).values_list(field, 'action').iterator():
             try:
                 address = ipaddress.ip_address(value)
             except ValueError:
                 continue
-            if value not in singles and any(address.version == n.version and address in n for n in networks):
+            if value not in counted and any(address.version == n.version and address in n for n in networks):
                 total += 1
                 allowed += action == 'allowed'
     return {'since': since, 'start': start, 'events': total, 'allowed': allowed}
+
+
+EFFICACY_STATE = 'unifi-efficacy:'
+
+
+def store_efficacy(binding, now=None):
+    """Calcula y guarda el indicio de eficacia de una vinculación (trabajo horario y al activar)."""
+    from django.db import transaction
+    result = efficacy(binding, now)
+    if result is None:
+        return None
+    name = EFFICACY_STATE + str(binding.pk)
+    details = {'since': result['since'].isoformat(), 'start': result['start'].isoformat(), 'events': result['events'],
+               'allowed': result['allowed'], 'checked_at': (now or timezone.now()).isoformat()}
+    with transaction.atomic():
+        WorkerState.reserve(name)
+        WorkerState.objects.filter(name=name).update(details=details)
+    return result
+
+
+def measure_efficacy(now=None):
+    """Parte del trabajo «Eficacia de las reglas de bloqueo»: antes se calculaba en cada visita a la página,
+    recorriendo 7 días de eventos del equipo."""
+    now = now or timezone.now()
+    measured = 0
+    for binding in UnifiBlocklistBinding._base_manager.filter(policies_enabled=True, policies_enabled_at__isnull=False,
+                                                              device__active=True).select_related('device__site'):
+        measured += store_efficacy(binding, now) is not None
+    return measured
+
+
+def stored_efficacy(binding):
+    """Última medida guardada, solo si corresponde a la activación actual de las políticas."""
+    from django.utils.dateparse import parse_datetime
+    if not binding.policies_enabled or not binding.policies_enabled_at:
+        return None
+    state = WorkerState.objects.filter(name=EFFICACY_STATE + str(binding.pk)).first()
+    details = state.details if state else {}
+    if parse_datetime(details.get('since') or '') != binding.policies_enabled_at:
+        return None
+    return {'since': binding.policies_enabled_at, 'start': parse_datetime(details['start']), 'events': details['events'],
+            'allowed': details['allowed'], 'checked_at': parse_datetime(details['checked_at'])}
 
 
 def desired(binding, now=None):

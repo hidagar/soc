@@ -24,6 +24,11 @@ Las comprobaciones de «Salud del SOC» y el correo de operaciones no pueden avi
 
 El silencio global se compara con la misma franja horaria de los 7 días anteriores, porque la recepción solo cuenta alertas de Wazuh (varias reglas del SOC son de nivel 0) y de noche puede pasar una hora sin nada sin que falle nada. Se avisa si pasa una **hora completa sin ningún evento** que esos 7 días siempre tuvo al menos 10; antes, a los **30 minutos** si a esas horas siempre llegan más de 60 por hora; y siempre a las **24 horas**. Sin una semana de historia, a las 6 horas. Hasta la versión de octubre de 2026 el umbral era fijo de 30 minutos y podía dar avisos críticos falsos de madrugada.
 
+## Resumen y portal
+
+- «Requiere atención» incluye **Fallos de la plataforma del SOC** (copias, disco, servicios, recepción global, cadena de auditoría) para el personal con acceso global; antes solo contaba los problemas de equipos, y justo los más graves no aparecían.
+- Gunicorn arranca con `deploy/gunicorn.conf.py`: 2 procesos con 8 hilos cada uno. Con procesos de un solo hilo, dos acciones lentas a la vez (UniFi, CrowdSec, OPNsense) dejaban sin atender la ingesta HTTPS y las descargas de las listas de bloqueo, que llegan a este mismo servicio (medido: el login esperaba 15 s con cuatro peticiones lentas en curso; ahora 0,14 s). Nginx sigue cortando la respuesta al navegador a los 30 s, pero la operación termina.
+
 ## Conservación de datos
 
 El trabajo horario `housekeeping` borra, por bloques y con un minuto como máximo por ejecución, las detecciones sin incidencia y los contadores por hora más antiguos que «Retención de evidencias» (Copias y recuperación, 90 días por defecto) y los intentos de acceso de más de un día (`core/retention.py`; último resultado en `WorkerState` «retention»). Antes solo se hacía al final de una copia correcta: con copias fallidas la base crecía sin límite, y un borrado de golpe retenía el escritor de SQLite.

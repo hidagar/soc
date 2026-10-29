@@ -130,6 +130,8 @@ def execute(name):
         prune(now)
         from .retention import prune as prune_data
         prune_data(now)  # detecciones, contadores e intentos de acceso caducados, sin depender de las copias
+        from .security import check_audit_chain
+        check_audit_chain(now)  # pasada completa diaria; la página de auditoría solo mira lo posterior
         return cleanup(now)
     if name=='reputation':
         from .reputation import refresh

@@ -78,7 +78,15 @@ def dashboard(request):
     silent = DeviceHealth.objects.filter(device__active=True, last_log_at__lt=now - timedelta(hours=2))
     allowed = evidence_queryset(None, 1, "", "allowed")
     first_reply = replies.first()
+    # Fallos sin equipo (copias, disco, servicios, recepción global): con el ámbito de cliente solo los ve el
+    # personal con acceso global, igual que en «Salud del SOC». Los avisos urgentes ya tienen su propia fila.
+    platform = list(OperationalIssue.objects.filter(active=True, device__isnull=True).exclude(
+        key__startswith="urgent-ack:").order_by("severity", "opened_at").values_list("title", "severity")[:50])
     attention = [
+        {"tone": "alert" if any(severity == "critical" for _, severity in platform) else "warn",
+         "count": len(platform), "title": "Fallos de la plataforma del SOC",
+         "hint": platform and (platform[0][0] + (f" y {len(platform) - 1} más" if len(platform) > 1 else "")) or "",
+         "url": reverse("health_list")},
         {"tone": "alert", "count": alerts.count(), "title": "Avisos urgentes sin revisar",
          "hint": "Avisos enviados al cliente en los últimos 7 días pendientes de confirmar por el SOC.",
          "url": reverse("delivery_status")},
@@ -92,7 +100,7 @@ def dashboard(request):
          "hint": first_reply and f"La más antigua: {first_reply.title} ({first_reply.incident.client.name})" or "",
          "url": first_reply and reverse("incident_detail", args=[first_reply.incident_id]) or ""},
         {"tone": "warn", "count": OperationalIssue.objects.filter(active=True, device__active=True).count(),
-         "title": "Problemas de operación activos", "hint": "Integraciones, recepción de registros y trabajos del SOC.",
+         "title": "Problemas de operación en equipos", "hint": "Integraciones y recepción de registros de los equipos.",
          "url": reverse("health_list")},
         {"tone": "warn", "count": silent.count(), "title": "Equipos sin registros desde hace más de 2 h",
          "hint": "Sin registros no hay detección: comprobar el envío.", "url": reverse("health_list")},

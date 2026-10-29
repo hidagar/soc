@@ -451,6 +451,10 @@ class EfficacyTests(UnifiTestCase):
         self.evidence('8.8.8.8', 'allowed')          # no está en la lista
         result = unifi_blocklist.efficacy(binding)
         self.assertEqual((result['events'], result['allowed']), (2, 1))
+        # La página ya no recorre los eventos en cada visita: muestra la medida del trabajo horario.
+        self.assertContains(self.client.get(url), 'se calcula cada hora')
+        from .blocklist_efficacy import refresh
+        refresh()
         self.assertContains(self.client.get(url), '1 permitida')
         self.client.post(url, {'action': 'unifi_policy_disable', 'binding': binding.pk})
         binding.refresh_from_db()

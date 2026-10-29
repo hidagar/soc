@@ -2,7 +2,7 @@
 {% block title %}Auditoría{% endblock %}
 {% block content %}
 <header class="page-head"><div><p class="eyebrow">Seguridad del SOC</p><h1>Auditoría</h1><p>Actividad del equipo y de los procesos automáticos.</p></div></header>
-{% if integrity_ok %}<p class="notice">La cadena de registros conserva su integridad.</p>{% else %}<p class="notice"><strong>La integridad de los registros requiere revisión.</strong></p>{% endif %}
+{% if integrity.ok %}<p class="notice">La cadena de registros conserva su integridad.{% if integrity.full_at %} <span class="muted">Comprobación completa el {{ integrity.full_at|date:'d/m/Y H:i' }}; los {{ integrity.recent }} registros posteriores, ahora.</span>{% endif %}</p>{% else %}<p class="notice"><strong>La integridad de los registros requiere revisión.</strong>{% if integrity.truncated %} Falta el último registro de la comprobación completa: se han borrado registros ya comprobados.{% endif %}</p>{% endif %}
 <section class="card"><h2>Últimas operaciones</h2><p class="muted">Se muestran los últimos 300 registros. Los nombres y enlaces corresponden a las fichas actuales; la operación original se conserva en los datos técnicos.</p>
 <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Quién</th><th>Qué ocurrió</th><th>Elemento afectado</th><th>Explicación</th></tr></thead><tbody>
 {% for row in rows %}<tr>

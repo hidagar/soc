@@ -126,16 +126,84 @@ def audit(action, obj=None, details=None, user=None):
             actor_name=record['actor_name'], action=record['action'], object_type=record['object_type'],
             object_id=record['object_id'], details=safe, previous_hash=record['previous_hash'], digest=digest, created_at=stamp)
 
-def audit_integrity():
-    previous = ''
-    for row in AuditEvent.objects.order_by('pk').iterator():
+def audit_chain(after_pk=0, previous='', deadline=None):
+    """Comprueba la cadena desde el evento `after_pk` (excluido), cuyo resumen es `previous`.
+
+    Devuelve (íntegra, último pk, último resumen, terminada). Con `deadline` (time.monotonic) para al
+    agotar el tiempo y la llamada siguiente continúa desde el último punto.
+    """
+    last = after_pk
+    for row in AuditEvent.objects.filter(pk__gt=after_pk).order_by('pk').iterator(chunk_size=2000):
         record = {k: getattr(row, k) for k in ('actor_name','action','object_type','object_id','details','previous_hash')}
         record['created_at'] = row.created_at.isoformat()
         expected = hmac.new(settings.SECRET_KEY.encode(),b'soc-audit-v1|'+json.dumps(record, sort_keys=True, separators=(',',':')).encode(),hashlib.sha256).hexdigest()
         if row.previous_hash != previous or not hmac.compare_digest(row.digest, expected):
-            return False
-        previous = row.digest
-    return True
+            return False, last, previous, True
+        previous, last = row.digest, row.pk
+        if deadline is not None and time.monotonic() > deadline:
+            return True, last, previous, False
+    return True, last, previous, True
+
+def audit_integrity():
+    """Cadena completa desde el primer evento (restauraciones, traslados y pruebas)."""
+    return audit_chain()[0]
+
+AUDIT_CHECK_EVERY = timedelta(hours=24)
+
+def check_audit_chain(now=None, budget=60):
+    """Trabajo horario: una pasada completa al día, por partes de `budget` segundos.
+
+    La página de auditoría recorría toda la cadena en cada visita, y con muchos eventos acababa
+    superando el límite de tiempo. Ahora solo comprueba los eventos posteriores a esta pasada.
+    """
+    from django.utils.dateparse import parse_datetime
+    from .operations import set_issue
+    now = now or timezone.now()
+    with transaction.atomic():
+        WorkerState.reserve('audit-integrity')
+    state = WorkerState.objects.get(name='audit-integrity')
+    details = dict(state.details)
+    if not details.get('in_progress'):
+        last_pass = parse_datetime(details.get('pass_at') or '')
+        if last_pass and now - last_pass < AUDIT_CHECK_EVERY:
+            return details
+        details.update(in_progress=True, cursor_pk=0, cursor_digest='')
+    ok, pk, digest, done = audit_chain(details['cursor_pk'], details['cursor_digest'], time.monotonic() + budget)
+    if not ok:
+        details.update(in_progress=False, ok=False, pass_at=now.isoformat(), broken_after_pk=pk)
+        set_issue('platform:audit-integrity', 'La cadena de auditoría no es íntegra', severity='critical', now=now,
+                  details=f'Un evento posterior al número {pk} no coincide con su firma o con el anterior. Revisar '
+                          'si se ha modificado la base o cambiado SOC_PORTAL_SECRET_KEY antes de seguir.')
+    elif done:
+        details.update(in_progress=False, ok=True, pass_at=now.isoformat(), full_at=now.isoformat(),
+                       verified_pk=pk, verified_digest=digest)
+        details.pop('broken_after_pk', None)
+        from .models import OperationalIssue
+        OperationalIssue.objects.filter(key='platform:audit-integrity', active=True).update(active=False, resolved_at=now)
+    else:
+        details.update(cursor_pk=pk, cursor_digest=digest)
+    WorkerState.objects.filter(name='audit-integrity').update(details=details, last_run_at=now)
+    return details
+
+def audit_status():
+    """Para la página de auditoría: la última pasada completa más los eventos posteriores, comprobados ahora.
+
+    Detecta también el borrado del último evento ya comprobado (truncar la cola de la cadena no
+    rompe la firma de los anteriores).
+    """
+    from django.utils.dateparse import parse_datetime
+    state = WorkerState.objects.filter(name='audit-integrity').first()
+    details = state.details if state else {}
+    if details.get('ok') is False:
+        return {'ok': False, 'full_at': None}
+    full_at = parse_datetime(details.get('full_at') or '')
+    if not full_at:
+        return {'ok': audit_integrity(), 'full_at': None}  # aún sin pasada completa: como antes, toda la cadena
+    pk, digest = details['verified_pk'], details['verified_digest']
+    if pk and not AuditEvent.objects.filter(pk=pk, digest=digest).exists():
+        return {'ok': False, 'full_at': full_at, 'truncated': True}
+    return {'ok': audit_chain(pk, digest)[0], 'full_at': full_at,
+            'recent': AuditEvent.objects.filter(pk__gt=pk).count()}
 
 def mfa_fresh(request, seconds=600):
     return bool(request.session.get('soc_mfa_user') == request.user.pk and

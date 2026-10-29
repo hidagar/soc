@@ -124,7 +124,8 @@ def refresh(now=None):
                                             device__management_method='api', device__active=True).select_related('device')
     for plan in plans:
         measured += int(measure(plan, now))
-    return measured
+    from .unifi_blocklist import measure_efficacy
+    return measured + measure_efficacy(now)
 
 
 def summary(plan, now=None):

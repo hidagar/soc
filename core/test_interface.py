@@ -6,7 +6,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Client, CustomerTask, Device, DeviceHealth, Incident, SecurityEvidence, Site, StaffAccess
+from .models import (Client, CustomerTask, Device, DeviceHealth, Incident, OperationalIssue, SecurityEvidence, Site,
+                     StaffAccess)
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
@@ -39,6 +40,22 @@ class InterfaceTests(TestCase):
         self.assertEqual(attention['Equipos sin registros desde hace más de 2 h'], 1)
         self.assertNotIn('Avisos urgentes sin revisar', attention)  # sin avisos no aparece la fila
         self.assertContains(page, 'Revisar →')
+
+    def test_platform_failures_reach_the_summary_of_global_staff_only(self):
+        # Antes el filtro por equipo dejaba fuera justo los más graves: copias, disco, servicios.
+        OperationalIssue.objects.create(key='platform:backup', title='Copia de seguridad fallida', severity='critical')
+        OperationalIssue.objects.create(key='platform:disk', title='Espacio libre inferior al 15 %', severity='warning')
+        OperationalIssue.objects.create(key='urgent-ack:1', title='Aviso urgente pendiente', severity='critical')
+        self.client.force_login(self.admin)
+        rows = {item['title']: item for item in self.client.get(reverse('dashboard')).context['attention']}
+        platform = rows['Fallos de la plataforma del SOC']
+        self.assertEqual((platform['count'], platform['tone']), (2, 'alert'))
+        self.assertEqual(platform['hint'], 'Copia de seguridad fallida y 1 más')
+        operator = get_user_model().objects.create_user('operador', 'op@example.test', 'x')
+        StaffAccess.objects.create(user=operator, role='operator').clients.add(self.company)
+        self.client.force_login(operator)
+        titles = {item['title'] for item in self.client.get(reverse('dashboard')).context['attention']}
+        self.assertNotIn('Fallos de la plataforma del SOC', titles)
 
     def test_scoped_operator_only_counts_assigned_clients(self):
         operator = get_user_model().objects.create_user('operador', 'op@example.test', 'x')

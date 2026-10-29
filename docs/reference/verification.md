@@ -13,6 +13,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_advanced_expansion.py](../../core/test_advanced_expansion.py) | 6 |
 | [core/test_asn.py](../../core/test_asn.py) | 5 |
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
+| [core/test_audit_chain.py](../../core/test_audit_chain.py) | 7 |
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
 | [core/test_blocklist.py](../../core/test_blocklist.py) | 12 |
 | [core/test_blocklist_customer.py](../../core/test_blocklist_customer.py) | 4 |
@@ -51,7 +52,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_hillstone_security.py](../../core/test_hillstone_security.py) | 8 |
 | [core/test_improvements.py](../../core/test_improvements.py) | 24 |
 | [core/test_indexer_tls.py](../../core/test_indexer_tls.py) | 4 |
-| [core/test_interface.py](../../core/test_interface.py) | 5 |
+| [core/test_interface.py](../../core/test_interface.py) | 6 |
 | [core/test_interface_topology.py](../../core/test_interface_topology.py) | 12 |
 | [core/test_investigation.py](../../core/test_investigation.py) | 11 |
 | [core/test_key_rotation.py](../../core/test_key_rotation.py) | 4 |
@@ -77,6 +78,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
 | [core/test_security_review.py](../../core/test_security_review.py) | 6 |
 | [core/test_service_development.py](../../core/test_service_development.py) | 18 |
+| [core/test_session_policy.py](../../core/test_session_policy.py) | 1 |
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |

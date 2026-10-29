@@ -13,7 +13,7 @@ from django.views.decorators.http import require_http_methods
 from .models import (Asset,AuditEvent,Client,Device,DeviceHealth,Incident,IncidentUpdate,
     OperationalIssue,StaffAccess,WorkerState)
 from .release import deployed_release
-from .security import audit,audit_integrity,mfa_fresh
+from .security import audit,audit_status,mfa_fresh
 from .forms import ScopedModelForm
 
 def permitted(request,permission):
@@ -243,4 +243,4 @@ def audit_log(request):
     if not permitted(request,'manage_security'): return HttpResponseForbidden('Permiso de seguridad requerido.')
     from .audit_presentation import present
     events=AuditEvent.objects.select_related('actor')[:300]
-    return render(request,'operations_audit.html',{'rows':present(events),'integrity_ok':audit_integrity()})
+    return render(request,'operations_audit.html',{'rows':present(events),'integrity':audit_status()})

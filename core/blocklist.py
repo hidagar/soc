@@ -545,6 +545,10 @@ def unifi_action(request, client, feed, action):
             return redirect('blocklist_detail', client_pk=client.pk)
         UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(policies_enabled=enabled,
                                                                     policies_enabled_at=timezone.now() if enabled else None)
+        if enabled:
+            from .unifi_blocklist import store_efficacy
+            binding.refresh_from_db()
+            store_efficacy(binding)
         audit('blocklist.unifi_policy_' + ('enable' if enabled else 'disable'), client, {'status': binding.direction})
         messages.success(request, 'Política de bloqueo activada en UniFi.' if enabled else
                          'Política de bloqueo desactivada en UniFi: deja de bloquear al momento.')
@@ -833,10 +837,12 @@ def detail(request, client_pk):
     unifi_unlinked = list(Device.objects.filter(site__client=client, active=True, vendor=Device.Vendor.UNIFI)
                           .exclude(pk__in=[d.pk for d in unifi_devices]).order_by('name').values_list('name', flat=True))
     from .models import UnifiBlocklistBinding
-    from .unifi_blocklist import efficacy
+    from .unifi_blocklist import stored_efficacy
     unifi_bindings = list(UnifiBlocklistBinding.objects.filter(device__site__client=client).select_related('device__site'))
     for binding in unifi_bindings:
-        binding.efficacy = efficacy(binding)
+        # Medida del trabajo horario: calcularla aquí recorría 7 días de eventos del equipo en cada visita.
+        binding.efficacy = stored_efficacy(binding)
+        binding.efficacy_pending = binding.policies_enabled and binding.policies_enabled_at and not binding.efficacy
     return render(request, 'blocklist_detail.html', {
         'warnings': warnings, 'manual_blocks': manual, 'global_access': global_access(request.user),
         'prefill_network': request.GET.get('network', '')[:64],
