@@ -19,6 +19,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_blocklist_efficacy.py](../../core/test_blocklist_efficacy.py) | 4 |
 | [core/test_blocklist_outbound.py](../../core/test_blocklist_outbound.py) | 4 |
 | [core/test_blocklist_phase2.py](../../core/test_blocklist_phase2.py) | 7 |
+| [core/test_blocklist_repeat.py](../../core/test_blocklist_repeat.py) | 2 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 9 |
@@ -75,7 +76,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
-| [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 21 |
+| [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
 | [core/test_unifi_zone_scope.py](../../core/test_unifi_zone_scope.py) | 18 |
 | [core/test_wazuh_customer_isolation.py](../../core/test_wazuh_customer_isolation.py) | 10 |
@@ -153,3 +154,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0059_outbound_blocklist.py](../../core/migrations/0059_outbound_blocklist.py)
 - [core/migrations/0060_unifi_blocklist.py](../../core/migrations/0060_unifi_blocklist.py)
 - [core/migrations/0061_unifi_policies.py](../../core/migrations/0061_unifi_policies.py)
+- [core/migrations/0062_blocklist_repeat_unifi_efficacy.py](../../core/migrations/0062_blocklist_repeat_unifi_efficacy.py)

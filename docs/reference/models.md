@@ -307,6 +307,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `include_lists` | BooleanField |  |
 | `include_cti` | BooleanField |  |
 | `include_soc_detections` | BooleanField |  |
+| `include_repeat_attackers` | BooleanField |  |
 | `outbound_enabled` | BooleanField |  |
 | `include_c2_detections` | BooleanField |  |
 | `outbound_entries` | JSONField | blank=True |
@@ -341,6 +342,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `pushed_count` | PositiveIntegerField |  |
 | `policies` | JSONField | blank=True |
 | `policies_enabled` | BooleanField |  |
+| `policies_enabled_at` | DateTimeField | null=True; blank=True |
 | `synced_at` | DateTimeField | null=True; blank=True |
 | `error` | CharField | max_length=240; blank=True |
 | `error_at` | DateTimeField | null=True; blank=True |

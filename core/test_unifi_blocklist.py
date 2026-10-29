@@ -420,3 +420,38 @@ class CheckStateTests(UnifiTestCase):
         self.console.legacy = []  # orden: solo las del SOC, la primera es la suya
         output = self.run_check()
         self.assertIn('ya es la primera', output)
+
+
+class EfficacyTests(UnifiTestCase):
+    """Indicio de eficacia: detecciones de IPs de la lista en el equipo desde que el panel activó las políticas."""
+
+    def evidence(self, ip, action, minutes_ago=5):
+        from .models import SecurityEvidence
+        SecurityEvidence.objects.create(uid=f'{abs(hash((ip, action, minutes_ago))):064x}'[:64], device=self.device,
+                                        observed_at=timezone.now() - timedelta(minutes=minutes_ago), engine='unifi',
+                                        signature='IPS', source_ip=ip, destination_ip='10.0.0.5', action=action, level=8,
+                                        client_scope_id=self.company.pk)
+
+    def test_efficacy_counts_listed_sources_since_activation(self):
+        url = self.login()
+        self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'in'})
+        binding = UnifiBlocklistBinding.objects.get(device=self.device)
+        self.assertIsNone(unifi_blocklist.efficacy(binding))  # sin activar: no se mide
+        self.evidence('45.155.205.233', 'allowed', minutes_ago=600)  # antes de activar: no cuenta
+        self.client.post(url, {'action': 'unifi_policy_enable', 'binding': binding.pk})
+        binding.refresh_from_db()
+        self.assertIsNotNone(binding.policies_enabled_at)
+        page = self.client.get(url)
+        self.assertContains(page, 'indicio de que las políticas cortan ese tráfico')
+        # Activación hace 10 minutos; las detecciones de hace 5 ya cuentan.
+        UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(policies_enabled_at=timezone.now() - timedelta(minutes=10))
+        binding.refresh_from_db()
+        self.evidence('45.155.205.233', 'allowed')
+        self.evidence('185.220.101.3', 'blocked')    # dentro de 185.220.101.0/28
+        self.evidence('8.8.8.8', 'allowed')          # no está en la lista
+        result = unifi_blocklist.efficacy(binding)
+        self.assertEqual((result['events'], result['allowed']), (2, 1))
+        self.assertContains(self.client.get(url), '1 permitida')
+        self.client.post(url, {'action': 'unifi_policy_disable', 'binding': binding.pk})
+        binding.refresh_from_db()
+        self.assertIsNone(binding.policies_enabled_at)

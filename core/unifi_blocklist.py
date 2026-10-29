@@ -343,6 +343,45 @@ def delete_policies(binding):
         call(key, host, f'/v1/sites/{site}/firewall/policies/{policy["id"]}', 'DELETE')
 
 
+def efficacy(binding, now=None):
+    """Indicio de que las políticas funcionan: detecciones en este equipo de IPs de su lista desde que se activaron.
+
+    UniFi no da contadores por política. Si bloquea, el tráfico de esas IPs no debería llegar a
+    generar detecciones; si llegan como «permitidas», algo deja pasar ese tráfico (orden, estado o
+    una política nueva). Es un indicio, no una prueba: la ausencia de detecciones no acredita por
+    sí sola el bloqueo (invariante 4). Se usa la lista actual, así que es aproximado. None si las
+    políticas no están activas desde el panel.
+    """
+    from datetime import timedelta
+    from .models import SecurityEvidence
+    now = now or timezone.now()
+    since = binding.policies_enabled_at
+    if not binding.policies_enabled or not since:
+        return None
+    start = max(since, now - timedelta(days=7))
+    values = [v for v in desired(binding, now) if v != PLACEHOLDER]
+    singles = [v for v in values if '/' not in v]
+    networks = [ipaddress.ip_network(v) for v in values if '/' in v]
+    field = 'destination_ip' if binding.direction == 'out' else 'source_ip'
+    events = SecurityEvidence._base_manager.filter(device=binding.device, observed_at__gte=start, observed_at__lte=now)
+    total = allowed = 0
+    for start_at in range(0, len(singles), 1000):
+        rows = events.filter(**{field + '__in': singles[start_at:start_at + 1000]}).values_list('action', flat=True)
+        for action in rows.iterator():
+            total += 1
+            allowed += action == 'allowed'
+    if networks:
+        for value, action in events.exclude(**{field: None}).values_list(field, 'action').iterator():
+            try:
+                address = ipaddress.ip_address(value)
+            except ValueError:
+                continue
+            if value not in singles and any(address.version == n.version and address in n for n in networks):
+                total += 1
+                allowed += action == 'allowed'
+    return {'since': since, 'start': start, 'events': total, 'allowed': allowed}
+
+
 def desired(binding, now=None):
     """IPs que deben estar en la lista UniFi: las que el SOC sirve a ese cliente, solo IPv4 y con tope."""
     from .blocklist import servable

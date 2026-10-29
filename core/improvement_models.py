@@ -204,6 +204,7 @@ class BlocklistFeed(models.Model):
     include_lists=models.BooleanField('Incluir IPs en listas de CrowdSec',default=True)
     include_cti=models.BooleanField('Incluir IPs maliciosas según la API CTI',default=True)
     include_soc_detections=models.BooleanField('Incluir atacantes detectados por el propio SOC',default=False)
+    include_repeat_attackers=models.BooleanField('Incluir IPs que atacan repetidamente a este cliente',default=False)
     # Lista de salida (C2): destinos a los que los equipos del cliente no deben conectarse.
     outbound_enabled=models.BooleanField('Publicar la lista de salida (C2)',default=False)
     include_c2_detections=models.BooleanField('Incluir destinos C2 detectados por el SOC',default=True)
@@ -241,6 +242,7 @@ class UnifiBlocklistBinding(models.Model):
     # Políticas de bloqueo creadas por el SOC en UniFi (nacen desactivadas): [{'id','name'}].
     policies=models.JSONField(default=list,blank=True)
     policies_enabled=models.BooleanField(default=False)
+    policies_enabled_at=models.DateTimeField(null=True,blank=True)  # desde cuándo las activó el panel (eficacia)
     synced_at=models.DateTimeField(null=True,blank=True)
     error=models.CharField(max_length=240,blank=True)
     error_at=models.DateTimeField(null=True,blank=True)

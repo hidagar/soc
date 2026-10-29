@@ -29,7 +29,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.db.models.functions import TruncDate
 from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -56,6 +56,8 @@ C2_MIN_CLIENTS = 2
 MANUAL_MAX_DAYS = 90
 MANUAL_LIMIT = 500  # bloqueos manuales vigentes por alcance
 MIN_PREFIX = {4: 24, 6: 48}  # una red más amplia bloquearía a demasiada gente por error
+REPEAT_MIN_EVENTS = 5  # detecciones de una misma IP contra un cliente en 7 días…
+REPEAT_MIN_DAYS = 2    # …y en días distintos: un pico de un solo día puede ser un error de firma
 SOC_STATE = 'soc-detections'
 SOC_STALE = timedelta(hours=1)  # si el motor no responde, la última lectura vale una hora
 SOC_LIMIT = 5000
@@ -262,7 +264,40 @@ def activity(ips, now):
     return stats
 
 
-def build(feed, candidates, stats, protected, now, soc=None):
+def repeat_attackers(now, client_ids):
+    """Por cliente, IPs que le atacan repetidamente aunque CrowdSec no las conozca: {cliente: {ip: (eventos, días, permitidas)}}.
+
+    Solo cuenta lo que llega de su propio firewall (propietario histórico), en 7 días, con un
+    mínimo de detecciones y de días distintos. El ruido de fondo y los posibles falsos positivos
+    de la CTI se descartan igual que en el resto de la lista.
+    """
+    result = {}
+    if not client_ids:
+        return result
+    rows = (SecurityEvidence._base_manager
+            .filter(observed_at__gte=now - WINDOW, observed_at__lte=now, client_scope_id__in=client_ids,
+                    client_scope_id=F('device__site__client_id'))
+            .exclude(category='application_policy').exclude(source_ip=None)
+            .values('client_scope_id', 'source_ip')
+            .annotate(events=Count('uid'), days=Count(TruncDate('observed_at'), distinct=True),
+                      allowed=Count('uid', filter=Q(action='allowed')))
+            .filter(events__gte=REPEAT_MIN_EVENTS, days__gte=REPEAT_MIN_DAYS))
+    noisy = set()
+    for row in rows.order_by():
+        result.setdefault(row['client_scope_id'], {})[row['source_ip']] = (row['events'], row['days'], row['allowed'])
+    ips = {ip for items in result.values() for ip in items}
+    for start in range(0, len(ips), 1000):
+        chunk = sorted(ips)[start:start + 1000]
+        # Filtrado en Python: la comparación exacta de JSON no es portable entre SQLite y PostgreSQL.
+        noisy |= {ip for ip, noise, fps in IpReputation.objects.filter(ip__in=chunk, cti_found=True).values_list(
+            'ip', 'background_noise', 'false_positives') if noise == 'high' or fps}
+    for items in result.values():
+        for ip in noisy & set(items):
+            items.pop(ip)
+    return result
+
+
+def build(feed, candidates, stats, protected, now, soc=None, repeat=None):
     """Entradas de un cliente: primero los bloqueos manuales vigentes, después lo detectado por el
     propio SOC y lo que atacó a algún cliente (le atacaron a él, a más clientes, más veces), hasta el máximo."""
     allow = parse_allowlist(feed.allowlist)
@@ -296,6 +331,23 @@ def build(feed, candidates, stats, protected, now, soc=None):
         here = item['clients'].get(feed.client_id, (0, 0))
         entries.append({'ip': ip, 'reasons': info['reasons'], 'clients': len(item['clients']), 'events': item['count'],
                         'here': here[0], 'here_allowed': here[1]})
+    if feed.include_repeat_attackers:
+        listed = {e['ip']: e for e in entries}
+        for ip, (events, days, allowed) in sorted((repeat or {}).items()):
+            reason = f'Ataques repetidos a este cliente: {events} detecciones en {days} días'
+            if ip in listed:
+                listed[ip]['reasons'] = listed[ip]['reasons'] + [reason]
+                continue
+            try:
+                address = ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            if (ip in seen or inside(ip) or not address.is_global or ip in protected
+                    or any(address.version == n.version and address in n for n in allow)):
+                continue
+            item = stats.get(ip, {'count': events, 'clients': {feed.client_id: (events, allowed)}})
+            entries.append({'ip': ip, 'reasons': [reason], 'repeat': True, 'clients': len(item['clients']),
+                            'events': item['count'], 'here': events, 'here_allowed': allowed})
     entries.sort(key=lambda e: (-e['here'], -e['clients'], -e['events'], e['ip']))
     # Los manuales no cuentan para el máximo: son decisiones explícitas y con caducidad.
     return manual + (detected + entries)[:feed.max_entries]
@@ -319,9 +371,10 @@ def refresh_feeds(now=None):
     c2 = c2_destinations(now) if any(f.outbound_enabled for f in feeds) else {}
     stats = activity(set(candidates) | {ip for ip in soc if '/' not in ip}, now)
     protected = protected_addresses()
+    repeat = repeat_attackers(now, [f.client_id for f in feeds if f.include_repeat_attackers])
     for feed in feeds:
         try:
-            entries = build(feed, candidates, stats, protected, now, soc)
+            entries = build(feed, candidates, stats, protected, now, soc, repeat.get(feed.client_id))
             outbound = build_outbound(feed, c2, protected, now) if feed.outbound_enabled else []
         except ValueError:
             continue  # Excepciones no válidas: se conserva la última lista buena y se avisa en su página.
@@ -490,7 +543,8 @@ def unifi_action(request, client, feed, action):
         except UnifiCloudError as exc:
             messages.error(request, f'No se pudo cambiar la política en UniFi: {exc}')
             return redirect('blocklist_detail', client_pk=client.pk)
-        UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(policies_enabled=enabled)
+        UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(policies_enabled=enabled,
+                                                                    policies_enabled_at=timezone.now() if enabled else None)
         audit('blocklist.unifi_policy_' + ('enable' if enabled else 'disable'), client, {'status': binding.direction})
         messages.success(request, 'Política de bloqueo activada en UniFi.' if enabled else
                          'Política de bloqueo desactivada en UniFi: deja de bloquear al momento.')
@@ -675,10 +729,12 @@ def detail(request, client_pk):
                 feed.include_lists = request.POST.get('include_lists') == 'on'
                 feed.include_cti = request.POST.get('include_cti') == 'on'
                 feed.include_soc_detections = request.POST.get('include_soc_detections') == 'on'
+                feed.include_repeat_attackers = request.POST.get('include_repeat_attackers') == 'on'
                 feed.outbound_enabled = request.POST.get('outbound_enabled') == 'on'
                 feed.include_c2_detections = request.POST.get('include_c2_detections') == 'on'
                 feed.enabled = request.POST.get('enabled') == 'on'
                 feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'include_soc_detections',
+                                         'include_repeat_attackers',
                                          'outbound_enabled', 'include_c2_detections', 'enabled', 'updated_at'])
                 if feed.enabled and not feed.token_hash:
                     rotate_token(feed)
@@ -777,7 +833,10 @@ def detail(request, client_pk):
     unifi_unlinked = list(Device.objects.filter(site__client=client, active=True, vendor=Device.Vendor.UNIFI)
                           .exclude(pk__in=[d.pk for d in unifi_devices]).order_by('name').values_list('name', flat=True))
     from .models import UnifiBlocklistBinding
-    unifi_bindings = UnifiBlocklistBinding.objects.filter(device__site__client=client).select_related('device')
+    from .unifi_blocklist import efficacy
+    unifi_bindings = list(UnifiBlocklistBinding.objects.filter(device__site__client=client).select_related('device__site'))
+    for binding in unifi_bindings:
+        binding.efficacy = efficacy(binding)
     return render(request, 'blocklist_detail.html', {
         'warnings': warnings, 'manual_blocks': manual, 'global_access': global_access(request.user),
         'prefill_network': request.GET.get('network', '')[:64],

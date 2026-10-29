@@ -67,6 +67,14 @@ class Command(BaseCommand):
                       f'última sincronización {synced} · políticas guardadas {len(b.policies)} · '
                       f'{"ACTIVADAS" if b.policies_enabled else "desactivadas"}'
                       f'{" · ERROR: " + b.error if b.error else ""}', 1)
+            result = ub.efficacy(b)
+            if result:
+                self.line(f'Eficacia (indicio) desde {result["start"].strftime("%d/%m/%Y %H:%M")}: {result["events"]} '
+                          f'detecciones en este equipo de IPs de la lista, {result["allowed"]} permitidas'
+                          f'{" · AVISO: ese tráfico pasó" if result["allowed"] else ""}.', 2)
+            elif b.policies_enabled and not b.policies_enabled_at:
+                self.line('Eficacia: sin fecha de activación (se activaron antes de esta versión o fuera del panel); '
+                          'pulsa «Activar la política de bloqueo» en el panel para empezar a medir.', 2)
         try:
             key = decrypt_api_key(connection.encrypted_api_key)
             host = connection.remote_host_id
