@@ -11,25 +11,30 @@ externo (p. ej. Healthchecks.io o el monitor de la red):
 """
 import ipaddress
 import logging
+from collections import defaultdict
 from datetime import timedelta
 from urllib import error as url_error, request as http
 from urllib.parse import urlsplit
 
 from django.conf import settings
-from django.db.models import Max
+from django.db.models import Max, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_GET
 
-from .models import DeviceHealth, OperationalIssue, RecoverySettings, WorkerState
+from .models import DeviceHealth, FeedBucket, OperationalIssue, RecoverySettings, WorkerState
 from .operations import set_issue
 
 logger = logging.getLogger(__name__)
 
 LOGIN_WINDOW = timedelta(days=7)
 LOGIN_MIN_ATTEMPTS = 3
-GLOBAL_SILENCE = timedelta(minutes=30)
+GLOBAL_FAST = timedelta(minutes=30)        # nunca antes de media hora sin nada
+GLOBAL_FAST_MIN_HOURLY = 60                # …y solo si a esas horas siempre llegan más de 60 eventos por hora
+GLOBAL_HOUR_MIN = 10                       # una hora completa sin nada que siempre tuvo al menos 10
+GLOBAL_NO_HISTORY = timedelta(hours=6)     # sin una semana de historia
+GLOBAL_BACKSTOP = timedelta(hours=24)      # en cualquier caso
 REHEARSAL_MAX_AGE = timedelta(days=180)
 HEARTBEAT_EVERY = timedelta(minutes=5)
 HEALTH_JOB_MAX_AGE = timedelta(minutes=5)
@@ -91,15 +96,68 @@ def check_login_origin(now):
 
 
 # -- Silencio global ----------------------------------------------------------------------------------
+def _hourly_counts(start, end):
+    """Eventos recibidos de todos los equipos activos por (fecha local, hora local)."""
+    rows = (FeedBucket._base_manager.filter(hour__gte=start, hour__lt=end, device__active=True, device__site__active=True,
+                                            device__site__client__active=True)
+            .values('hour').annotate(n=Sum('event_count')).order_by())
+    counts = defaultdict(int)
+    for row in rows:
+        local = timezone.localtime(row['hour'])
+        counts[(local.date(), local.hour)] += row['n']
+    return counts
+
+
+def _usual(counts, hour):
+    """Lo mínimo recibido en esa misma franja horaria cada uno de los 7 días anteriores."""
+    local = timezone.localtime(hour)
+    return min(counts.get((local.date() - timedelta(days=day), local.hour), 0) for day in range(1, 8))
+
+
+def silence_reason(latest, now):
+    """Motivo para avisar de que no llega nada de ningún equipo, o '' si ese silencio es normal a estas horas.
+
+    `last_log_at` solo avanza con alertas de Wazuh (varias reglas del SOC son de nivel 0): de noche puede
+    pasar una hora sin nada sin que falle nada. Antes se avisaba con un umbral fijo de 30 minutos, que podía
+    dar avisos críticos falsos. Ahora se compara con la misma franja horaria de los 7 días anteriores.
+    """
+    silence = now - latest
+    if silence < GLOBAL_FAST:
+        return ''
+    minutes = int(silence.total_seconds() // 60)
+    if silence >= GLOBAL_BACKSTOP:
+        return f'No llega ningún evento de ningún equipo desde hace {minutes // 60} horas.'
+    if not FeedBucket._base_manager.filter(hour__lte=now - timedelta(days=7)).exists():
+        if silence >= GLOBAL_NO_HISTORY:
+            return (f'No llega ningún evento de ningún equipo desde hace {minutes // 60} horas (aún no hay una semana '
+                    'de historia para conocer el ritmo normal).')
+        return ''
+    counts = _hourly_counts(now - timedelta(days=8), now)
+    first = latest.replace(minute=0, second=0, microsecond=0)
+    overlapped = [first + timedelta(hours=i) for i in range(int((now - first).total_seconds() // 3600) + 1)]
+    # Instalación muy activa: a estas horas siempre llegan más de 60 eventos por hora.
+    if all(_usual(counts, hour) >= GLOBAL_FAST_MIN_HOURLY for hour in overlapped):
+        return (f'No llega ningún evento de ningún equipo desde hace {minutes} minutos, y a estas horas siempre '
+                f'llegan más de {GLOBAL_FAST_MIN_HOURLY} por hora.')
+    # Una hora completa sin nada que los 7 días anteriores siempre tuvo actividad.
+    for hour in overlapped:
+        usual = _usual(counts, hour)
+        if hour >= latest and hour + timedelta(hours=1) <= now and usual >= GLOBAL_HOUR_MIN:
+            local = timezone.localtime(hour)
+            return (f'La franja de {local:%H}:00 a {(local + timedelta(hours=1)):%H}:00 ha pasado sin ningún evento de '
+                    f'ningún equipo; los 7 días anteriores siempre tuvo al menos {usual}.')
+    return ''
+
+
 def check_ingest_silence(now):
     """Ningún equipo envía registros: suele ser el receptor, el disco o la red del SOC, no los clientes."""
     latest = DeviceHealth.objects.filter(device__active=True, device__site__active=True,
                                          device__site__client__active=True).aggregate(m=Max('last_log_at'))['m']
-    if latest and now - latest > GLOBAL_SILENCE:
-        minutes = int((now - latest).total_seconds() // 60)
+    reason = silence_reason(latest, now) if latest else ''
+    if reason:
         set_issue('platform:ingest-silence', 'No llegan registros de ningún equipo',
-                  details=f'El último registro de cualquier cliente llegó hace {minutes} minutos. Revisar el receptor '
-                          'syslog, Wazuh, el disco y la red de la VM antes que los equipos de los clientes.',
+                  details=reason + ' Revisar el receptor syslog, Wazuh, el disco y la red de la VM antes que los '
+                                   'equipos de los clientes.',
                   severity='critical', now=now)
     else:
         _resolve('platform:ingest-silence', now)

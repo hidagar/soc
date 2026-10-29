@@ -128,6 +128,8 @@ def execute(name):
         prune_logs(now)
         from .reputation import prune
         prune(now)
+        from .retention import prune as prune_data
+        prune_data(now)  # detecciones, contadores e intentos de acceso caducados, sin depender de las copias
         return cleanup(now)
     if name=='reputation':
         from .reputation import refresh

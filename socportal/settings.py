@@ -122,11 +122,13 @@ X_FRAME_OPTIONS = "DENY"
 
 # CSRF rejection diagnostics (no request body or credentials) and 500 errors in the journal:
 # with DEBUG off Django only mails them to ADMINS (empty), so they were lost.
+# Both include the request path: tokens of report links, blocklist feeds and invitations are hidden.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"csrf_console": {"class": "logging.StreamHandler"},
-                 "errors_console": {"class": "logging.StreamHandler", "level": "ERROR"}},
+    "formatters": {"redacted": {"()": "socportal.log_redaction.RedactingFormatter"}},
+    "handlers": {"csrf_console": {"class": "logging.StreamHandler", "formatter": "redacted"},
+                 "errors_console": {"class": "logging.StreamHandler", "level": "ERROR", "formatter": "redacted"}},
     "loggers": {"django.security.csrf": {
         "handlers": ["csrf_console"], "level": "WARNING", "propagate": False,
     }, "django.request": {"handlers": ["errors_console"], "level": "ERROR", "propagate": False}},

@@ -16,7 +16,7 @@ from cryptography.fernet import Fernet
 from django.conf import settings
 from django.utils import timezone
 from django.db import connection
-from .models import BackupRun, RecoverySettings, SecurityEvidence, FeedBucket, AuthAttempt
+from .models import BackupRun, RecoverySettings
 from .security import decrypt,audit
 from .interruption import JobInterrupted
 
@@ -373,17 +373,32 @@ def make_backup(run):
             run.status='verified' if run.external_verified else 'local_verified'
             run.error=''; run.save()
             audit('backup.verified',run,{'sha256':run.sha256})
-        retention(cfg)
     except (Exception,JobInterrupted):
         run.status='failed'; run.error='No terminó la copia o su verificación. Revisar destino, huella, snapshot y espacio.'; run.save()
         from .operations import set_issue
         set_issue('platform:backup','Copia de seguridad fallida',severity='critical')
         raise
-    else:
-        from .models import OperationalIssue
-        OperationalIssue.objects.filter(key='platform:backup',active=True).update(active=False,resolved_at=timezone.now())
+    from .models import OperationalIssue
+    OperationalIssue.objects.filter(key='platform:backup',active=True).update(active=False,resolved_at=timezone.now())
+    expire_old_backups(cfg)
+
+def expire_old_backups(cfg):
+    """Tras una copia verificada. Un fallo aquí (p. ej. el repositorio de snapshots no responde) se
+    avisa aparte: antes estaba dentro de la copia y convertía en fallida una copia ya verificada."""
+    from .models import OperationalIssue
+    try:
+        retention(cfg)
+    except Exception:
+        from .operations import set_issue
+        set_issue('platform:backup-retention','No se pudieron retirar las copias antiguas',severity='warning',
+                  details='La última copia está verificada. Revisar el repositorio de snapshots del indexador y el espacio de /var/lib/soc-recovery.')
+        return False
+    OperationalIssue.objects.filter(key='platform:backup-retention',active=True).update(active=False,resolved_at=timezone.now())
+    return True
 
 def retention(cfg):
+    """Caducidad de las copias propias y de los snapshots nativos. Los datos del portal se limpian
+    aparte, cada hora y sin depender de las copias (retention.prune)."""
     import re
     cutoff=timezone.now()-timedelta(days=cfg.retention_days)
     for run in BackupRun.objects.filter(created_at__lt=cutoff,status__in=['verified','local_verified','failed']).exclude(filename=''):
@@ -397,9 +412,6 @@ def retention(cfg):
             run.filename=''; run.save(update_fields=['filename'])
         else:
             run.status='expired'; run.save(update_fields=['status'])
-    SecurityEvidence.objects.filter(observed_at__lt=timezone.now()-timedelta(days=cfg.evidence_days),incident__isnull=True).delete()
-    FeedBucket.objects.filter(hour__lt=timezone.now()-timedelta(days=cfg.evidence_days)).delete()
-    AuthAttempt.objects.filter(occurred_at__lt=timezone.now()-timedelta(days=1)).delete()
     # Native snapshots age out through the repository API, never by deleting repository files.
     from .indexer_admin import admin_request
     snapshots=admin_request('/_snapshot/soc_recovery/_all').get('snapshots',[])

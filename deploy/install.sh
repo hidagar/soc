@@ -95,7 +95,8 @@ User=socportal
 Group=socportal
 WorkingDirectory=/srv/soc-portal
 EnvironmentFile=/etc/soc-portal/portal.env
-ExecStart=/opt/soc-portal-venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 --access-logfile - --error-logfile - socportal.wsgi:application
+# Opciones de gunicorn en el código (deploy/gunicorn.conf.py): update.sh las actualiza; sin registro de accesos.
+ExecStart=/opt/soc-portal-venv/bin/gunicorn -c /srv/soc-portal/deploy/gunicorn.conf.py socportal.wsgi:application
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
@@ -123,10 +124,13 @@ if [[ -f /var/ossec/etc/ossec.conf ]]; then
   install -m 0644 /srv/soc-portal/deploy/soc-urgent-alerts.timer /etc/systemd/system/soc-urgent-alerts.timer
 fi
 
+# Registro de accesos sin los secretos de URL (enlaces de informes, listas de bloqueo, invitaciones).
+install -m 0644 /srv/soc-portal/deploy/nginx/soc-log-redaction.conf /etc/nginx/conf.d/soc-log-redaction.conf
 cat > /etc/nginx/sites-available/soc-portal <<'EOF'
 server {
     listen __PORTAL_LISTEN__ ssl;
     server_name __PORTAL_ADDRESS__;
+    access_log /var/log/nginx/access.log soc_redacted;
     ssl_certificate /etc/soc-portal/tls.crt;
     ssl_certificate_key /etc/soc-portal/tls.key;
     ssl_protocols TLSv1.2 TLSv1.3;

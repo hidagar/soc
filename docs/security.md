@@ -53,6 +53,16 @@ Listas de bloqueo para firewalls (`/feeds/bloqueo/`): ruta pública sin sesión,
 
 Nginx consulta `/security/wazuh/check/` con un secreto interno. El backend comprueba sesión, MFA, permisos y ámbito listo; devuelve identidad/rol controlados. El proxy debe sustituir cabeceras de identidad del navegador y proteger la ruta interna. No es un token administrador reutilizable en el frontend. La configuración viva está fuera de Git.
 
+## Secretos en URL y registros
+
+Tres rutas llevan el secreto en la propia URL, porque quien la abre no puede enviar cabeceras: los enlaces de informes del cliente (`/reports/<token>/`, 90 días sin login), la lista que descarga cada firewall (`/feeds/bloqueo/<cliente>/<token>/`) y la invitación (`/activate/<usuario>/<token>/`, con la que se pone la contraseña de una cuenta nueva). No deben quedar en los registros:
+
+- **Django** (errores 500 y rechazos CSRF) los escribe con `socportal.log_redaction.RedactingFormatter`, que sustituye el token por `[oculto]`, también en la traza.
+- **Gunicorn** no guarda registro de accesos (`deploy/gunicorn.conf.py`); antes escribía en el diario la URL completa de cada petición.
+- **Nginx** del portal registra con el formato `soc_redacted` (`deploy/nginx/soc-log-redaction.conf`), que oculta el token en la ruta y en el `Referer`. El registro de errores de Nginx no admite formato y puede incluir la petición de una respuesta fallida.
+
+Las instalaciones anteriores lo adoptan con `sudo deploy/configurar_registros.sh` ([despliegue](deployment.md#registros-sin-secretos-de-url)). Los registros ya escritos siguen conteniendo esas URL hasta que roten: si se han compartido, rotar el token de la lista de bloqueo, renovar los enlaces de informe afectados y reenviar las invitaciones pendientes. El proxy público que publica el portal también registra las peticiones: conviene aplicarle el mismo `map`.
+
 ## Límites conocidos
 
 La cadena HMAC local detecta modificaciones internas, pero no prueba ausencia de truncamiento final sin anclaje externo. La rotación versionada de claves y ese anclaje siguen en roadmap. El canal de logs autentica al emisor configurado; no acredita que todos sus mensajes sean ciertos ni que UDP no pierda datagramas. Probar aislamiento al añadir cada nueva superficie.

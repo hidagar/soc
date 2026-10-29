@@ -1,7 +1,8 @@
 """Continuidad: IP real de los accesos, silencio global, ensayo de recuperación y monitor exterior."""
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from io import StringIO
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -10,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import continuity
-from .models import (Client, Device, DeviceHealth, OperationalIssue, RecoverySettings, Site, StaffAccess,
+from .models import (Client, Device, DeviceHealth, FeedBucket, OperationalIssue, RecoverySettings, Site, StaffAccess,
                      WorkerState)
 
 
@@ -63,20 +64,55 @@ class RealIpTests(TestCase):
 
 
 class IngestSilenceTests(TestCase):
+    # Hora local fija y lejos de un cambio de horario: las franjas se comparan en hora de Madrid.
+    NOW = datetime(2026, 10, 22, 10, 40, tzinfo=ZoneInfo('Europe/Madrid'))
+
     def setUp(self):
         site = Site.objects.create(client=Client.objects.create(name='Cliente', code='c'), name='Sede', code='s')
-        self.health = DeviceHealth.objects.create(device=Device.objects.create(site=site, name='FW', vendor='opnsense'))
+        self.device = Device.objects.create(site=site, name='FW', vendor='opnsense')
+        self.health = DeviceHealth.objects.create(device=self.device)
 
-    def test_no_logs_from_any_device_is_critical(self):
-        now = timezone.now()
-        self.health.last_log_at = now - timedelta(minutes=45)
+    def history(self, per_hour, now=NOW):
+        """Ocho días de recepción con `per_hour(hora local)` eventos en cada hora."""
+        start = (now - timedelta(days=8)).astimezone(dt_timezone.utc).replace(minute=0, second=0, microsecond=0)
+        FeedBucket.objects.bulk_create(
+            FeedBucket(device=self.device, kind='system', hour=start + timedelta(hours=i),
+                       event_count=per_hour(timezone.localtime(start + timedelta(hours=i)).hour))
+            for i in range(8 * 24))
+
+    def check(self, last_log, now=NOW):
+        self.health.last_log_at = last_log
         self.health.save()
         continuity.check_ingest_silence(now)
-        self.assertEqual(active('platform:ingest-silence').severity, 'critical')
-        self.health.last_log_at = now - timedelta(minutes=2)
-        self.health.save()
-        continuity.check_ingest_silence(now)
-        self.assertIsNone(active('platform:ingest-silence'))
+        return active('platform:ingest-silence')
+
+    def test_without_a_week_of_history_it_waits_six_hours(self):
+        self.assertIsNone(self.check(self.NOW - timedelta(minutes=45)))
+        issue = self.check(self.NOW - timedelta(hours=7))
+        self.assertEqual(issue.severity, 'critical')
+        self.assertIn('semana de historia', issue.details)
+
+    def test_a_busy_installation_alarms_after_half_an_hour(self):
+        self.history(lambda hour: 100)
+        self.assertIsNone(self.check(self.NOW - timedelta(minutes=20)))
+        self.assertIn('más de 60', self.check(self.NOW - timedelta(minutes=45)).details)
+        self.assertIsNone(self.check(self.NOW - timedelta(minutes=2)))  # vuelve a llegar: se resuelve
+
+    def test_quiet_nights_do_not_alarm_but_a_silent_working_hour_does(self):
+        # Antes, 30 minutos fijos: un aviso crítico falso cada noche tranquila.
+        self.history(lambda hour: 0 if hour < 7 else 30)
+        last = datetime(2026, 10, 21, 23, 50, tzinfo=ZoneInfo('Europe/Madrid'))
+        self.assertIsNone(self.check(last, now=datetime(2026, 10, 22, 3, 30, tzinfo=ZoneInfo('Europe/Madrid'))))
+        issue = self.check(last, now=datetime(2026, 10, 22, 8, 10, tzinfo=ZoneInfo('Europe/Madrid')))
+        self.assertIn('de 07:00 a 08:00', issue.details)
+        self.assertIn('al menos 30', issue.details)
+
+    def test_a_partial_working_hour_is_not_enough(self):
+        self.history(lambda hour: 30)
+        self.assertIsNone(self.check(self.NOW - timedelta(minutes=50)))  # ninguna hora completa en silencio
+
+    def test_a_whole_day_without_anything_always_alarms(self):
+        self.assertIn('horas', self.check(self.NOW - timedelta(hours=25)).details)
 
     def test_a_new_installation_without_logs_does_not_alarm(self):
         continuity.check_ingest_silence(timezone.now())

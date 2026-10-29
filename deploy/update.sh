@@ -386,6 +386,11 @@ if [[ -n "$UNITS_CHANGED" ]]; then
   echo "  AVISO: unidades systemd distintas de las instaladas (NO se modifican):"
   echo "$UNITS_CHANGED" | sed 's/^/    /'
 fi
+if [[ ! -f /etc/systemd/system/soc-portal.service.d/gunicorn.conf ]] \
+    && ! grep -q 'deploy/gunicorn.conf.py' /etc/systemd/system/soc-portal.service 2>/dev/null; then
+  echo "  AVISO: gunicorn aún guarda en el diario las URL con secretos y no usa deploy/gunicorn.conf.py."
+  echo "         Después de actualizar: sudo deploy/configurar_registros.sh (una sola vez)."
+fi
 echo
 confirm "Se pararán el portal y los timers soc-* durante la actualización. ¿Continuar?"
 

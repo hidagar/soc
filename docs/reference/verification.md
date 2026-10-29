@@ -24,7 +24,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_campaigns.py](../../core/test_campaigns.py) | 6 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
-| [core/test_continuity.py](../../core/test_continuity.py) | 18 |
+| [core/test_continuity.py](../../core/test_continuity.py) | 22 |
 | [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 9 |
 | [core/test_customer_portal.py](../../core/test_customer_portal.py) | 8 |
 | [core/test_customer_preview.py](../../core/test_customer_preview.py) | 5 |
@@ -55,6 +55,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_interface_topology.py](../../core/test_interface_topology.py) | 12 |
 | [core/test_investigation.py](../../core/test_investigation.py) | 11 |
 | [core/test_key_rotation.py](../../core/test_key_rotation.py) | 4 |
+| [core/test_log_redaction.py](../../core/test_log_redaction.py) | 6 |
 | [core/test_login_ip_throttle.py](../../core/test_login_ip_throttle.py) | 5 |
 | [core/test_native_pipeline.py](../../core/test_native_pipeline.py) | 1 |
 | [core/test_navigation.py](../../core/test_navigation.py) | 3 |
@@ -71,6 +72,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_report_versions.py](../../core/test_report_versions.py) | 8 |
 | [core/test_reputation.py](../../core/test_reputation.py) | 39 |
+| [core/test_retention.py](../../core/test_retention.py) | 5 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
 | [core/test_security_review.py](../../core/test_security_review.py) | 6 |

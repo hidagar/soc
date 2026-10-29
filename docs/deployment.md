@@ -68,6 +68,19 @@ Si el portal se publica a través de otro Nginx (en la instalación actual, el N
 
 `update.sh` no modifica Nginx: este paso se hace una vez y se conserva entre actualizaciones.
 
+## Registros sin secretos de URL
+
+Una sola vez en las instalaciones anteriores a octubre de 2026, después de desplegar con `update.sh` (que avisa mientras falte):
+
+```sh
+sudo deploy/configurar_registros.sh          # --ver muestra el estado; --quitar lo deshace
+```
+
+1. Instala `/etc/nginx/conf.d/soc-log-redaction.conf` y añade `access_log /var/log/nginx/access.log soc_redacted;` al servidor del portal. Comprueba `nginx -t`; si falla, restaura lo anterior sin recargar.
+2. Añade `/etc/systemd/system/soc-portal.service.d/gunicorn.conf`, que arranca gunicorn con `deploy/gunicorn.conf.py` (sin registro de accesos). Reinicia el portal y comprueba que el login responde; si no, deshace el cambio.
+
+Desde entonces, las opciones de gunicorn viajan con el código y `update.sh` las actualiza. `install.sh` ya instala así las instalaciones nuevas. Motivo y alcance: [seguridad](security.md#secretos-en-url-y-registros).
+
 ## Reversión
 
 Detener escritores/timers y servicios nuevos antes de restaurar código/unidades y base compatible. Retirar archivos nuevos ausentes en versión anterior; no dejar migraciones importándose contra un esquema restaurado. Recargar systemd, regenerar estáticos y arrancar componentes previstos.
