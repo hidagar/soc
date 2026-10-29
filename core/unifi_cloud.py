@@ -13,6 +13,17 @@ class UnifiCloudError(Exception):
     pass
 
 
+# La consola del cliente responde a través del conector: una respuesta enorme no debe agotar la memoria.
+MAX_RESPONSE = 16 * 1024 * 1024
+
+
+def _read_json(response):
+    raw = response.read(MAX_RESPONSE + 1)
+    if len(raw) > MAX_RESPONSE:
+        raise ValueError("Respuesta de UniFi demasiado grande")
+    return json.loads(raw)
+
+
 class _NoRedirect(request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -56,7 +67,7 @@ def list_sites(api_key):
         req = request.Request(url, headers={"Accept": "application/json", "X-API-Key": api_key})
         try:
             with opener.open(req, timeout=10) as response:
-                payload = json.load(response)
+                payload = _read_json(response)
         except error.HTTPError as exc:
             if exc.code in (401, 403):
                 raise UnifiCloudError("UniFi rechazó la clave API o sus permisos.") from exc
@@ -101,7 +112,7 @@ def list_host_consoles(api_key):
         )
         try:
             with opener.open(req, timeout=10) as response:
-                payload = json.load(response)
+                payload = _read_json(response)
         except (error.HTTPError, error.URLError, TimeoutError, OSError, ValueError) as exc:
             raise UnifiCloudError("No se pudieron descubrir los datos del equipo UniFi.") from exc
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
@@ -144,7 +155,7 @@ def list_host_names(api_key):
         )
         try:
             with opener.open(req, timeout=10) as response:
-                payload = json.load(response)
+                payload = _read_json(response)
         except (error.HTTPError, error.URLError, TimeoutError, OSError, ValueError) as exc:
             raise UnifiCloudError("No se pudieron leer los nombres de las consolas UniFi.") from exc
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
@@ -179,7 +190,7 @@ def connector_json(api_key, host_id, path, *, method="GET", payload=None):
                           method=method, headers={"Accept": "application/json", "Content-Type": "application/json", "X-API-Key": api_key})
     try:
         with request.build_opener(_NoRedirect()).open(req, timeout=25) as response:
-            result = json.load(response)
+            result = _read_json(response)
             if not isinstance(result, dict):
                 raise UnifiCloudError("UniFi devolvió una respuesta inesperada.")
             return result

@@ -31,7 +31,9 @@ class Command(BaseCommand):
                     # A crashed backup never retains a permanent running lock.
                     from datetime import timedelta
                     BackupRun.objects.filter(status='running',created_at__lt=timezone.now()-timedelta(hours=2)).update(status='failed',error='Proceso interrumpido; repetir la copia.')
-                    if options['daily'] and not BackupRun.objects.filter(created_at__date=timezone.now().date(),status__in=['queued','running','verified','local_verified']).exists(): BackupRun.objects.create()
+                    if options['daily']:
+                        from core.recovery import queue_daily_backup
+                        queue_daily_backup()
                     run=BackupRun.objects.filter(status='queued').order_by('pk').first()
                     if run: make_backup(run)
                 state.last_success_at=timezone.now(); state.error=''

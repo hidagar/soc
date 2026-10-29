@@ -15,6 +15,8 @@ Portal SQLite, índices/objetos/seguridad OpenSearch, RBAC/API Wazuh, secretos/c
 
 El ensayo del indexador se repite a los 30 días o cuando cambian las familias de índices (un cliente nuevo), no con la rotación diaria de alertas: antes cada copia diaria restauraba todos los índices en el clúster vivo y duplicaba su disco. La espera de recuperación llega a 10 minutos. Al empezar cada copia se borran los índices `soc-restore-check-*` y las carpetas `build-*` que dejara una copia cortada (contienen el entorno y la base en claro). Si systemd para la copia (SIGTERM), se ejecuta su limpieza y queda como fallida. Los archivos de copias fallidas caducan con la misma retención.
 
+La copia diaria (03:15) se crea si ese día local aún no tiene ninguna en cola, en curso o correcta (`queue_daily_backup`). Antes se comparaba con la fecha UTC: si el temporizador se recuperaba entre las 00:00 y las 02:00 tras un apagado, la copia del día anterior contaba como la de hoy.
+
 Tras una copia verificada se retiran las copias y snapshots que superan la retención. Si eso falla (por ejemplo, el repositorio de snapshots no responde), la copia sigue verificada y se avisa aparte (`platform:backup-retention`, advertencia); antes ese fallo la marcaba como fallida con aviso crítico. La limpieza de detecciones antiguas ya no depende de las copias: véase [operación](operations.md#conservación-de-datos).
 
 El usuario realiza copias de VM: no inventar/configurar SFTP por ello. Registrar fecha/destino externo y restaurar en aislamiento. No afirmar RPO/RTO sin medir pérdida máxima y tiempo real.

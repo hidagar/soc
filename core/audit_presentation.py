@@ -17,7 +17,8 @@ ACTIONS = {
     'zenarmor.export_configured':'Destino Syslog y Alerts de Zenarmor confirmados',
     'password_login': 'Inicio de sesión con contraseña',
     'mfa.verified': 'Segundo factor verificado', 'mfa.enrolled': 'Autenticador configurado',
-    'mfa.reset': 'Autenticador restablecido', 'staff.access': 'Permisos de usuario actualizados',
+    'mfa.reset': 'Autenticador restablecido', 'mfa.locked': 'Segundo factor bloqueado por intentos fallidos',
+    'staff.access': 'Permisos de usuario actualizados',
     'incident.automatic': 'Incidencia creada automáticamente', 'incident.claimed': 'Incidencia asumida por un operador',
     'incident.note': 'Nota añadida a la incidencia', 'incident.action_saved': 'Acción de seguimiento guardada',
     'intelligence.incident': 'Seguimiento de una detección abierto',
@@ -191,6 +192,7 @@ def detail_lines(event):
     if data.get('sha256'):lines.append('Huella de integridad registrada; disponible en los datos técnicos.')
     defaults={'password_login':'Se ha iniciado sesión con contraseña.', 'mfa.verified':'Segundo factor comprobado correctamente.',
         'mfa.enrolled':'El usuario ha configurado su autenticador.', 'mfa.reset':'Se ha restablecido el autenticador del usuario.',
+        'mfa.locked':'Se ha agotado el número de intentos del código MFA; se ha avisado al SOC.',
         'firewall.backup_saved':'Configuración cifrada y comprobada por descifrado y huella de integridad.',
         'backup.verified':'Se ha completado la verificación de la copia del SOC.',
         'urgent.acknowledged':'El SOC ha registrado que ha visto el aviso; el caso mantiene su seguimiento.',

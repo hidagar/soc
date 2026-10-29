@@ -83,7 +83,10 @@ def probe_host_key(host, port):
         transport = paramiko.Transport(sock)
         transport.start_client(timeout=7)
         key = transport.get_remote_server_key()
-        return {"type": key.get_name(), "base64": key.get_base64(), "fingerprint": fingerprint(key)}
+        # Algoritmo de firma negociado: «ssh-rsa» es RSA con SHA-1 (CVE-2026-44405 de paramiko, sin versión
+        # corregida). paramiko prefiere rsa-sha2-*: solo se usa si el equipo no admite otro y se avisa.
+        return {"type": key.get_name(), "base64": key.get_base64(), "fingerprint": fingerprint(key),
+                "algorithm": str(getattr(transport, "host_key_type", "") or "")}
     except (OSError, paramiko.SSHException) as exc:
         raise SshConnectionError("No se pudo obtener la huella SSH del equipo.") from exc
     finally:

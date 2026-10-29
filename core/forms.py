@@ -242,10 +242,6 @@ class IncidentForm(StyledModelForm):
          'hint': 'La fecha de resolución se rellena sola al marcar «Resuelta». Para el trabajo pendiente usa el plan de acciones de la ficha.'},
     ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['actions'].label = 'Notas de acciones (texto libre)'
-
     def clean(self):
         values=super().clean()
         if values.get('status')=='resolved' and not values.get('resolved_at'):
@@ -277,6 +273,8 @@ class IncidentForm(StyledModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Antes había dos __init__ en esta clase: el segundo anulaba al primero y esta etiqueta no se aplicaba.
+        self.fields['actions'].label = 'Notas de acciones (texto libre)'
         self.fields["observed_at"].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S"]
         self.fields["resolved_at"].input_formats = ["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S"]
         client_id = self.data.get("client") if self.is_bound else self.initial.get("client") or self.instance.client_id

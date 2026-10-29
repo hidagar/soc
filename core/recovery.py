@@ -287,6 +287,15 @@ def remove_stale_builds():
         for path in ROOT.glob('build-*'):
             if path.is_dir() and not path.is_symlink():shutil.rmtree(path,ignore_errors=True)
 
+def queue_daily_backup(now=None):
+    """Copia del día si no hay ya una en cola, en curso o correcta. El día es el local: `created_at__date`
+    se calcula en la zona del portal. Antes se comparaba con la fecha UTC y, si el temporizador se
+    recuperaba entre las 00:00 y las 02:00 tras un apagado, la copia de ayer contaba como la de hoy."""
+    today=timezone.localdate(now or timezone.now())
+    if BackupRun.objects.filter(created_at__date=today,status__in=['queued','running','verified','local_verified']).exists():
+        return None
+    return BackupRun.objects.create()
+
 def make_backup(run):
     if connection.vendor not in DATABASE_MEMBERS:
         run.status='failed'; run.error='Motor de base sin copia soportada.'; run.save()

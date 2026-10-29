@@ -14,6 +14,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_asn.py](../../core/test_asn.py) | 5 |
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
 | [core/test_audit_chain.py](../../core/test_audit_chain.py) | 7 |
+| [core/test_audit_fixes.py](../../core/test_audit_fixes.py) | 11 |
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
 | [core/test_blocklist.py](../../core/test_blocklist.py) | 12 |
 | [core/test_blocklist_customer.py](../../core/test_blocklist_customer.py) | 4 |

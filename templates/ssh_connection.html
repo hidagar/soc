@@ -19,6 +19,7 @@
 {% if probe %}<section class="card"><h2>Confirmar huella y guardar</h2>
   <p>Equipo: <strong>{{ probe.hostname }}:{{ probe.port }}</strong> · Usuario: <strong>{{ probe.username }}</strong></p>
   <p>Huella detectada: <code>{{ probe.fingerprint }}</code></p>
+  {% if probe.algorithm == 'ssh-rsa' %}<p class="notice">El equipo solo admite firmas SSH con SHA-1 («ssh-rsa»), un algoritmo antiguo. La conexión funciona y la huella sigue fijada, pero conviene actualizar su firmware o activar rsa-sha2 en su servidor SSH.</p>{% endif %}
   <p>Confirma que coincide con la huella mostrada por el equipo o facilitada por su administrador. Si no coincide, no guardes la contraseña.</p>
   <form method="post" autocomplete="off">{% csrf_token %}<input type="hidden" name="action" value="save">
     <input type="hidden" name="hostname" value="{{ probe.hostname }}"><input type="hidden" name="port" value="{{ probe.port }}"><input type="hidden" name="username" value="{{ probe.username }}">

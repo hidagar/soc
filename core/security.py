@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import logging
 import secrets
 import struct
 import time
@@ -302,14 +303,18 @@ class SocSecurityMiddleware:
         try:
             response = self.get_response(request)
             if request.method == 'POST' and request.path in ('/login/','/admin/login/'):
-                from .continuity import note_login_origin
-                note_login_origin(client_ip(request))
                 if request.soc_password_login_user is None:
                     failed_login(request)
                 else:
                     # Solo se limpia la identidad intentada: los fallos de la IP siguen contando.
                     AuthAttempt.objects.filter(identifier=attempt_key(request,'password',request.POST.get('username',''))).delete()
                     audit('password_login', user=request.soc_password_login_user)
+                # Después de contar el intento y sin poder romper el acceso: solo alimenta un aviso de «Salud del SOC».
+                try:
+                    from .continuity import note_login_origin
+                    note_login_origin(client_ip(request))
+                except Exception:
+                    logging.getLogger(__name__).exception('No se pudo anotar el origen del acceso')
             elif request.user.is_authenticated and request.method not in ('GET','HEAD','OPTIONS') and response.status_code < 400:
                 match = getattr(request, 'resolver_match', None)
                 name = match.url_name if match else 'request'
@@ -390,11 +395,35 @@ def mfa_challenge(request):
         if verify_token(profile, request.POST.get('code','')):
             mark_mfa(request,profile)
             audit('mfa.verified',profile)
+            from .models import OperationalIssue
+            # Aviso de plataforma (sin equipo): fuera del ámbito de cliente de quien inicia sesión.
+            OperationalIssue._base_manager.filter(key=f'security:mfa-failures:{request.user.pk}',active=True).update(
+                active=False,resolved_at=timezone.now())
             access=StaffAccess.objects.filter(user=request.user).first()
             return redirect('customer_home' if access and access.role=='customer' else 'dashboard')
         failed_attempt(request,'mfa')
+        if throttled(request,'mfa'):
+            mfa_locked(request.user,profile)
         error = 'Código incorrecto, caducado o ya utilizado.'
     return render(request,'security_mfa.html',{'challenge':True,'error':error})
+
+def mfa_locked(user,profile):
+    """Quien llega al código MFA ya ha acertado la contraseña: agotar los intentos es una señal fuerte.
+
+    Aviso crítico al SOC (también por correo de operaciones); se resuelve cuando el usuario verifica bien
+    su código. Antes solo se bloqueaba 15 minutos, sin avisar a nadie.
+    """
+    from .operations import set_issue
+    # set_issue busca por clave con el gestor con ámbito: dentro de la petición del usuario no vería el aviso
+    # anterior (sin equipo) y el segundo bloqueo chocaría con la clave única.
+    token = customer_scope.set(None)
+    try:
+        set_issue(f'security:mfa-failures:{user.pk}','Intentos de MFA fallidos repetidos',severity='critical',
+                  details=f'La cuenta {user.get_username()} ha fallado el código MFA varias veces seguidas y queda bloqueada '
+                          '15 minutos. Si no ha sido el usuario, alguien conoce su contraseña: cámbiala y revisa la auditoría.')
+    finally:
+        customer_scope.reset(token)
+    audit('mfa.locked',profile,user=user)
 
 @login_required
 @require_http_methods(['POST'])

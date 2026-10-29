@@ -1,5 +1,6 @@
 """Idempotent, per-device syslog provisioning for supported management methods."""
 
+import base64
 import ipaddress
 import json
 import os
@@ -198,10 +199,12 @@ function soc_address($host, $known) {
 try {
     if (posix_geteuid() !== 0) { throw new Exception('La configuración por SSH requiere una cuenta con permisos root.'); }
     $model = new Syslog();
-    $marker = __MARKER__;
-    $host = __HOST__;
-    $port = __PORT__;
-    $known = __KNOWN__;
+    // Los datos llegan en JSON y base64 dentro de comillas simples: PHP no interpreta nada de ellos.
+    $params = json_decode(base64_decode('__PARAMS__'), true);
+    $marker = (string)$params['marker'];
+    $host = (string)$params['host'];
+    $port = (string)$params['port'];
+    $known = array_map('strval', $params['known']);
     $managed = null; $managedKey = null; $others = [];
     foreach ($model->destinations->destination->iterateItems() as $key => $item) {
         if ((string)$item->description === $marker) { $managed = $item; $managedKey = (string)$key; continue; }
@@ -263,10 +266,10 @@ try {
 
 
 def _opnsense_ssh(device, connection, destination, port):
-    script = (_SSH_PHP.replace("__MARKER__", json.dumps(_marker(device)))
-             .replace("__HOST__", json.dumps(destination))
-             .replace("__PORT__", json.dumps(str(port)))
-             .replace("__KNOWN__", json.dumps(available_destinations())))
+    # Antes cada valor iba como JSON entre comillas dobles de PHP, que interpreta `$` y `{$…}`: hoy son una
+    # IP y un texto fijo, pero bastaba con añadir un dato escrito por un usuario para ejecutar código.
+    params = {"marker": _marker(device), "host": destination, "port": str(port), "known": available_destinations()}
+    script = _SSH_PHP.replace("__PARAMS__", base64.b64encode(json.dumps(params).encode("utf-8")).decode("ascii"))
     uid_status, uid_output, _ = run_command(connection, "id -u")
     if uid_status != 0:
         raise ProvisionError("No se pudieron comprobar los permisos SSH antes de configurar syslog.")

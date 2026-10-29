@@ -517,6 +517,12 @@ def sync_unifi(client):
         sync(binding, force=True)
 
 
+def _posted_pk(request, name):
+    """Identificador numérico de un formulario; 0 (no encontrado, 404) si no lo es. Antes daba un error 500."""
+    value = request.POST.get(name, '')
+    return int(value) if value.isascii() and value.isdigit() and len(value) <= 18 else 0
+
+
 def unifi_action(request, client, feed, action):
     """Buscar listas «SOC…» en la consola, vincular una o dejar de gestionarla. None = volver a pintar la página."""
     from .models import UnifiBlocklistBinding
@@ -524,7 +530,7 @@ def unifi_action(request, client, feed, action):
     from .unifi_cloud import UnifiCloudError
     if action == 'unifi_policy_first':
         binding = get_object_or_404(UnifiBlocklistBinding.objects.filter(device__site__client=client).exclude(policies=[]),
-                                    pk=request.POST.get('binding', '0') or 0)
+                                    pk=_posted_pk(request, 'binding'))
         try:
             moved = move_first(binding)
         except UnifiCloudError as exc:
@@ -536,7 +542,7 @@ def unifi_action(request, client, feed, action):
         return redirect('blocklist_detail', client_pk=client.pk)
     if action in ('unifi_policy_enable', 'unifi_policy_disable'):
         binding = get_object_or_404(UnifiBlocklistBinding.objects.filter(device__site__client=client).exclude(policies=[]),
-                                    pk=request.POST.get('binding', '0') or 0)
+                                    pk=_posted_pk(request, 'binding'))
         enabled = action == 'unifi_policy_enable'
         try:
             set_policies(binding, enabled)
@@ -555,7 +561,7 @@ def unifi_action(request, client, feed, action):
         return redirect('blocklist_detail', client_pk=client.pk)
     if action == 'unifi_unbind':
         binding = get_object_or_404(UnifiBlocklistBinding.objects.filter(device__site__client=client),
-                                    pk=request.POST.get('binding', '0') or 0)
+                                    pk=_posted_pk(request, 'binding'))
         # Primero se retiran las políticas que creó el SOC; después se vacía la lista: una lista
         # abandonada seguiría bloqueando sin control.
         try:
@@ -572,7 +578,7 @@ def unifi_action(request, client, feed, action):
         binding.delete()
         messages.success(request, 'Políticas del SOC retiradas y lista de UniFi vaciada y desvinculada.')
         return redirect('blocklist_detail', client_pk=client.pk)
-    device = get_object_or_404(_unifi_devices(client), pk=request.POST.get('device', '0') or 0)
+    device = get_object_or_404(_unifi_devices(client), pk=_posted_pk(request, 'device'))
     direction = request.POST.get('direction', 'in')
     if direction not in ('in', 'out'):
         raise Http404
@@ -678,7 +684,7 @@ def add_manual(request, client):
 
 def revoke_manual(request, client):
     block = get_object_or_404(ManualBlock._base_manager.filter(Q(client=client) | Q(client=None), revoked_at=None),
-                              pk=request.POST.get('block', '0') or 0)
+                              pk=_posted_pk(request, 'block'))
     if block.client_id is None and not global_access(request.user):
         return HttpResponseForbidden('Retirar un bloqueo de todos los clientes requiere acceso global al SOC.')
     ManualBlock._base_manager.filter(pk=block.pk, revoked_at=None).update(revoked_at=timezone.now(), revoked_by=request.user)
@@ -787,7 +793,7 @@ def detail(request, client_pk):
         elif action in ('plan', 'plan_out'):
             if not request.user.has_perm('core.manage_connections'):
                 return HttpResponseForbidden('Permiso de conexiones requerido.')
-            device = get_object_or_404(_devices(client), pk=request.POST.get('device', '0') or 0)
+            device = get_object_or_404(_devices(client), pk=_posted_pk(request, 'device'))
             outbound = action == 'plan_out'
             if not feed.enabled or not feed.token_hash or (outbound and not feed.outbound_enabled):
                 messages.error(request, 'Activa primero la lista (y la de salida, para el bloqueo C2) y revisa sus entradas.')

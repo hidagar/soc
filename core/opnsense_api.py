@@ -14,6 +14,10 @@ class OpnsenseApiError(Exception):
     pass
 
 
+# Las tablas de reglas o ARP de un firewall grande caben de sobra; un equipo comprometido no puede agotar la memoria.
+MAX_RESPONSE = 16 * 1024 * 1024
+
+
 class _NoRedirect(request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -88,7 +92,10 @@ def _request_json(api_url, api_key, api_secret, ca_certificate, path, method="GE
         with opener.open(req, timeout=timeout) as response:
             if "json" not in response.headers.get("Content-Type", "").lower():
                 raise OpnsenseApiError("OPNsense no devolvió JSON en la API.")
-            payload = json.load(response)
+            raw = response.read(MAX_RESPONSE + 1)
+            if len(raw) > MAX_RESPONSE:
+                raise OpnsenseApiError("La respuesta de OPNsense supera el tamaño permitido.")
+            payload = json.loads(raw)
             if not isinstance(payload, dict):
                 raise OpnsenseApiError("La respuesta API de OPNsense no es válida.")
             return payload
