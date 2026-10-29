@@ -66,6 +66,7 @@ def _wizard_return(device):
 @login_required
 def dashboard(request):
     """Portada del SOC: primero lo que requiere atención, después la actividad reciente."""
+    from .campaigns import pending_count as pending_campaigns
     from .improvement_models import CustomerTask
     from .investigation import evidence_queryset
     from .models import DeviceHealth, OperationalIssue
@@ -95,6 +96,8 @@ def dashboard(request):
          "url": reverse("health_list")},
         {"tone": "warn", "count": silent.count(), "title": "Equipos sin registros desde hace más de 2 h",
          "hint": "Sin registros no hay detección: comprobar el envío.", "url": reverse("health_list")},
+        {"tone": "alert", "count": pending_campaigns(now), "title": "IPs que atacan a varios clientes sin bloqueo común",
+         "hint": "Últimas 24 h: candidatas a bloquear en todos los clientes.", "url": reverse("campaign_list")},
         {"tone": "", "count": open_incidents.filter(owner__isnull=True).count(), "title": "Incidencias sin responsable",
          "hint": "Asignar un analista desde la bandeja de trabajo.", "url": reverse("work_queue") + "?queue=unassigned"},
     ]

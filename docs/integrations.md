@@ -110,6 +110,15 @@ Para otros fabricantes no hay plantilla: se puede configurar a mano una tabla de
 
 **Atacantes repetidos** (opción por cliente, desactivada por defecto): entra en la lista una IP pública que ha atacado a ese cliente al menos 5 veces en 2 días distintos de los últimos 7, aunque CrowdSec no la conozca. Motivo «Ataques repetidos a este cliente». Solo cuenta lo que llega de su propio firewall; se descartan ruido de fondo y posibles falsos positivos de la CTI, excepciones del cliente e IPs de clientes y del SOC. Si la IP ya está por CrowdSec, se añade el motivo.
 
+## Ataques a varios clientes (`core/campaigns.py`)
+
+«Detección e investigación → Ataques a varios clientes» lista las IPs públicas que han atacado a 3 o más clientes en 24 h, 3 días o 7 días: clientes afectados con sus detecciones y permitidas, reputación CrowdSec y si ya hay un bloqueo común. El «Resumen» avisa de las de las últimas 24 h sin bloqueo común.
+
+- Se calcula con el gestor con ámbito: un operador con clientes asignados solo ve las IPs que atacan a varios de *sus* clientes y nunca el nombre de otros.
+- Se excluyen orígenes no públicos y las IPs de clientes y del SOC (`protected_addresses`).
+- «Bloquear en todos» crea un `ManualBlock` común (entrada, 1/7/30 días, motivo automático) con `add_manual`, así que valen sus frenos: acceso global, permiso de operaciones, MFA reciente, auditoría, excepciones de cada cliente e IPs protegidas. Solo acepta IPs que figuren en la vista en ese momento. Lo reciben los clientes con la lista de bloqueo activada en su próxima descarga.
+- Atacar a varios clientes no acredita un compromiso: es un criterio de bloqueo preventivo, no de infección.
+
 ## Listas de CrowdSec guiadas por los ataques reales (Service API)
 
 `core/crowdsec_catalog.py` y la página «Detección e investigación → Listas de CrowdSec» (permiso `manage_operations`; altas y bajas con `manage_connections` y MFA reciente). El trabajo protegido `crowdsec_lists` (cada 5 minutos) usa `SOC_PORTAL_CROWDSEC_SERVICE_KEY` contra `https://admin.api.crowdsec.net/v1` con la cabecera `x-api-key`.
