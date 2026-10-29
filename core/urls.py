@@ -2,6 +2,7 @@ from django.urls import path
 from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 
+from . import campaigns
 from . import views
 from . import wazuh_sso
 from . import hillstone_views
@@ -83,6 +84,7 @@ urlpatterns = [
     path('devices/<int:pk>/history/',service.device_history,name='device_history'),
     path('operations/intelligence/',service.intelligence,name='intelligence'),
     path('operations/crowdsec/',reputation_views.overview,name='crowdsec_overview'),
+    path('operations/campaigns/',campaigns.campaign_list,name='campaign_list'),
     path('operations/blocklists/',blocklist.overview,name='blocklists'),
     path('operations/crowdsec/lists/',crowdsec_catalog.overview,name='crowdsec_lists'),
     path('operations/crowdsec/lists/<int:pk>/',crowdsec_catalog.action,name='crowdsec_list_action'),

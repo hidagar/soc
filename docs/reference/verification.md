@@ -19,6 +19,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_blocklist_efficacy.py](../../core/test_blocklist_efficacy.py) | 4 |
 | [core/test_blocklist_outbound.py](../../core/test_blocklist_outbound.py) | 4 |
 | [core/test_blocklist_phase2.py](../../core/test_blocklist_phase2.py) | 7 |
+| [core/test_campaigns.py](../../core/test_campaigns.py) | 6 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 9 |

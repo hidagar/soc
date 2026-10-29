@@ -31,6 +31,7 @@ def _staff_groups(user, global_access):
         ("deteccion", "Detección e investigación", [
             _item("Detecciones prioritarias", "intelligence"),
             _item("Investigar IP y eventos", "security_explore", ["ip_investigation"]),
+            _item("Ataques a varios clientes", "campaign_list"),
             _item("Mapa de detecciones", "threat_map"),
             _item("Reputación CrowdSec", "crowdsec_overview"),
             _item("Listas de CrowdSec", "crowdsec_lists", ["crowdsec_list_action"], visible=perm("core.manage_operations")),

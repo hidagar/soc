@@ -64,6 +64,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `devices/<int:pk>/history/` | `device_history` | `service.device_history` |
 | `operations/intelligence/` | `intelligence` | `service.intelligence` |
 | `operations/crowdsec/` | `crowdsec_overview` | `reputation_views.overview` |
+| `operations/campaigns/` | `campaign_list` | `campaigns.campaign_list` |
 | `operations/blocklists/` | `blocklists` | `blocklist.overview` |
 | `operations/crowdsec/lists/` | `crowdsec_lists` | `crowdsec_catalog.overview` |
 | `operations/crowdsec/lists/<int:pk>/` | `crowdsec_list_action` | `crowdsec_catalog.action` |
