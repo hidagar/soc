@@ -140,11 +140,16 @@ error_log {d}/run/error.log;
 events {{}}
 http {{
     client_body_temp_path {d}/run/b; proxy_temp_path {d}/run/p; fastcgi_temp_path {d}/run/f; uwsgi_temp_path {d}/run/u; scgi_temp_path {d}/run/s;
+    access_log {d}/run/default-access.log;  # el registro por defecto compilado también está en /var/log/nginx
     include {d}/nginx/conf.d/*.conf;
-    include {self.site};
+    include {d}/run/site.conf;
 }}
 ''')
-        self.stub('nginx', f'[[ -f {d}/fail-nginx ]] && exit 1\nexec {self.NGINX} -e {d}/run/error.log -t -q -c {d}/nginx/nginx.conf -p {d}/run')
+        # `nginx -t` abre los registros: sin root (CI) no puede abrir /var/log/nginx, así que la sintaxis se
+        # comprueba sobre una copia del sitio con el registro en la carpeta de la prueba. El script no cambia.
+        self.stub('nginx', f'[[ -f {d}/fail-nginx ]] && exit 1\n'
+                           f'sed "s#/var/log/nginx/#{d}/run/#g" {self.site} > {d}/run/site.conf\n'
+                           f'exec {self.NGINX} -e {d}/run/error.log -t -q -c {d}/nginx/nginx.conf -p {d}/run')
         self.stub('systemctl', f'echo "$*" >> {d}/calls.log')
         self.stub('curl', 'echo 200')
 
@@ -163,9 +168,12 @@ http {{
         path = self.dir / 'calls.log'
         return path.read_text().split('\n') if path.exists() else []
 
+    def assert_ok(self, result):
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_applies_once_and_can_be_removed(self):
-        self.assertEqual(self.run_script().returncode, 0)
-        self.assertEqual(self.run_script().returncode, 0)  # repetir no duplica
+        self.assert_ok(self.run_script())
+        self.assert_ok(self.run_script())  # repetir no duplica
         site = self.site.read_text()
         self.assertEqual(site.count('soc_redacted;'), 1)
         self.assertLess(site.index('server_name'), site.index('access_log /var/log/nginx/access.log soc_redacted;'))
@@ -173,7 +181,7 @@ http {{
         self.assertIn('ExecStart=\n', dropin)
         self.assertIn(f'gunicorn -c {self.dir}/app/deploy/gunicorn.conf.py socportal.wsgi:application', dropin)
         self.assertIn('restart soc-portal', self.calls())
-        self.assertEqual(self.run_script('--quitar').returncode, 0)
+        self.assert_ok(self.run_script('--quitar'))
         self.assertNotIn('soc_redacted', self.site.read_text())
         self.assertFalse((self.dir / 'nginx/conf.d/soc-log-redaction.conf').exists())
         self.assertFalse((self.dir / 'units/soc-portal.service.d').exists())
