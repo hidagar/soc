@@ -7,6 +7,8 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | Variable | Lectores |
 |---|---|
 | `SOC_ASN_DATABASE` | [core/asn.py](../../core/asn.py) |
+| `SOC_BROWSER_CHROMIUM` | [core/test_browser.py](../../core/test_browser.py) |
+| `SOC_BROWSER_TESTS` | [core/test_browser.py](../../core/test_browser.py) |
 | `SOC_GEOIP_DATABASE` | [core/threat_map.py](../../core/threat_map.py), [core/vpn_security.py](../../core/vpn_security.py) |
 | `SOC_INDEXER_CA` | [core/reporting.py](../../core/reporting.py) |
 | `SOC_INDEXER_READER_FILE` | [core/reporting.py](../../core/reporting.py) |

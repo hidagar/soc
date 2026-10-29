@@ -93,3 +93,30 @@ jobs:
 
       - name: Migraciones sin generar
         run: python manage.py makemigrations --check --dry-run
+
+  navegador:
+    name: Pruebas de navegador (Playwright)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SOC_PORTAL_DEBUG: "1"
+      SOC_PORTAL_MFA_REQUIRED: "0"
+      SOC_BROWSER_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Instalar dependencias y Chromium
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt -r requirements-browser.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Pantallas principales en escritorio y móvil
+        run: |
+          mkdir -p data
+          python manage.py test --verbosity 1 core.test_browser
+

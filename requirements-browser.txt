@@ -1,0 +1,2 @@
+# Solo para las pruebas de navegador (CI y desarrollo): no se instala en producción.
+playwright==1.58.0

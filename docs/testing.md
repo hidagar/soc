@@ -17,6 +17,26 @@ PowerShell: establecer `$env:SOC_PORTAL_DEBUG="1"` y `$env:SOC_PORTAL_MFA_REQUIR
 
 `.github/workflows/ci.yml` ejecuta en GitHub, en cada push a `main` y en cada pull request, los mismos comandos del apartado anterior (salvo `check`, cubierto por las pruebas), `check_docs.py` y `shellcheck -S warning` sobre los scripts de `deploy/`. Usa Python 3.14 como producción, base de pruebas vacía y ningún secreto. Un segundo trabajo repite la batería sobre PostgreSQL 16, y el primero ejecuta los ensayos de concurrencia con SQLite de archivo. Un resultado verde no acredita despliegue, ensayos nativos ni validación en una sede.
 
+## Pruebas de navegador
+
+`core/test_browser.py` abre con Chromium (Playwright) las pantallas principales del SOC y del portal del cliente, en escritorio (1440 px) y móvil (390 px), con datos ficticios. Comprueba que:
+- responden 200 sin pasar por el inicio de sesión;
+- no hay errores de JavaScript ni respuestas con error;
+- no desbordan en horizontal;
+- el menú «Más acciones» se abre dentro de la pantalla;
+- el selector de cliente filtra sin botón;
+- la lista de bloqueo desactivada sigue mostrando los bloqueos manuales (regresión de la fase 3);
+- el portal no muestra notas internas.
+
+Se omiten en la batería habitual. Para lanzarlas:
+
+```sh
+pip install -r requirements-browser.txt && python -m playwright install chromium
+SOC_BROWSER_TESTS=1 SOC_PORTAL_DEBUG=1 SOC_PORTAL_MFA_REQUIRED=0 python manage.py test core.test_browser
+```
+
+`SOC_BROWSER_CHROMIUM=/ruta/a/chrome` usa un Chromium ya instalado en lugar de descargarlo. En CI las ejecuta el trabajo «Pruebas de navegador (Playwright)». Al añadir una pantalla importante, sumarla a la lista de la prueba correspondiente.
+
 ## Selección por cambio
 
 | Área | Grupos que localizar |
