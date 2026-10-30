@@ -68,6 +68,7 @@ def _staff_groups(user, global_access):
             _item("Usuarios y permisos", "staff", ["staff_edit", "mfa_reset"],
                   visible=global_access and perm("core.manage_security")),
             _item("Auditoría", "audit_log", visible=global_access and perm("core.manage_security")),
+            _item("Plazos de atención", "sla_settings", visible=global_access and perm("core.manage_operations")),
             _item("Correo del SOC", "mail_settings", ["verify_public_reports"],
                   visible=global_access and perm("core.manage_connections")),
             _item("Copias y recuperación", "recovery", visible=global_access and perm("core.manage_recovery")),

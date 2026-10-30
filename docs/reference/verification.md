@@ -82,6 +82,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_session_policy.py](../../core/test_session_policy.py) | 1 |
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
+| [core/test_sla.py](../../core/test_sla.py) | 17 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
@@ -163,3 +164,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0060_unifi_blocklist.py](../../core/migrations/0060_unifi_blocklist.py)
 - [core/migrations/0061_unifi_policies.py](../../core/migrations/0061_unifi_policies.py)
 - [core/migrations/0062_blocklist_repeat_unifi_efficacy.py](../../core/migrations/0062_blocklist_repeat_unifi_efficacy.py)
+- [core/migrations/0063_sla_plazos_atencion.py](../../core/migrations/0063_sla_plazos_atencion.py)

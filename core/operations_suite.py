@@ -51,6 +51,8 @@ def runbook(request,pk):
             done=request.POST.get('done')=='1'
             step.done=done;step.evidence=text;step.completed_by=request.user if done else None;step.completed_at=timezone.now() if done else None;step.save()
             IncidentUpdate.objects.create(incident=incident,author=request.user,text=('Comprobación completada: ' if done else 'Comprobación pendiente: ')+step.title+'. '+text)
+            from .sla import record
+            record(incident,'investigate')
             audit('runbook.updated',step,{'status':'done' if done else 'pending'})
     return redirect('incident_detail',pk=pk)
 
@@ -104,6 +106,8 @@ def task_edit(request,incident_pk=None,pk=None):
             elif saved.status not in ('accepted','cancelled') and incident.status=='resolved':
                 incident.status='investigating';incident.resolved_at=None;incident.save()
             IncidentUpdate.objects.create(incident=incident,author=request.user,text='Tarea para el cliente: '+saved.title+'. Estado: '+saved.get_status_display()+'.')
+            from .sla import record
+            record(incident,'investigate')
             audit('customer.task_saved',saved,{'status':saved.status})
         return redirect('incident_detail',pk=incident.pk)
     return render(request,'customer_task_edit.html',{'form':form,'task':task,'incident':incident})

@@ -39,9 +39,21 @@ class AssetForm(ScopedModelForm):
 class HealthForm(ScopedModelForm):
     class Meta:
         model=DeviceHealth
-        fields=['expected_silence_minutes','maintenance_until']
-        labels={'expected_silence_minutes':'Umbral de silencio (minutos)','maintenance_until':'En mantenimiento hasta'}
+        fields=['expected_silence_minutes','maintenance_until','maintenance_reason']
+        labels={'expected_silence_minutes':'Umbral de silencio (minutos)','maintenance_until':'En mantenimiento hasta',
+                'maintenance_reason':'Motivo del mantenimiento'}
         widgets={'maintenance_until':forms.DateTimeInput(attrs={'type':'datetime-local'},format='%Y-%m-%dT%H:%M')}
+    def clean(self):
+        values=super().clean()
+        until=values.get('maintenance_until')
+        if until and until>timezone.now():
+            if not values.get('maintenance_reason','').strip():
+                self.add_error('maintenance_reason','Indica el motivo: queda registrado y explica por qué el equipo no avisa.')
+            elif until>timezone.now()+timedelta(days=30):
+                self.add_error('maintenance_until','Un mantenimiento dura como máximo 30 días: después se revisa de nuevo.')
+        else:
+            values['maintenance_reason']=''
+        return values
     def clean_expected_silence_minutes(self):
         value=self.cleaned_data['expected_silence_minutes']
         if value and not 15 <= value <= 10080:
@@ -177,6 +189,8 @@ def incident_note(request,pk):
     text=request.POST.get('text','').strip()
     if text and len(text)<=10000:
         IncidentUpdate.objects.create(incident=incident,author=request.user,text=text)
+        from .sla import record
+        record(incident,'investigate')  # primer avance documentado: diagnóstico del plazo de atención
         audit('incident.note',incident)
         messages.success(request,'Seguimiento añadido.')
     else: messages.error(request,'Escribe una nota de hasta 10.000 caracteres.')

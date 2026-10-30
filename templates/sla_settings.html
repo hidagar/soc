@@ -1,0 +1,18 @@
+{% extends 'base.html' %}{% block title %}Plazos de atención{% endblock %}{% block content %}
+<header class="page-head"><div><p class="eyebrow">Administración</p><h1>Plazos de atención</h1><p class="muted">Objetivos de acuse, diagnóstico y resolución de las incidencias, por gravedad.</p></div></header>
+{% if error %}<p class="notice"><strong>{{ error }}</strong></p>{% endif %}
+<section class="card"><h2>Plazos globales</h2>
+<p>El reloj es continuo (24 horas, 7 días) desde que el caso entra en el SOC. <strong>Acuse</strong>: alguien asume el caso o se le asigna responsable. <strong>Diagnóstico</strong>: primer avance documentado (nota, acción, tarea para el cliente o comprobación de la guía). <strong>Resolución</strong>: el caso se marca resuelto.</p>
+<p class="muted">Al vencer un plazo se anota en el historial del caso y en la auditoría y se abre un aviso en «Salud del SOC»; con gravedad alta o crítica es crítico y llega también por correo de operaciones. Escribe los plazos como <code>30 min</code>, <code>4 h</code>, <code>3 d</code> o <code>1 d 6 h</code>.</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="global">
+{% include 'partials/sla_table.html' with rows=global_rows %}
+<div class="field check"><label><input type="checkbox" name="enabled"{% if config.enabled %} checked{% endif %}> Plazos activados</label>
+<p class="muted">{% if config.enabled %}Activos desde el {{ config.enabled_at|date:'d/m/Y H:i' }}: cuentan los casos que han entrado desde entonces.{% else %}Al activarlos solo cuentan los casos que entren desde ese momento: los abiertos antes no se marcan como vencidos.{% endif %}</p></div>
+<p><button class="button primary">Guardar plazos globales</button></p></form></section>
+<section class="card"><h2>Plazos propios de un cliente</h2>
+<p class="muted">Para un contrato con otros tiempos. Lo que se deja en blanco usa el plazo global.{% if with_overrides %} Clientes con plazos propios: {% for c in with_overrides %}<a href="?client={{ c.pk }}">{{ c.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
+<form method="get" class="toolbar"><label>Cliente<select class="input" name="client" onchange="this.form.submit()"><option value="">Elige un cliente</option>{% for c in clients %}<option value="{{ c.pk }}"{% if client and client.pk == c.pk %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label><noscript><button class="button secondary">Ver</button></noscript></form>
+{% if client %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="client"><input type="hidden" name="client" value="{{ client.pk }}">
+{% include 'partials/sla_table.html' with rows=client_rows %}
+<p><button class="button primary">Guardar plazos de {{ client.name }}</button></p></form>{% endif %}</section>
+{% endblock %}

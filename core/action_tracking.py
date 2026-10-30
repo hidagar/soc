@@ -68,6 +68,8 @@ def action_form(request,incident_pk=None,pk=None):
                 incident.save(update_fields=['status','resolved_at','updated_at'])
                 IncidentUpdate.objects.create(incident=incident,author=request.user,text='Incidencia reabierta a investigación al registrar una acción pendiente.')
             IncidentUpdate.objects.create(incident=incident,author=request.user,text=f'Acción: {saved.title}. Estado: {saved.get_status_display()}. Responsable de seguimiento: {saved.owner.username if saved.owner else "Sin asignar"}.'+(f' Evidencia: {saved.resolution}' if saved.status in CLOSED else ''))
+            from .sla import record
+            record(incident,'investigate')
             audit('incident.action_saved',saved,{'status':saved.status,'owner':saved.owner_id,'due_at':saved.due_at.isoformat() if saved.due_at else None})
         messages.success(request,'Acción guardada y registrada en el historial de la incidencia.')
         return redirect('incident_detail',pk=incident.pk)

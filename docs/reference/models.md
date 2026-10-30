@@ -696,6 +696,9 @@ Fuente: [core/models.py](../../core/models.py).
 | `resolved_at` | DateTimeField | null=True; blank=True |
 | `wazuh_alert_id` | CharField | max_length=180; blank=True |
 | `actions` | TextField | blank=True |
+| `acknowledged_at` | DateTimeField | null=True; blank=True |
+| `investigated_at` | DateTimeField | null=True; blank=True |
+| `sla_breaches` | JSONField | blank=True |
 | `created_at` | DateTimeField |  |
 | `updated_at` | DateTimeField |  |
 ## NetworkCheck
@@ -877,6 +880,7 @@ Fuente: [core/operations_models.py](../../core/operations_models.py).
 | `inventory_checked_at` | DateTimeField | null=True |
 | `expected_silence_minutes` | PositiveIntegerField |  |
 | `maintenance_until` | DateTimeField | null=True; blank=True |
+| `maintenance_reason` | CharField | max_length=200; blank=True |
 | `status` | CharField | max_length=24 |
 | `last_log_at` | DateTimeField | null=True |
 | `security_verified_at` | DateTimeField | null=True |
@@ -1127,6 +1131,26 @@ Fuente: [core/operations_models.py](../../core/operations_models.py).
 | `observed_at` | DateTimeField |  |
 | `snapshot` | JSONField |  |
 | `changes` | JSONField |  |
+## SlaSettings
+
+Fuente: [core/sla_models.py](../../core/sla_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `enabled` | BooleanField |  |
+| `enabled_at` | DateTimeField | null=True; blank=True |
+## SlaPolicy
+
+Fuente: [core/sla_models.py](../../core/sla_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; null=True; blank=True; on_delete=models.CASCADE |
+| `severity` | CharField | max_length=12 |
+| `acknowledge_minutes` | PositiveIntegerField |  |
+| `investigate_minutes` | PositiveIntegerField |  |
+| `resolve_minutes` | PositiveIntegerField |  |
+| `updated_at` | DateTimeField |  |
 ## VpnAccessEvent
 
 Fuente: [core/vpn_security.py](../../core/vpn_security.py).

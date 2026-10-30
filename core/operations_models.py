@@ -121,6 +121,7 @@ class DeviceHealth(models.Model):
     inventory_checked_at = models.DateTimeField(null=True)
     expected_silence_minutes = models.PositiveIntegerField(default=0, help_text='0: adaptar al historial; no inferir caida de un flujo solo de alertas.')
     maintenance_until = models.DateTimeField(null=True, blank=True)
+    maintenance_reason = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=24, default='pending')
     last_log_at = models.DateTimeField(null=True)
     security_verified_at = models.DateTimeField(null=True)

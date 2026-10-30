@@ -417,6 +417,10 @@ class Incident(models.Model):
     resolved_at = models.DateTimeField("Resuelta", null=True, blank=True)
     wazuh_alert_id = models.CharField("ID de alerta Wazuh", max_length=180, blank=True)
     actions = models.TextField("Acciones y seguimiento", blank=True)
+    # Plazos de atención (core/sla.py): primera vez que se acusa y que se documenta un avance, y plazos vencidos.
+    acknowledged_at = models.DateTimeField("Acusada", null=True, blank=True, editable=False)
+    investigated_at = models.DateTimeField("Primer diagnóstico", null=True, blank=True, editable=False)
+    sla_breaches = models.JSONField(default=dict, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -451,5 +455,6 @@ from .operations_models import AttributionCatalog
 from .improvement_models import ZenarmorExportRequest
 from .improvement_models import ReportVersion, IpReputation, BlocklistFeed, CrowdsecBlocklist, ManualBlock, UnifiBlocklistBinding
 from .improvement_models import AdvancedReview
+from .sla_models import SlaPolicy, SlaSettings
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

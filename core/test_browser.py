@@ -19,7 +19,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import (BlocklistFeed, Client, CustomerTask, Device, DeviceHealth, Incident, SecurityEvidence, Site,
-                     StaffAccess)
+                     SlaSettings, StaffAccess)
 
 ENABLED = os.environ.get('SOC_BROWSER_TESTS') == '1'
 try:
@@ -69,6 +69,7 @@ class BrowserTests(StaticLiveServerTestCase):
         CustomerTask.objects.create(incident=self.incident, title='Revisar el acceso RDP publicado', visible=True,
                                     instructions='Confirmad el acceso.')
         BlocklistFeed.objects.create(client=self.company, enabled=False)
+        SlaSettings.objects.create(pk=1, enabled=True, enabled_at=now - timedelta(days=1))  # columna y cola de plazos
         self.admin = get_user_model().objects.create_superuser('admin', 'admin@example.test', 'x')
         self.customer = get_user_model().objects.create_user('cliente', 'cliente@example.test', 'x')
         StaffAccess.objects.create(user=self.customer, role='customer').clients.add(self.company)
@@ -111,7 +112,8 @@ class BrowserTests(StaticLiveServerTestCase):
                 reverse('client_detail', args=[self.company.pk]), reverse('site_detail', args=[self.site.pk]),
                 reverse('device_detail', args=[self.device.pk]), reverse('security_explore'), reverse('intelligence'),
                 reverse('campaign_list'), reverse('health_list'), reverse('blocklist_detail', args=[self.company.pk]),
-                reverse('api_connections'), reverse('staff')]
+                reverse('api_connections'), reverse('staff'), reverse('sla_settings'),
+                reverse('sla_settings') + f'?client={self.company.pk}', reverse('work_queue') + '?queue=sla']
         for label, width in WIDTHS.items():
             page = self.page_for(self.admin, width)
             for url in urls:

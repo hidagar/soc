@@ -20,7 +20,8 @@ def work_queue(request):
         latest_activity=Greatest('updated_at', Coalesce(Max('timeline__created_at'), 'updated_at')),
     )
     actions = IncidentAction.objects.exclude(status__in=('done', 'cancelled')).select_related('incident__client', 'owner')
-    issues = OperationalIssue.objects.filter(active=True, device__active=True).select_related('device__site__client')
+    issues = OperationalIssue.objects.filter(active=True, device__active=True).exclude(key__startswith='sla:').select_related(
+        'device__site__client')
     if selected:
         client = get_object_or_404(Client, pk=selected) if selected.isdigit() else None
         if client is None:
@@ -32,14 +33,19 @@ def work_queue(request):
     now = timezone.now()
     stale_before = now - timedelta(hours=24)
     overdue = actions.filter(due_at__lt=now)
+    from . import sla
+    sla_enabled = bool(getattr(sla.config(), 'enabled', False))
+    # Plazos de atención: casos con un hito vencido o a punto de vencer, el más urgente primero.
+    due = sorted(sla.attention(incidents, now), key=lambda i: (i.sla_next['state'] != 'breached', i.sla_next['deadline']))
     counts = {
         'unassigned': incidents.filter(owner__isnull=True).count(),
         'priority': incidents.filter(severity__in=('high', 'critical')).count(),
         'stale': incidents.filter(latest_activity__lt=stale_before).count(),
         'overdue': overdue.count(),
+        'sla': len(due),
     }
     queue = request.GET.get('queue', 'unassigned')
-    if queue not in ('unassigned', 'priority', 'stale', 'mine', 'all'):
+    if queue not in ('unassigned', 'priority', 'stale', 'mine', 'all', 'sla') or (queue == 'sla' and not sla_enabled):
         queue = 'unassigned'
     rows = incidents
     if queue == 'unassigned': rows = rows.filter(owner__isnull=True)
@@ -52,10 +58,19 @@ def work_queue(request):
     )).order_by('priority_order', 'observed_at', 'pk')
     queues = [('unassigned', 'Sin responsable'), ('priority', 'Altas y críticas'), ('stale', 'Sin actualizar en 24 h'),
               ('mine', 'Mis casos'), ('all', 'Todos los abiertos')]
+    if sla_enabled:
+        queues.insert(0, ('sla', 'Plazo vencido o próximo'))
+    if queue == 'sla':
+        shown, total = due[:100], len(due)
+    else:
+        shown, total = list(rows[:100]), rows.count()
+        table, settings_row = sla.policies(), sla.config()
+        for incident in shown:
+            incident.sla_next = sla.next_due(sla.evaluate(incident, now, table, settings_row))
     return render(request, 'work_queue.html', {
         'clients': Client.objects.all(), 'selected_client': selected, 'queue': queue,
-        'queues': queues, 'queue_label': dict(queues)[queue],
-        'counts': counts, 'incidents': rows[:100], 'incident_total': rows.count(),
+        'queues': queues, 'queue_label': dict(queues)[queue], 'sla_enabled': sla_enabled,
+        'counts': counts, 'incidents': shown, 'incident_total': total,
         'overdue_actions': overdue.order_by('due_at', 'pk')[:50],
         'issues': issues.order_by('opened_at', 'pk')[:50], 'issue_total': issues.count(),
     })
@@ -73,6 +88,8 @@ def claim_incident(request, pk):
         )
         if changed:
             IncidentUpdate.objects.create(incident=incident, author=request.user, text='Caso asumido por ' + request.user.username + '. Estado: En investigación.')
+            from .sla import record
+            record(incident, 'acknowledge')
             audit('incident.claimed', incident, {'status': 'investigating', 'fields': ['owner']})
             messages.success(request, 'Caso asignado a ti y marcado en investigación.')
         else:

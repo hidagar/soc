@@ -81,8 +81,14 @@ def dashboard(request):
     # Fallos sin equipo (copias, disco, servicios, recepción global): con el ámbito de cliente solo los ve el
     # personal con acceso global, igual que en «Salud del SOC». Los avisos urgentes ya tienen su propia fila.
     platform = list(OperationalIssue.objects.filter(active=True, device__isnull=True).exclude(
-        key__startswith="urgent-ack:").order_by("severity", "opened_at").values_list("title", "severity")[:50])
+        key__startswith="urgent-ack:").exclude(key__startswith="sla:").order_by("severity", "opened_at").values_list(
+        "title", "severity")[:50])
+    from .sla import attention as sla_attention
+    late = [i for i in sla_attention(open_incidents.select_related("client"), now) if i.sla_next["state"] == "breached"]
     attention = [
+        {"tone": "alert", "count": len(late), "title": "Incidencias con plazo de atención vencido",
+         "hint": late and f"{late[0].sla_next['label']}: {late[0].title}" or "",
+         "url": reverse("work_queue") + "?queue=sla"},
         {"tone": "alert" if any(severity == "critical" for _, severity in platform) else "warn",
          "count": len(platform), "title": "Fallos de la plataforma del SOC",
          "hint": platform and (platform[0][0] + (f" y {len(platform) - 1} más" if len(platform) > 1 else "")) or "",
@@ -99,7 +105,8 @@ def dashboard(request):
         {"tone": "warn", "count": replies.count(), "title": "Respuestas de clientes por revisar",
          "hint": first_reply and f"La más antigua: {first_reply.title} ({first_reply.incident.client.name})" or "",
          "url": first_reply and reverse("incident_detail", args=[first_reply.incident_id]) or ""},
-        {"tone": "warn", "count": OperationalIssue.objects.filter(active=True, device__active=True).count(),
+        {"tone": "warn", "count": OperationalIssue.objects.filter(active=True, device__active=True).exclude(
+            key__startswith="sla:").count(),
          "title": "Problemas de operación en equipos", "hint": "Integraciones y recepción de registros de los equipos.",
          "url": reverse("health_list")},
         {"tone": "warn", "count": silent.count(), "title": "Equipos sin registros desde hace más de 2 h",
@@ -813,7 +820,8 @@ def incident_detail(request, pk):
     visible_evidences=list(evidences[:300])
     for e in visible_evidences:
         e.context_note=describe(review(contexts.get(e.device_id),e.source_ip,e.destination_ip,e.destination_port,e.flow)) if not e.asset_id else ''
-    return render(request, "incident_detail.html", {"incident": incident,'evidences':visible_evidences,
+    from .sla import evaluate as sla_rows
+    return render(request, "incident_detail.html", {"incident": incident,'evidences':visible_evidences,'sla_rows':sla_rows(incident),
         'evidence_total':evidences.count(),'blocked_total':evidences.filter(action='blocked').count(),
         'allowed_total':evidences.filter(action='allowed').count(),'unknown_total':evidences.exclude(action__in=('blocked','allowed')).count()})
 

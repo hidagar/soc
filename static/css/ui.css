@@ -164,3 +164,10 @@ details.form-section>summary{margin-bottom:10px}
 .services{display:flex;gap:4px;flex-wrap:wrap;margin:0}
 /* Mapa: el botón de investigar no sale de su panel. */
 #explore-country{display:flex;width:100%;white-space:normal;text-align:center;margin-top:10px}
+
+/* Plazos de atención: estado de cada hito (bandeja y ficha de incidencia). */
+.sla-state{font-weight:700;color:#5d6f80}
+.sla-breached{color:#b03540}.sla-due_soon,.sla-late{color:#a26016}.sla-met{color:#258061}
+td .sla-state+small{display:block;color:#83919e}
+.sla-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.sla-list li small{display:block;color:#7c8c98;margin-top:2px}

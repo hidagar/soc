@@ -263,6 +263,17 @@ class IncidentForm(StyledModelForm):
             if tasks.exists() and values.get('client') and values['client'].pk!=self.instance.client_id:
                 self.add_error('client','Una incidencia con acciones de seguimiento debe conservar su cliente.')
         return values
+
+    def save(self, commit=True):
+        incident = super().save(commit)
+        if commit:
+            # Plazos de atención: un responsable o pasar a investigación es el acuse; resolver incluye el diagnóstico.
+            from .sla import record
+            if incident.status == 'resolved':
+                record(incident, 'investigate')
+            elif incident.owner_id or incident.status == 'investigating':
+                record(incident, 'acknowledge')
+        return incident
     class Meta:
         model = Incident
         fields = ["client", "site", "device", "title", "description", "severity", "status", "owner", "observed_at", "resolved_at", "wazuh_alert_id", "actions"]

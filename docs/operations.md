@@ -29,6 +29,26 @@ El silencio global se compara con la misma franja horaria de los 7 días anterio
 - «Requiere atención» incluye **Fallos de la plataforma del SOC** (copias, disco, servicios, recepción global, cadena de auditoría) para el personal con acceso global; antes solo contaba los problemas de equipos, y justo los más graves no aparecían.
 - Gunicorn arranca con `deploy/gunicorn.conf.py`: 2 procesos con 8 hilos cada uno. Con procesos de un solo hilo, dos acciones lentas a la vez (UniFi, CrowdSec, OPNsense) dejaban sin atender la ingesta HTTPS y las descargas de las listas de bloqueo, que llegan a este mismo servicio (medido: el login esperaba 15 s con cuatro peticiones lentas en curso; ahora 0,14 s). Nginx sigue cortando la respuesta al navegador a los 30 s, pero la operación termina.
 
+## Plazos de atención (SLA)
+
+Administración → «Plazos de atención» (acceso global y permiso de operaciones) fija, por gravedad, tres objetivos desde que el caso entra en el SOC: **acuse** (alguien lo asume, se le asigna responsable o pasa a investigación), **diagnóstico** (primer avance documentado: nota, acción, tarea para el cliente o comprobación de la guía) y **resolución**. Valores iniciales:
+
+| Gravedad | Acuse | Diagnóstico | Resolución |
+|---|---|---|---|
+| Crítica | 15 min | 1 h | 1 d |
+| Alta | 30 min | 4 h | 3 d |
+| Media | 4 h | 1 d | 7 d |
+| Baja | 1 d | 3 d | 30 d |
+
+- Cada cliente puede tener plazos propios (un contrato con otros tiempos); lo que se deja en blanco usa el global.
+- Vienen **desactivados**. Al activarlos solo cuentan los casos que entran desde ese momento: los abiertos antes no se marcan como vencidos.
+- Reloj continuo (24x7). No se detiene mientras se espera al cliente; el horario laboral y la pausa por espera quedan para una fase posterior.
+- Cada hito se guarda la primera vez que ocurre (`Incident.acknowledged_at`, `investigated_at`, `resolved_at`). Un caso resuelto cuenta el acuse y el diagnóstico como hechos al resolverse si no se registraron antes.
+- **Escalado** (trabajo «Avisos operativos», cada minuto): al vencer un plazo se anota una vez en el historial del caso (`sla_breaches`) y en la auditoría, y se abre el aviso `sla:<caso>:<hito>` en «Salud del SOC». Con gravedad alta o crítica es crítico y llega por correo de operaciones a los 5 minutos. El aviso se cierra al cumplirse el hito; la constancia del vencimiento queda en el caso.
+- Dónde se ve: indicador y cola «Plazo vencido o próximo» (queda menos de una cuarta parte del plazo) y columna «Plazo» en la bandeja; panel «Plazos de atención» en la ficha; fila «Incidencias con plazo de atención vencido» en el resumen.
+
+El mantenimiento de un equipo exige motivo y dura como máximo 30 días; el motivo aparece en «Salud del SOC».
+
 ## Conservación de datos
 
 El trabajo horario `housekeeping` borra, por bloques y con un minuto como máximo por ejecución, las detecciones sin incidencia y los contadores por hora más antiguos que «Retención de evidencias» (Copias y recuperación, 90 días por defecto) y los intentos de acceso de más de un día (`core/retention.py`; último resultado en `WorkerState` «retention»). Antes solo se hacía al final de una copia correcta: con copias fallidas la base crecía sin límite, y un borrado de golpe retenía el escritor de SQLite.

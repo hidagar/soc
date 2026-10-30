@@ -1,0 +1,1 @@
+{% if row %}<span class="sla-state sla-{{ row.state }}">{{ row.label }}: {% if row.state == 'breached' %}vencido hace {{ row.deadline|timesince }}{% else %}vence en {{ row.deadline|timeuntil }}{% endif %}</span><small>{{ row.deadline|date:'d/m H:i' }} · objetivo {{ row.target_label }}</small>{% else %}<span class="muted">—</span>{% endif %}

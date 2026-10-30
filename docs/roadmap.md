@@ -24,6 +24,10 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: bloque 5, plazos de atención (30/10/2026)
+
+Implementados: plazos de acuse, diagnóstico y resolución por gravedad (globales y por cliente), hitos registrados la primera vez que ocurren, escalado con constancia en el caso, auditoría y aviso (crítico y por correo con gravedad alta o crítica), cola y columna en la bandeja, panel en la ficha y mantenimiento con motivo y caducidad (30 días). Detalle: [operación](operations.md#plazos-de-atención-sla). Pendiente del bloque: horario laboral, pausa mientras se espera al cliente y mostrar el cumplimiento al cliente (informes). Desactivados hasta que se activen en «Plazos de atención».
+
 ## Actualización: 4A/C1 en revisión (21/10/2026)
 
 Reputación CrowdSec implementada con caché, fecha del dato y filtro de privacidad, solo para el equipo SOC y sin remediación. Modo gratuito preferente: listas del motor local (lista comunitaria y de la consola), comprobado contra un motor real; la API CTI de pago se combina con las listas para las IPs prioritarias, con cupo diario y mensual. Pendiente: instalar e inscribir el motor en la VM y decidir si comparte señales (lista completa o «Lite»); mostrarla en incidencias, mapa o informes requiere decidir qué se publica al cliente (y, en informes, congelarla con la versión publicada).

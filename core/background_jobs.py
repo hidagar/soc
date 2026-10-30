@@ -115,7 +115,8 @@ def execute(name):
         op.platform_health();continuity();reconcile_validations();return check_health()
     if name=='notifications':
         from .delivery_tracking import escalate_unacknowledged
-        escalate_unacknowledged();return op.notify_issues()
+        from .sla import check as check_sla
+        escalate_unacknowledged();check_sla();return op.notify_issues()
     if name=='housekeeping':
         from .vpn_security import VpnAccessEvent
         from .models import UserInvitation

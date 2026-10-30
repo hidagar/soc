@@ -3,6 +3,7 @@ from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 
 from . import campaigns
+from . import sla_views
 from . import continuity
 from . import views
 from . import wazuh_sso
@@ -86,6 +87,7 @@ urlpatterns = [
     path('operations/intelligence/',service.intelligence,name='intelligence'),
     path('operations/crowdsec/',reputation_views.overview,name='crowdsec_overview'),
     path('operations/campaigns/',campaigns.campaign_list,name='campaign_list'),
+    path('operations/sla/',sla_views.settings_view,name='sla_settings'),
     path('operations/blocklists/',blocklist.overview,name='blocklists'),
     path('operations/crowdsec/lists/',crowdsec_catalog.overview,name='crowdsec_lists'),
     path('operations/crowdsec/lists/<int:pk>/',crowdsec_catalog.action,name='crowdsec_list_action'),
