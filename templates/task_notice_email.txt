@@ -1,0 +1,17 @@
+{% if kind == 'assigned' %}Tenéis una actuación pendiente en el Centro SOC de ib-red empresas.{% elif kind == 'rework' %}Una actuación del Centro SOC de ib-red empresas necesita más información.{% else %}Actuación validada por el Centro SOC de ib-red empresas.{% endif %}
+
+{{ client.name }}:
+
+{% if kind == 'assigned' %}El equipo de seguridad de ib-red os ha asignado una actuación.{% elif kind == 'rework' %}Hemos revisado vuestra respuesta y necesitamos que completéis la actuación.{% else %}Hemos comprobado vuestra respuesta y damos la actuación por completada. Gracias.{% endif %}
+
+Actuación: {{ task.title }}{% if task.due_at and kind != 'accepted' %}
+Fecha acordada: {{ task.due_at|date:'d/m/Y' }}{% endif %}
+{% if kind != 'accepted' %}
+Los pasos y el detalle están en el portal (usuario y código de doble factor):
+{{ url }}
+{% endif %}
+Por seguridad, este correo no incluye instrucciones ni datos técnicos.
+Si no esperabais este aviso, respondednos antes de abrir el enlace.
+
+Atentamente,
+Equipo de seguridad · ib-red empresas

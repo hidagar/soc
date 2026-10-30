@@ -413,6 +413,8 @@ Fuente: [core/models.py](../../core/models.py).
 | `urgent_email` | EmailField | blank=True |
 | `urgent_alerts_enabled` | BooleanField |  |
 | `urgent_availability_enabled` | BooleanField |  |
+| `task_notices_enabled` | BooleanField |  |
+| `task_email` | EmailField | blank=True |
 | `active` | BooleanField |  |
 | `notes` | TextField | blank=True |
 | `created_at` | DateTimeField |  |
@@ -738,6 +740,24 @@ Fuente: [core/network_models.py](../../core/network_models.py).
 | `review_note` | TextField | blank=True |
 | `review_until` | DateTimeField | null=True; blank=True |
 | `updated_at` | DateTimeField |  |
+## CustomerNotice
+
+Fuente: [core/notice_models.py](../../core/notice_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `task` | ForeignKey | → 'core.CustomerTask'; on_delete=models.CASCADE |
+| `kind` | CharField | max_length=16 |
+| `recipient` | EmailField |  |
+| `status` | CharField | max_length=16 |
+| `error` | CharField | max_length=240; blank=True |
+| `provider_id` | CharField | max_length=180; blank=True |
+| `created_at` | DateTimeField |  |
+| `attempted_at` | DateTimeField | null=True |
+| `sent_at` | DateTimeField | null=True |
 ## IncidentAction
 
 Fuente: [core/operations_models.py](../../core/operations_models.py).

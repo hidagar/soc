@@ -34,6 +34,27 @@ Invitación de un solo uso y 48 h: usuario establece contraseña sin que el admi
 
 Revisar HTML, texto, PDF, logo y pruebas de scope al cambiar comunicaciones. Véase [frontend](frontend.md) e [inventario de pruebas](reference/verification.md).
 
+## Avisos de actuaciones
+
+Con «Avisar por correo de las actuaciones del portal» activado en la ficha del cliente (desactivado por defecto), el cliente recibe un correo cuando una actuación publicada en su portal:
+
+- **se le asigna:** se publica pendiente, o el SOC la vuelve a dejar pendiente;
+- **se le devuelve:** el SOC pide más información («Requiere más información»);
+- **se valida:** el SOC la da por buena.
+
+Guardar sin cambiar el estado, un borrador, la respuesta del propio cliente o una cancelación no avisan. El destinatario es «Correo para avisos de actuaciones» o, si está vacío, el de contacto (después, el de informes).
+
+El correo lleva la marca común, el nombre de la empresa, el título de la actuación, la fecha acordada y el enlace al portal, donde se entra con MFA. **Nunca** las instrucciones, la respuesta del SOC, el caso interno ni datos técnicos (invariante 3).
+
+Cada aviso es una fila `CustomerNotice` que envía el trabajo «Avisos operativos» (cada minuto, hasta 5 por vuelta):
+
+- Si antes del envío la actuación cambió de estado, se despublicó o el cliente desactivó los avisos, queda «Ya no aplica».
+- Un error de configuración queda «No enviado».
+- Un error de red, o un envío interrumpido más de 10 minutos, queda «Por comprobar» y **no se reintenta solo** (invariante 6).
+- La aceptación de SendGrid queda «Aceptado por SendGrid»; la entrega se sigue en «Entrega y avisos» como «Aviso de actuación».
+
+El último aviso de cada tarea aparece en la ficha de la incidencia.
+
 ## Versiones publicadas (inmutables)
 
 El cliente nunca ve el informe calculado en el momento: ve una `ReportVersion` congelada (HTML y PDF con sus SHA-256). La versión 1 se crea al enviar el informe o, si se publicó sin correo, la primera vez que el cliente lo abre por el portal o el enlace firmado. Después no cambia aunque cambien sedes, equipos, casos, publicaciones o el propio `WeeklyReport`.

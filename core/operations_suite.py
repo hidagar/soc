@@ -83,6 +83,7 @@ def task_edit(request,incident_pk=None,pk=None):
     task=get_object_or_404(CustomerTask,pk=pk) if pk else None
     incident=task.incident if task else get_object_or_404(Incident,pk=incident_pk)
     before=(task.status,task.review_note) if task else (None,'')
+    was=(task.status,task.visible) if task else (None,False)  # para el aviso por correo al cliente
     form=TaskForm(request.POST or None,instance=task,incident=incident)
     if request.method=='POST' and form.is_valid():
         with transaction.atomic():
@@ -108,6 +109,9 @@ def task_edit(request,incident_pk=None,pk=None):
             IncidentUpdate.objects.create(incident=incident,author=request.user,text='Tarea para el cliente: '+saved.title+'. Estado: '+saved.get_status_display()+'.')
             from .sla import record
             record(incident,'investigate')
+            from .customer_notices import queue_for_change
+            if queue_for_change(was,saved):
+                messages.info(request,'El cliente recibirá un aviso por correo con el título y el enlace al portal.')
             audit('customer.task_saved',saved,{'status':saved.status})
         return redirect('incident_detail',pk=incident.pk)
     return render(request,'customer_task_edit.html',{'form':form,'task':task,'incident':incident})

@@ -116,7 +116,8 @@ def execute(name):
     if name=='notifications':
         from .delivery_tracking import escalate_unacknowledged
         from .sla import check as check_sla
-        escalate_unacknowledged();check_sla();return op.notify_issues()
+        from .customer_notices import send_pending as send_customer_notices
+        escalate_unacknowledged();check_sla();send_customer_notices();return op.notify_issues()
     if name=='housekeeping':
         from .vpn_security import VpnAccessEvent
         from .models import UserInvitation
