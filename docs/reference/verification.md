@@ -28,6 +28,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_continuity.py](../../core/test_continuity.py) | 22 |
 | [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 9 |
+| [core/test_customer_notices.py](../../core/test_customer_notices.py) | 12 |
 | [core/test_customer_portal.py](../../core/test_customer_portal.py) | 8 |
 | [core/test_customer_preview.py](../../core/test_customer_preview.py) | 5 |
 | [core/test_customer_task_history.py](../../core/test_customer_task_history.py) | 7 |
@@ -165,3 +166,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0061_unifi_policies.py](../../core/migrations/0061_unifi_policies.py)
 - [core/migrations/0062_blocklist_repeat_unifi_efficacy.py](../../core/migrations/0062_blocklist_repeat_unifi_efficacy.py)
 - [core/migrations/0063_sla_plazos_atencion.py](../../core/migrations/0063_sla_plazos_atencion.py)
+- [core/migrations/0064_avisos_actuaciones_cliente.py](../../core/migrations/0064_avisos_actuaciones_cliente.py)

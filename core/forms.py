@@ -61,11 +61,12 @@ class ClientForm(StyledModelForm):
         {'title': 'Informes y portal del cliente', 'fields': ['report_email', 'weekly_reports_enabled',
                                                              'customer_portal_detail_enabled', 'customer_live_map_enabled']},
         {'title': 'Avisos urgentes', 'fields': ['urgent_alerts_enabled', 'urgent_email', 'urgent_availability_enabled']},
+        {'title': 'Avisos de actuaciones', 'fields': ['task_notices_enabled', 'task_email']},
     ]
 
     class Meta:
         model = Client
-        fields = ["name", "code", "contact_email", "report_email", "weekly_reports_enabled", "customer_live_map_enabled", "customer_portal_detail_enabled", "urgent_email", "urgent_alerts_enabled", "urgent_availability_enabled", "active", "notes"]
+        fields = ["name", "code", "contact_email", "report_email", "weekly_reports_enabled", "customer_live_map_enabled", "customer_portal_detail_enabled", "urgent_email", "urgent_alerts_enabled", "urgent_availability_enabled", "task_notices_enabled", "task_email", "active", "notes"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -74,6 +75,9 @@ class ClientForm(StyledModelForm):
         self.fields["urgent_email"].help_text = "Opcional: si queda vacío, se usará el correo de informes semanales."
         self.fields["urgent_alerts_enabled"].help_text = "Envía avisos de seguridad urgentes en pocos minutos. Los intentos bloqueados habituales quedan en el informe semanal."
         self.fields["urgent_availability_enabled"].help_text = "También avisa de eventos «Internet Down». Requiere activar los avisos urgentes."
+        self.fields["task_notices_enabled"].help_text = ("Correo cuando el SOC asigna, devuelve o valida una actuación publicada en el portal. "
+                                                         "Solo lleva el título, la fecha y el enlace al portal.")
+        self.fields["task_email"].help_text = "Opcional: si queda vacío, se usa el correo de contacto (o el de informes)."
 
     def clean(self):
         values = super().clean()
@@ -81,6 +85,8 @@ class ClientForm(StyledModelForm):
             self.add_error("report_email", "Indica el correo que recibirá el informe antes de activar el envío.")
         if values.get("urgent_alerts_enabled") and not (values.get("urgent_email") or values.get("report_email")):
             self.add_error("urgent_email", "Indica el correo para avisos urgentes o el de informes semanales.")
+        if values.get("task_notices_enabled") and not (values.get("task_email") or values.get("contact_email") or values.get("report_email")):
+            self.add_error("task_email", "Indica a quién avisar: este correo, el de contacto o el de informes.")
         if values.get("urgent_availability_enabled") and not values.get("urgent_alerts_enabled"):
             self.add_error("urgent_availability_enabled", "Activa primero los avisos urgentes.")
         return values

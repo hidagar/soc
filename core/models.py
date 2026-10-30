@@ -21,6 +21,8 @@ class Client(models.Model):
     urgent_email = models.EmailField("Correo para avisos urgentes", blank=True)
     urgent_alerts_enabled = models.BooleanField("Enviar avisos urgentes automáticamente", default=False)
     urgent_availability_enabled = models.BooleanField("Incluir caídas de Internet en avisos urgentes", default=False)
+    task_notices_enabled = models.BooleanField("Avisar por correo de las actuaciones del portal", default=False)
+    task_email = models.EmailField("Correo para avisos de actuaciones", blank=True)
     active = models.BooleanField("Activo", default=True)
     notes = models.TextField("Notas internas", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -456,5 +458,6 @@ from .improvement_models import ZenarmorExportRequest
 from .improvement_models import ReportVersion, IpReputation, BlocklistFeed, CrowdsecBlocklist, ManualBlock, UnifiBlocklistBinding
 from .improvement_models import AdvancedReview
 from .sla_models import SlaPolicy, SlaSettings
+from .notice_models import CustomerNotice
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

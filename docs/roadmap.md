@@ -24,6 +24,10 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: bloque 6, avisos de actuaciones (30/10/2026)
+
+Implementado el aviso por correo al cliente al asignar, devolver o validar una actuación publicada. Es opcional por cliente, con bandeja propia y sin reintento automático si el resultado es dudoso. Lleva solo el título, la fecha y el enlace al portal. Detalle: [avisos de actuaciones](reports-and-mail.md#avisos-de-actuaciones). Pendiente del bloque: informe mensual para dirección con versión publicada inmutable y correo mensual opcional.
+
 ## Actualización: bloque 5, plazos de atención (30/10/2026)
 
 Implementados: plazos de acuse, diagnóstico y resolución por gravedad (globales y por cliente), hitos registrados la primera vez que ocurren, escalado con constancia en el caso, auditoría y aviso (crítico y por correo con gravedad alta o crítica), cola y columna en la bandeja, panel en la ficha y mantenimiento con motivo y caducidad (30 días). Detalle: [operación](operations.md#plazos-de-atención-sla). Pendiente del bloque: horario laboral, pausa mientras se espera al cliente y mostrar el cumplimiento al cliente (informes). Desactivados hasta que se activen en «Plazos de atención».
