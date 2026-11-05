@@ -50,6 +50,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_gcc_connection_status.py](../../core/test_gcc_connection_status.py) | 3 |
 | [core/test_gdms_cloud.py](../../core/test_gdms_cloud.py) | 12 |
 | [core/test_grandstream_gcc.py](../../core/test_grandstream_gcc.py) | 4 |
+| [core/test_guided_onboarding.py](../../core/test_guided_onboarding.py) | 7 |
 | [core/test_hillstone_api.py](../../core/test_hillstone_api.py) | 14 |
 | [core/test_hillstone_flow.py](../../core/test_hillstone_flow.py) | 7 |
 | [core/test_hillstone_security.py](../../core/test_hillstone_security.py) | 8 |

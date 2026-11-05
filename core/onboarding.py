@@ -150,6 +150,31 @@ def _nonce_error(request, nonce, form):
 @login_required
 @never_cache
 @require_http_methods(['GET', 'POST'])
+def new_client(request):
+    from .forms import NewClientForm
+    form = NewClientForm(request.POST or None)
+    key = 'client:new'
+    nonce = _nonce(request, key)
+    if request.method == 'GET' and nonce.get('url'):
+        tokens = request.session['onboarding_tokens']
+        tokens.pop(key)
+        request.session['onboarding_tokens'] = tokens
+        nonce = _nonce(request, key)
+    if request.method == 'POST' and form.is_valid() and not _nonce_error(request, nonce, form):
+        if nonce.get('url'):
+            return redirect(nonce['url'])
+        client = form.save()
+        url = reverse('site_new') + f'?client={client.pk}'
+        _consume_nonce(request, key, url)
+        messages.success(request, f'Cliente {client.name} creado. Ahora su primera sede y su firewall; los servicios se activan al final.')
+        return redirect(url)
+    return render(request, 'onboarding.html', {'step': 0, 'form': form, 'cancel_url': reverse('client_list'),
+                                             'creation_token': nonce['token']})
+
+
+@login_required
+@never_cache
+@require_http_methods(['GET', 'POST'])
 def new_site(request):
     client_id = request.GET.get('client', '')
     selected = None
