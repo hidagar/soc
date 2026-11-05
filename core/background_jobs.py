@@ -29,6 +29,7 @@ JOBS={
     'crowdsec_lists':(300,'Listas de CrowdSec'),
     'blocklist_efficacy':(3600,'Eficacia de las reglas de bloqueo'),
     'threat_intel':(900,'Inteligencia Q-Feeds'),
+    'soc_reputation':(3600,'Reputación propia del SOC'),
 }
 BUDGET=180
 
@@ -154,6 +155,9 @@ def execute(name):
     if name=='threat_intel':
         from .threat_intel import refresh as refresh_threat_intel
         return refresh_threat_intel()
+    if name=='soc_reputation':
+        from .soc_reputation import refresh as refresh_soc_reputation
+        return refresh_soc_reputation()
     raise ValueError('Trabajo no permitido.')
 
 def run_job(name):

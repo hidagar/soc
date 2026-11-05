@@ -13,7 +13,8 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
 7. Consultar Salud del SOC y bandeja de trabajo. Investigar detecciones, activos, acciones, exposición y cobertura; asignar tareas/runbook y publicar solo la comunicación apropiada.
 8. Atender los plazos de cada caso (si están activados en «Plazos de atención»): asumirlo es el acuse; la primera nota, acción, tarea para el cliente o comprobación de la guía es el diagnóstico. La cola «Plazo vencido o próximo» de la bandeja ordena lo urgente.
 9. Con Q-Feeds configurado, revisar en «Inteligencia Q-Feeds» las conexiones salientes permitidas hacia indicadores de malware o C2: cada una es un motivo para investigar el equipo interno, no una infección confirmada.
-10. Revisar informe y acciones propuestas antes de activar envío semanal/avisos. Publicación y dirección de contacto no equivalen a preferencias de correo activadas.
+10. Con acceso global, «Reputación propia» muestra las IPs que atacan a varios clientes y si, una vez marcadas, atacaron después a otros: es la medida para decidir si distribuir esa lista. No bloquea nada.
+11. Revisar informe y acciones propuestas antes de activar envío semanal/avisos. Publicación y dirección de contacto no equivalen a preferencias de correo activadas.
 
 ## Cliente
 

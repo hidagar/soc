@@ -190,6 +190,30 @@ Comprobado con una clave real del plan gratuito el 05/11/2026:
 
 El plan gratuito publica cada indicador solo con una marca de tiempo (`t`): no trae la lista de categorías (`m`) que usa el plugin. La página lo indica («Sin categoría en este plan»), y una IP en la lista solo significa que Q-Feeds la considera maliciosa.
 
+## Reputación propia del SOC (observación)
+
+`core/soc_reputation.py` y la página «Detección e investigación → Reputación propia». Requiere el permiso `manage_operations` y **acceso a todos los clientes**, porque resume ataques a varios de ellos. El SOC usa las detecciones de todos sus clientes para formar su propia lista de IPs atacantes. Esta fase es solo de **observación**: no bloquea ni distribuye nada.
+
+1. **Cálculo:** el trabajo `soc_reputation` se ejecuta cada hora.
+   - Agrupa las detecciones de 30 días por IP de origen y cliente. Usa el propietario histórico igual al cliente actual del equipo y excluye las de política de aplicaciones.
+   - Con 300.000 detecciones y 10.000 IPs que atacan a varios clientes tarda unos 11 s.
+   - Guarda hasta 5000 IPs, por puntuación.
+2. **Niveles** (`SocReputation`):
+   - **Propia:** ataques en al menos 2 días distintos a 2 o más clientes con intrusión, robo de credenciales, malware o phishing, o a 3 o más clientes de cualquier tipo, escaneos incluidos.
+   - **Confirmada:** lo mismo, y además figura en las listas de CrowdSec (dato de menos de 24 h), en su CTI como maliciosa o en Q-Feeds. Todo se consulta con datos locales.
+   - **En observación:** ataca a 2 o más clientes sin llegar a lo anterior, lleva 14 días sin actividad, o la CTI la marca como ruido de fondo o posible falso positivo.
+3. **Frenos:**
+   - Solo IPs públicas que no sean de clientes ni del SOC ni excepciones de las listas de bloqueo (`protected_addresses`).
+   - Un cliente solo cuenta si hay tráfico no UDP, porque el origen UDP se puede falsificar.
+   - Al menos 3 detecciones no UDP.
+4. **Medida preventiva:** cuando una IP alcanza un nivel bloqueable se guardan la fecha y los clientes que había atacado. Después se anotan los clientes **nuevos** a los que ataca. La página indica cuántas IPs marcadas hace más de un día atacaron luego a otro cliente: los ataques que la lista habría evitado si se distribuyera. También distingue cuántas IPs bloqueables no tiene ninguna fuente externa («Solo del SOC»).
+5. **Visibilidad:** «Investigar IP» muestra el nivel solo a quien tiene acceso global.
+6. **Límites:**
+   - Solo cuentan las detecciones que recibe el SOC, no todo el tráfico.
+   - Atacar a varios clientes no acredita un compromiso (invariante 4).
+   - Las IPs son datos personales: uso interno para proteger a los clientes, sin compartirlas fuera del SOC.
+   - Distribuirla a los firewalls (opción por cliente en su lista de bloqueo) es una fase posterior, cuando la medida preventiva lo justifique.
+
 ## Archivos
 
 - OPNsense: `opnsense_api.py`, `provisioning.py`, `ssh_connection.py`, `protection.py`, `network_coverage.py`, `configuration_archives.py`.

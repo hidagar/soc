@@ -1201,6 +1201,29 @@ Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
 | `peers` | JSONField | blank=True |
 | `crowdsec_listed` | BooleanField |  |
 | `updated_at` | DateTimeField |  |
+## SocReputation
+
+Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `ip` | GenericIPAddressField | unique=True |
+| `level` | CharField | max_length=12 |
+| `score` | PositiveIntegerField |  |
+| `clients` | PositiveIntegerField |  |
+| `strong_clients` | PositiveIntegerField |  |
+| `days` | PositiveIntegerField |  |
+| `events` | PositiveIntegerField |  |
+| `allowed` | PositiveIntegerField |  |
+| `families` | JSONField | blank=True |
+| `sources` | JSONField | blank=True |
+| `note` | CharField | max_length=120; blank=True |
+| `first_seen` | DateTimeField |  |
+| `last_seen` | DateTimeField |  |
+| `flagged_at` | DateTimeField | null=True; blank=True |
+| `flagged_clients` | JSONField | blank=True |
+| `later_clients` | JSONField | blank=True |
+| `updated_at` | DateTimeField |  |
 ## VpnAccessEvent
 
 Fuente: [core/vpn_security.py](../../core/vpn_security.py).

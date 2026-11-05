@@ -24,6 +24,14 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: reputación propia del SOC, observación (05/11/2026)
+
+Implementada la reputación propia del SOC: IPs que atacan a varios clientes, clasificadas en confirmada, propia o en observación, con frenos contra falsos positivos.
+
+La página mide si la lista habría protegido a otros clientes: cuántas IPs marcadas atacan después a un cliente nuevo. Detalle: [integraciones](integrations.md#reputación-propia-del-soc-observación).
+
+Pendiente: distribuirla como opción de la lista de bloqueo de cada cliente, cuando la medida preventiva lo justifique.
+
 ## Actualización: inteligencia Q-Feeds, fase 1 (05/11/2026)
 
 Implementada la descarga de las listas de Q-Feeds como fuente de inteligencia del SOC, en modo observación:

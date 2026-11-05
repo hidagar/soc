@@ -47,3 +47,34 @@ class ThreatIntelMatch(models.Model):
     class Meta:
         ordering = ['-allowed', '-events', 'ip']
         constraints = [models.UniqueConstraint(fields=['client', 'ip', 'role'], name='unique_threat_match')]
+
+
+class SocReputation(models.Model):
+    """Reputación propia del SOC: IP pública que ataca a varios clientes (30 días), con su nivel.
+
+    Se recalcula cada hora con las detecciones de todos los clientes. Dato del SOC con acceso global:
+    resume ataques a varios clientes, así que solo lo ve quien tiene acceso a todos.
+    `flagged_at`/`flagged_clients` guardan cuándo alcanzó un nivel bloqueable y a quién había atacado;
+    `later_clients` son los clientes atacados después, la medida de si bloquearla habría protegido a otros.
+    """
+    LEVELS = [('confirmed', 'Confirmada'), ('own', 'Propia'), ('watch', 'En observación')]
+    ip = models.GenericIPAddressField(unique=True)
+    level = models.CharField(max_length=12, choices=LEVELS)
+    score = models.PositiveIntegerField(default=0)
+    clients = models.PositiveIntegerField(default=0)
+    strong_clients = models.PositiveIntegerField(default=0)
+    days = models.PositiveIntegerField(default=0)
+    events = models.PositiveIntegerField(default=0)
+    allowed = models.PositiveIntegerField(default=0)
+    families = models.JSONField(default=list, blank=True)
+    sources = models.JSONField(default=list, blank=True)  # confirmación externa: crowdsec, cti, qfeeds
+    note = models.CharField(max_length=120, blank=True)
+    first_seen = models.DateTimeField()
+    last_seen = models.DateTimeField()
+    flagged_at = models.DateTimeField(null=True, blank=True)
+    flagged_clients = models.JSONField(default=list, blank=True)
+    later_clients = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-score', 'ip']

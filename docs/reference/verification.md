@@ -84,6 +84,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
 | [core/test_sla.py](../../core/test_sla.py) | 17 |
+| [core/test_soc_reputation.py](../../core/test_soc_reputation.py) | 6 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
 | [core/test_threat_intel.py](../../core/test_threat_intel.py) | 15 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
@@ -169,3 +170,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0063_sla_plazos_atencion.py](../../core/migrations/0063_sla_plazos_atencion.py)
 - [core/migrations/0064_avisos_actuaciones_cliente.py](../../core/migrations/0064_avisos_actuaciones_cliente.py)
 - [core/migrations/0065_inteligencia_qfeeds.py](../../core/migrations/0065_inteligencia_qfeeds.py)
+- [core/migrations/0066_reputacion_propia.py](../../core/migrations/0066_reputacion_propia.py)

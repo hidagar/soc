@@ -50,6 +50,8 @@ Reputación CrowdSec: en el modo gratuito (motor local) la consulta no sale de l
 
 Q-Feeds: el trabajo `threat_intel` solo **descarga** listas completas con la clave en la cabecera; no envía IPs, dominios ni datos de clientes. Por eso las coincidencias con destinos salientes se calculan en local sin romper la regla anterior. La copia local deja de usarse a las 36 horas sin comprobar y se borra a los 7 días. Su licencia es de uso interno: no publicar sus listas en `/feeds/bloqueo/` ni en otra ruta sin acuerdo escrito.
 
+Reputación propia del SOC: combina detecciones de todos los clientes, así que la página y el bloque de «Investigar IP» exigen acceso global (como «Bloquear en todos»). No sale del SOC ni se publica en `/feeds/bloqueo/` en esta fase.
+
 Vista previa del portal del cliente (`/clients/<id>/customer-view/`): reutiliza los contextos del portal del cliente, de modo que el SOC ve la misma proyección y nunca datos adicionales. Solo GET, limitada al ámbito del usuario mediante `Client.objects`, sin acciones de respuesta y auditada por página. Los usuarios con rol cliente no la alcanzan porque el middleware los limita a `/cliente/`.
 
 Service API de CrowdSec: su clave puede cambiar las suscripciones de toda la organización. Solo la usa el trabajo protegido `crowdsec_lists`; la web deja las altas y bajas en cola (permiso `manage_connections`, acceso global y MFA reciente) y todas quedan auditadas. La evaluación de las listas usa datos ya obtenidos (decisiones del motor y referencias de la CTI): no descarga listas ni envía IPs de clientes a CrowdSec.
