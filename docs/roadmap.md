@@ -33,8 +33,9 @@ Implementada la descarga de las listas de Q-Feeds como fuente de inteligencia de
 
 Detalle: [integraciones](integrations.md#inteligencia-q-feeds-fase-1).
 
+Comprobado con una clave real del plan gratuito, que no incluye categorías por indicador.
+
 Pendiente:
-- comprobarlo con una clave real;
 - fase 2: firewalls propios de ib-red, con el plugin oficial y la regla creada por el SOC con control de cambios;
 - fase 3: firewalls de clientes, solo con acuerdo escrito de licencia.
 

@@ -184,7 +184,11 @@ Comprobado contra un motor CrowdSec real: respuestas `null` sin decisiones, deci
    - Q-Feeds no publica la caducidad por entrada ni una tasa de falsos positivos.
 7. **Licencia:** el contrato de Q-Feeds limita el uso a fines internos y prohíbe redistribuir los datos a terceros, con una licencia por equipo que los use. Esta fase no sirve las listas a ningún firewall. Llevarlas a firewalls propios o de clientes (fases 2 y 3) requiere licencia por firewall y, para clientes, un acuerdo escrito con Q-Feeds.
 
-Probado con respuestas simuladas según el código del plugin oficial (`opnsense/plugins`, `security/q-feeds-connector` 1.7); pendiente de comprobar con una clave real.
+Comprobado con una clave real del plan gratuito el 05/11/2026:
+- descarga correcta de las dos listas, unos 210.000 indicadores en total;
+- coincidencias con detecciones reales de clientes.
+
+El plan gratuito publica cada indicador solo con una marca de tiempo (`t`): no trae la lista de categorías (`m`) que usa el plugin. La página lo indica («Sin categoría en este plan»), y una IP en la lista solo significa que Q-Feeds la considera maliciosa.
 
 ## Archivos
 

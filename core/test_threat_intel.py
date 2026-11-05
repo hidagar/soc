@@ -183,6 +183,43 @@ class ThreatIntelTests(TestCase):
         self.assertContains(found, 'Dominios maliciosos')
         self.assertContains(self.client.get(reverse('threat_intel'), {'q': '<script>'}), 'Escribe una IP o un dominio válidos.')
 
+    def test_plan_without_categories_is_explained(self):
+        self.sync()
+        self.assertEqual(threat_intel.details()['feeds']['malware_ip']['categorized'], 5)
+        index = json.loads(json.dumps(INDEX))
+        index['feeds'][0]['updated_at'] = index['feeds'][1]['updated_at'] = '2026-11-05T12:00:00Z'
+        plain = {**IPS, 'meta': {'verdicts': {}}, 'iocs': {ip: {'t': 1762329600} for ip in (ATTACKER, C2)}}
+        self.sync(FakeApi(index=index, ips=plain), now=self.now + timedelta(hours=1))
+        threat_intel.refresh_matches(self.now + timedelta(hours=1))
+        user = get_user_model().objects.create_user('global')
+        StaffAccess.objects.create(user=user, role='operator', all_clients=True)
+        user.user_permissions.add(Permission.objects.get(codename='manage_operations'))
+        self.client.force_login(user)
+        with mock.patch('django.utils.timezone.now', return_value=self.now + timedelta(hours=1)):
+            page = self.client.get(reverse('threat_intel'))
+        self.assertContains(page, 'el plan actual de Q-Feeds publica solo los indicadores')
+        self.assertContains(page, 'Sin categoría en este plan')
+
+    def test_copies_from_before_the_count_get_it_without_downloading_again(self):
+        self.sync()
+        state = WorkerState.objects.get(name=threat_intel.STATE)
+        del state.details['feeds']['malware_ip']['categorized']
+        state.save()
+        api = self.sync(now=self.now + timedelta(hours=1))
+        self.assertEqual(len(api.requests), 1)
+        self.assertEqual(threat_intel.details()['feeds']['malware_ip']['categorized'], 5)
+
+    def test_categories_are_shown_when_the_plan_has_them(self):
+        self.sync()
+        threat_intel.refresh_matches(self.now)
+        user = get_user_model().objects.create_user('global')
+        StaffAccess.objects.create(user=user, role='operator', all_clients=True)
+        user.user_permissions.add(Permission.objects.get(codename='manage_operations'))
+        self.client.force_login(user)
+        page = self.client.get(reverse('threat_intel'))
+        self.assertContains(page, 'Control remoto (C2)')
+        self.assertNotContains(page, 'Sin categoría en este plan')
+
     def test_ip_investigation_shows_the_local_lookup(self):
         self.sync()
         user = get_user_model().objects.create_user('global')

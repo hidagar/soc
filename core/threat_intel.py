@@ -257,12 +257,16 @@ def sync(now=None):
                 updated = _iso(item.get('updated_at'))
                 if row.get('ready') and updated and row.get('updated_at') == updated:
                     row['checked_at'] = now.isoformat()
+                    if 'categorized' not in row:  # copias anteriores a este dato: se calcula una vez
+                        row['categorized'] = sum(1 for codes in ThreatIndicator.objects.filter(feed=name).values_list(
+                            'categories', flat=True).iterator(chunk_size=5000) if codes)
                     continue
                 payload = _get('/api.php', {'feed_type': name, 'type': 'opnsense'}, key, MAX_FEED)
                 entries, rejected, names, kind = parse_feed(payload, str(item.get('type') or ''))
                 added, removed = apply(name, entries)
                 row.update(ready=True, kind=kind, updated_at=updated, generated_at=_iso(payload.get('generated_at')),
-                           checked_at=now.isoformat(), count=len(entries), rejected=rejected, added=added, removed=removed)
+                           checked_at=now.isoformat(), count=len(entries), rejected=rejected, added=added, removed=removed,
+                           categorized=sum(1 for _, codes in entries.values() if codes))
                 categories = values.setdefault('categories', {})
                 for code, label in names.items():
                     if code in categories or len(categories) < MAX_CATEGORY_NAMES:
@@ -453,6 +457,9 @@ def overview(request):
               'checked': parse_datetime(row.get('checked_at') or ''), 'generated': parse_datetime(row.get('generated_at') or ''),
               'next': parse_datetime(row.get('next_update') or '')}
              for name, row in sorted((values.get('feeds') or {}).items())]
+    # El plan gratuito publica solo el indicador (comprobado con una clave real): sin categoría por entrada.
+    known = [f for f in feeds if f['usable'] and 'categorized' in f]
+    uncategorized = bool(known) and not any(f['categorized'] for f in known)
     query = request.GET.get('q', '').strip()[:253]
     result, invalid = None, False
     if query:
@@ -474,7 +481,7 @@ def overview(request):
     summary = inbound_qs.aggregate(total=Count('id'), only_here=Count('id', filter=Q(crowdsec_listed=False)),
                                    allowed=Count('id', filter=Q(allowed__gt=0)))
     return render(request, 'threat_intel.html', {
-        'values': values, 'feeds': feeds, 'configured': values.get('configured'), 'usable': bool(usable),
+        'values': values, 'feeds': feeds, 'configured': values.get('configured'), 'usable': bool(usable), 'uncategorized': uncategorized,
         'last_ok': parse_datetime(values.get('last_ok_at') or ''), 'checked': parse_datetime(values.get('checked_at') or ''),
         'query': query, 'result': result, 'invalid': invalid, 'outbound': outbound, 'inbound': inbound,
         'outbound_allowed': sum(1 for r in outbound if r.allowed), 'summary': summary})
