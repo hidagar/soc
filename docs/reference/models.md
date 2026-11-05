@@ -415,6 +415,8 @@ Fuente: [core/models.py](../../core/models.py).
 | `urgent_availability_enabled` | BooleanField |  |
 | `task_notices_enabled` | BooleanField |  |
 | `task_email` | EmailField | blank=True |
+| `monthly_reports_enabled` | BooleanField |  |
+| `monthly_email` | EmailField | blank=True |
 | `active` | BooleanField |  |
 | `notes` | TextField | blank=True |
 | `created_at` | DateTimeField |  |
@@ -703,6 +705,52 @@ Fuente: [core/models.py](../../core/models.py).
 | `sla_breaches` | JSONField | blank=True |
 | `created_at` | DateTimeField |  |
 | `updated_at` | DateTimeField |  |
+## MonthlyReport
+
+Fuente: [core/monthly_models.py](../../core/monthly_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `month` | DateField |  |
+| `soc_summary` | TextField | blank=True |
+| `published_at` | DateTimeField | null=True; blank=True |
+| `published_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `send_status` | CharField | max_length=12; blank=True |
+| `send_error` | CharField | max_length=240; blank=True |
+| `sent_to` | EmailField | blank=True |
+| `provider_id` | CharField | max_length=180; blank=True |
+| `attempted_at` | DateTimeField | null=True; blank=True |
+| `sent_at` | DateTimeField | null=True; blank=True |
+## MonthlyReportVersion
+
+Fuente: [core/monthly_models.py](../../core/monthly_models.py).
+
+Ámbito declarado: `'report__client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `report` | ForeignKey | → MonthlyReport; on_delete=models.CASCADE |
+| `number` | PositiveIntegerField |  |
+| `html` | TextField |  |
+| `pdf` | BinaryField |  |
+| `html_sha256` | CharField | max_length=64 |
+| `pdf_sha256` | CharField | max_length=64 |
+| `reason` | TextField | blank=True |
+| `created_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `created_at` | DateTimeField |  |
+## MonthlyReportShare
+
+Fuente: [core/monthly_models.py](../../core/monthly_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `report` | OneToOneField | → MonthlyReport; on_delete=models.CASCADE |
+| `nonce` | UUIDField | unique=True |
+| `expires_at` | DateTimeField |  |
+| `revoked` | BooleanField |  |
 ## NetworkCheck
 
 Fuente: [core/network_models.py](../../core/network_models.py).

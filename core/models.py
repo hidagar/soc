@@ -23,6 +23,8 @@ class Client(models.Model):
     urgent_availability_enabled = models.BooleanField("Incluir caídas de Internet en avisos urgentes", default=False)
     task_notices_enabled = models.BooleanField("Avisar por correo de las actuaciones del portal", default=False)
     task_email = models.EmailField("Correo para avisos de actuaciones", blank=True)
+    monthly_reports_enabled = models.BooleanField("Enviar por correo el informe mensual al publicarlo", default=False)
+    monthly_email = models.EmailField("Correo para el informe mensual (dirección)", blank=True)
     active = models.BooleanField("Activo", default=True)
     notes = models.TextField("Notas internas", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -460,5 +462,6 @@ from .improvement_models import AdvancedReview
 from .sla_models import SlaPolicy, SlaSettings
 from .notice_models import CustomerNotice
 from .threat_intel_models import SocReputation, ThreatIndicator, ThreatIntelMatch
+from .monthly_models import MonthlyReport, MonthlyReportShare, MonthlyReportVersion
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

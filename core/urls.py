@@ -3,6 +3,7 @@ from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 
 from . import campaigns
+from . import monthly_report
 from . import threat_intel
 from . import soc_reputation
 from . import sla_views
@@ -85,6 +86,13 @@ urlpatterns = [
     path('cliente/informes/<int:pk>/pdf/',service.customer_weekly_pdf,name='customer_weekly_pdf'),
     path('clients/<int:client_pk>/publish/',service.publish,name='customer_publish'),
     path('clients/<int:client_pk>/monthly/',service.monthly,name='monthly_summary'),
+    path('clients/<int:client_pk>/monthly/preview/',monthly_report.preview,name='monthly_preview'),
+    path('clients/<int:client_pk>/monthly/publish/',monthly_report.publish,name='monthly_publish'),
+    path('monthly-reports/<int:report_pk>/rectify/',monthly_report.rectify,name='monthly_rectify'),
+    path('monthly-reports/<int:report_pk>/send/',monthly_report.send,name='monthly_send'),
+    path('monthly-reports/<int:report_pk>/link/',monthly_report.manage_link,name='monthly_link'),
+    path('cliente/informes/mensual/<int:pk>/',monthly_report.customer_monthly,name='customer_monthly'),
+    path('cliente/informes/mensual/<int:pk>/pdf/',monthly_report.customer_monthly_pdf,name='customer_monthly_pdf'),
     path('devices/<int:pk>/history/',service.device_history,name='device_history'),
     path('operations/intelligence/',service.intelligence,name='intelligence'),
     path('operations/crowdsec/',reputation_views.overview,name='crowdsec_overview'),
@@ -129,6 +137,9 @@ urlpatterns = [
     path('security/mfa/verify/', security.mfa_challenge, name='mfa_challenge'),
     path("reports/health/", report_sharing.report_health, name="report_health"),
     path("healthz/", continuity.healthz, name="healthz"),
+    # Antes que las del semanal: «mensual-<token>» es un único segmento, que los registros ocultan entero.
+    path("reports/mensual-<str:token>/pdf/", monthly_report.public_monthly_pdf, name="monthly_public_pdf"),
+    path("reports/mensual-<str:token>/", monthly_report.public_monthly, name="monthly_public"),
     path("reports/<str:token>/pdf/", report_sharing.customer_report_pdf, name="customer_report_pdf"),
     path("reports/<str:token>/", report_sharing.customer_report, name="customer_report"),
     path("report-links/<int:report_pk>/", report_sharing.manage_report_link, name="manage_report_link"),

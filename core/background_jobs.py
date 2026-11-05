@@ -119,7 +119,8 @@ def execute(name):
         from .delivery_tracking import escalate_unacknowledged
         from .sla import check as check_sla
         from .customer_notices import send_pending as send_customer_notices
-        escalate_unacknowledged();check_sla();send_customer_notices();return op.notify_issues()
+        from .monthly_report import check_pending as check_monthly, send_pending as send_monthly
+        escalate_unacknowledged();check_sla();send_customer_notices();send_monthly();check_monthly();return op.notify_issues()
     if name=='housekeeping':
         from .vpn_security import VpnAccessEvent
         from .models import UserInvitation

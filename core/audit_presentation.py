@@ -61,6 +61,8 @@ ACTIONS = {
     'gdms.credentials_saved': 'Credenciales de GDMS guardadas', 'gdms.credentials_removed': 'Credenciales de GDMS eliminadas',
     'gdms.auth_verified': 'Acceso a GDMS comprobado', 'logs.https_retry_reviewed': 'Reintento de envío HTTPS revisado',
     'mail.webhook_checked': 'Seguimiento de entrega de correo comprobado', 'report.rectified': 'Informe rectificado',
+    'report.monthly_published': 'Informe mensual publicado', 'report.monthly_rectified': 'Informe mensual rectificado',
+    'report.monthly_send': 'Envío del informe mensual pedido', 'report.monthly_link': 'Enlace del informe mensual gestionado',
     'coverage.manual_review': 'Cobertura de red revisada a mano',
 }
 ROUTES = {

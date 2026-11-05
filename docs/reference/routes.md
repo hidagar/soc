@@ -61,6 +61,13 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `cliente/informes/<int:pk>/pdf/` | `customer_weekly_pdf` | `service.customer_weekly_pdf` |
 | `clients/<int:client_pk>/publish/` | `customer_publish` | `service.publish` |
 | `clients/<int:client_pk>/monthly/` | `monthly_summary` | `service.monthly` |
+| `clients/<int:client_pk>/monthly/preview/` | `monthly_preview` | `monthly_report.preview` |
+| `clients/<int:client_pk>/monthly/publish/` | `monthly_publish` | `monthly_report.publish` |
+| `monthly-reports/<int:report_pk>/rectify/` | `monthly_rectify` | `monthly_report.rectify` |
+| `monthly-reports/<int:report_pk>/send/` | `monthly_send` | `monthly_report.send` |
+| `monthly-reports/<int:report_pk>/link/` | `monthly_link` | `monthly_report.manage_link` |
+| `cliente/informes/mensual/<int:pk>/` | `customer_monthly` | `monthly_report.customer_monthly` |
+| `cliente/informes/mensual/<int:pk>/pdf/` | `customer_monthly_pdf` | `monthly_report.customer_monthly_pdf` |
 | `devices/<int:pk>/history/` | `device_history` | `service.device_history` |
 | `operations/intelligence/` | `intelligence` | `service.intelligence` |
 | `operations/crowdsec/` | `crowdsec_overview` | `reputation_views.overview` |
@@ -105,6 +112,8 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `security/mfa/verify/` | `mfa_challenge` | `security.mfa_challenge` |
 | `reports/health/` | `report_health` | `report_sharing.report_health` |
 | `healthz/` | `healthz` | `continuity.healthz` |
+| `reports/mensual-<str:token>/pdf/` | `monthly_public_pdf` | `monthly_report.public_monthly_pdf` |
+| `reports/mensual-<str:token>/` | `monthly_public` | `monthly_report.public_monthly` |
 | `reports/<str:token>/pdf/` | `customer_report_pdf` | `report_sharing.customer_report_pdf` |
 | `reports/<str:token>/` | `customer_report` | `report_sharing.customer_report` |
 | `report-links/<int:report_pk>/` | `manage_report_link` | `report_sharing.manage_report_link` |

@@ -1,0 +1,17 @@
+Informe mensual de seguridad · ib-red empresas
+
+{{ client.name }}:
+
+Os enviamos el informe mensual del servicio de seguridad gestionada de ib-red correspondiente a {{ month_label }}: resumen de detecciones y bloqueos, evolución por semanas, recomendaciones y seguimiento de las actuaciones.
+
+Ver el informe (se puede descargar en PDF):
+{{ url }}
+
+El enlace es válido hasta el {{ expires_at|date:'d/m/Y' }} y da acceso solo a este informe.
+Para cualquier consulta, respondednos a {{ reply_address }}.
+
+Este correo no incluye datos del informe: están en la página enlazada.
+Si no esperabais este correo, respondednos antes de abrir el enlace.
+
+Atentamente,
+Equipo de seguridad · ib-red empresas

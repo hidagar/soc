@@ -153,8 +153,18 @@ def customer_home_context(client,preview=False):
         'publications':news[:6],'publication_count':news.count(),
         'reports':reports[:3],'report_count':len(reports)}
 
+def portal_monthly(client,preview=False):
+    """Informes mensuales publicados; en la vista previa del SOC, sin enlaces (no se abren desde el portal simulado)."""
+    from django.urls import reverse
+    from .models import MonthlyReport
+    from .monthly_report import month_label
+    rows=MonthlyReport.objects.filter(client=client,published_at__isnull=False).annotate(version_count=Count('versions')).order_by('-month')[:24]
+    return [{'label':month_label(r.month),'published_at':r.published_at,'version_count':r.version_count,
+             'portal_url':'' if preview else reverse('customer_monthly',args=[r.pk]),
+             'pdf_url':'' if preview else reverse('customer_monthly_pdf',args=[r.pk])} for r in rows]
+
 def customer_reports_context(client,preview=False):
-    return {**_portal_base(client,preview,'reports'),'reports':portal_reports(client,preview)}
+    return {**_portal_base(client,preview,'reports'),'reports':portal_reports(client,preview),'monthly_reports':portal_monthly(client,preview)}
 
 def customer_tasks_context(client,preview=False):
     tasks,closed=portal_tasks(client,preview)
@@ -361,6 +371,8 @@ def monthly(request,client_pk):
         if month>timezone.localdate().replace(day=1) or month.year<2020:raise ValueError
     except ValueError:raise Http404('Mes no válido.')
     context=monthly_context(client,month)
+    from .monthly_report import staff_context
+    context.update(staff_context(client,month,request.user))
     if request.GET.get('format')=='pdf':
         response=HttpResponse(monthly_pdf(context),content_type='application/pdf')
         response['Content-Disposition']=f'attachment; filename="resumen-{month:%Y-%m}.pdf"'

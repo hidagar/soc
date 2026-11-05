@@ -62,3 +62,31 @@ El cliente nunca ve el informe calculado en el momento: ve una `ReportVersion` c
 Rectificar (ficha del informe, permiso `manage_connections`) congela el contenido actual como versión siguiente con un motivo obligatorio que el cliente ve; no envía correo. El portal del cliente lista todas las versiones y permite abrir cada una y su PDF (`?version=N`); el enlace firmado muestra la última con el aviso de rectificación. Los cambios de seguimiento posteriores aparecen en «Seguimiento y próximos pasos», no en informes ya publicados.
 
 Cada versión guarda el PDF en la base (del orden de cien KB por informe y semana). Las versiones congeladas antes de esta entrega no existen: los informes ya enviados se congelan con el contenido del primer acceso posterior al despliegue.
+
+## Informe mensual para dirección
+
+`core/monthly_report.py`, desde «Resumen mensual» del cliente (sección «Informe mensual para el cliente»). El resumen ejecutivo de esa página sigue siendo interno del SOC; el informe mensual es una proyección distinta, solo con lo que ya se publica al cliente (invariante 3):
+
+- **Cifras:** la suma de los informes semanales de las semanas que **empiezan** en el mes, para que coincidan con lo que el cliente recibió cada semana. Se comparan con el mes anterior solo si tiene todas sus semanas.
+- **Contenido:**
+  - evolución por semanas y firewalls con datos;
+  - bloqueo proactivo (cifras agregadas del mes);
+  - hasta 5 recomendaciones de los hallazgos semanales, por frecuencia;
+  - comunicaciones publicadas;
+  - actuaciones del portal validadas en el mes y pendientes al publicar;
+  - la **valoración del SOC**, texto libre que se escribe al publicar.
+- **Nunca incluye:** incidencias sin publicar, acciones o notas internas, ni borradores de tareas.
+
+**Publicación** (permiso `change_incident`):
+- Solo cuando han terminado el mes y su última semana, y cada semana se puede publicar (recopilación completa y propiedad verificada). Si no, la página explica qué falta.
+- «Vista previa para el cliente» muestra el resultado con los datos de hoy sin congelar nada.
+- Publicar congela HTML y PDF como versión 1 (`MonthlyReportVersion`, con SHA-256). Dos publicaciones simultáneas no crean dos versiones.
+- Rectificar (`manage_connections`) añade la versión siguiente con motivo, y puede cambiar la valoración. No envía correo.
+- El cliente lo ve en «Informes», con sus versiones y el PDF.
+
+**Correo opcional:** en la ficha del cliente, «Informe mensual», con un destinatario propio (por ejemplo, dirección) o el de informes.
+- Al publicar se puede enviar en el mismo paso. Lo envía el trabajo «Avisos operativos» con copia a NOC, como el semanal.
+- El correo solo lleva un enlace firmado a `/reports/mensual-<token>/`, válido 90 días, revocable y renovable desde la página. Los registros de Django y Nginx ocultan el token con las reglas del semanal.
+- Un error de red o un envío interrumpido queda «Por comprobar» y no se repite solo. Reenviarlo exige confirmar que se ha revisado «Entrega y avisos», donde figura como «Informe mensual».
+- Con el envío activado, si el informe del mes anterior sigue sin publicar 3 días después de poder publicarse, se abre un aviso en «Salud del SOC» (`report:monthly:<cliente>`).
+

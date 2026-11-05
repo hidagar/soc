@@ -24,6 +24,19 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: bloque 6, informe mensual para dirección (05/11/2026)
+
+Implementado el informe mensual para dirección:
+- calculado con los informes semanales del mes y lo ya publicado al cliente;
+- valoración del SOC;
+- versión inmutable con rectificación;
+- marca común en página, PDF y correo;
+- correo opcional por cliente, con enlace firmado y sin reintento si el resultado es dudoso.
+
+Detalle: [informe mensual](reports-and-mail.md#informe-mensual-para-dirección).
+
+Con esto el bloque 6 queda cubierto. Pendiente: mostrar al cliente el cumplimiento de los plazos de atención, cuando se decida qué publicar sobre casos internos.
+
 ## Actualización: reputación propia del SOC, observación (05/11/2026)
 
 Implementada la reputación propia del SOC: IPs que atacan a varios clientes, clasificadas en confirmada, propia o en observación, con frenos contra falsos positivos.

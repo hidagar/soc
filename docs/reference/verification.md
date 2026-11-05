@@ -60,6 +60,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_key_rotation.py](../../core/test_key_rotation.py) | 4 |
 | [core/test_log_redaction.py](../../core/test_log_redaction.py) | 6 |
 | [core/test_login_ip_throttle.py](../../core/test_login_ip_throttle.py) | 5 |
+| [core/test_monthly_report.py](../../core/test_monthly_report.py) | 14 |
 | [core/test_native_pipeline.py](../../core/test_native_pipeline.py) | 1 |
 | [core/test_navigation.py](../../core/test_navigation.py) | 3 |
 | [core/test_network_coverage.py](../../core/test_network_coverage.py) | 20 |
@@ -171,3 +172,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0064_avisos_actuaciones_cliente.py](../../core/migrations/0064_avisos_actuaciones_cliente.py)
 - [core/migrations/0065_inteligencia_qfeeds.py](../../core/migrations/0065_inteligencia_qfeeds.py)
 - [core/migrations/0066_reputacion_propia.py](../../core/migrations/0066_reputacion_propia.py)
+- [core/migrations/0067_informe_mensual.py](../../core/migrations/0067_informe_mensual.py)
