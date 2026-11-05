@@ -43,6 +43,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | `blocklists` | 900 | Listas de bloqueo del SOC |
 | `crowdsec_lists` | 300 | Listas de CrowdSec |
 | `blocklist_efficacy` | 3600 | Eficacia de las reglas de bloqueo |
+| `threat_intel` | 900 | Inteligencia Q-Feeds |
 
 ## Unidades incluidas
 

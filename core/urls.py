@@ -3,6 +3,7 @@ from django.views.generic import TemplateView
 from django.contrib.auth.decorators import login_required
 
 from . import campaigns
+from . import threat_intel
 from . import sla_views
 from . import continuity
 from . import views
@@ -89,6 +90,7 @@ urlpatterns = [
     path('operations/campaigns/',campaigns.campaign_list,name='campaign_list'),
     path('operations/sla/',sla_views.settings_view,name='sla_settings'),
     path('operations/blocklists/',blocklist.overview,name='blocklists'),
+    path('operations/inteligencia/',threat_intel.overview,name='threat_intel'),
     path('operations/crowdsec/lists/',crowdsec_catalog.overview,name='crowdsec_lists'),
     path('operations/crowdsec/lists/<int:pk>/',crowdsec_catalog.action,name='crowdsec_list_action'),
     path('operations/blocklists/<int:client_pk>/',blocklist.detail,name='blocklist_detail'),

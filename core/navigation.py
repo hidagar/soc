@@ -36,6 +36,7 @@ def _staff_groups(user, global_access):
             _item("Reputación CrowdSec", "crowdsec_overview"),
             _item("Listas de CrowdSec", "crowdsec_lists", ["crowdsec_list_action"], visible=perm("core.manage_operations")),
             _item("Listas de bloqueo", "blocklists", ["blocklist_detail"], visible=perm("core.manage_operations")),
+            _item("Inteligencia Q-Feeds", "threat_intel", visible=perm("core.manage_operations")),
             _item("Seguridad VPN", "vpn_security"),
             _item("SOC general en Wazuh", "wazuh_sso_enter", external=True, visible=wazuh_general),
         ]),

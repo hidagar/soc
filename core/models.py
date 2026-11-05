@@ -459,5 +459,6 @@ from .improvement_models import ReportVersion, IpReputation, BlocklistFeed, Crow
 from .improvement_models import AdvancedReview
 from .sla_models import SlaPolicy, SlaSettings
 from .notice_models import CustomerNotice
+from .threat_intel_models import ThreatIndicator, ThreatIntelMatch
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

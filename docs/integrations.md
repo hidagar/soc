@@ -157,6 +157,35 @@ Guardar la clave como `SOC_PORTAL_CROWDSEC_LAPI_KEY=` en `/etc/soc-portal/portal
 
 Comprobado contra un motor CrowdSec real: respuestas `null` sin decisiones, decisión de la lista comunitaria y por rango, 403 con clave inválida y puerto cerrado. La API CTI de pago solo se ha comprobado con clave inválida (403); el resto de su contrato está probado con respuestas simuladas.
 
+## Inteligencia Q-Feeds (fase 1)
+
+`core/threat_intel.py` y la página «Detección e investigación → Inteligencia Q-Feeds» (permiso `manage_operations`). Q-Feeds es una fuente de listas de IPs y dominios maliciosos (malware, botnets, C2), con plan gratuito (cada 24 h), Plus (4 h) y Premium (20 min). Esta fase es solo de **observación**: no bloquea nada ni distribuye listas a los firewalls.
+
+1. **Descarga:** el trabajo protegido `threat_intel` (cada 15 minutos) usa `SOC_PORTAL_QFEEDS_KEY`.
+   - Usa el mismo protocolo que el plugin oficial de OPNsense: lee el índice `GET https://api.qfeeds.com/licenses.php` con autenticación Basic (usuario `api_token`, contraseña la clave) y descarga en `GET /api.php?feed_type=<lista>&type=opnsense` solo las listas incluidas en la licencia cuya versión ha cambiado.
+   - La clave va en la cabecera, nunca en la URL.
+   - Listas por defecto: `malware_ip` y `malware_domains` (`SOC_PORTAL_QFEEDS_FEEDS`).
+2. **Copia local:** `ThreatIndicator` (IP, red o dominio, con sus categorías) se lleva a la versión publicada en transacciones cortas: se borra lo que ya no está y se añade lo nuevo. Con 130.000 IPs, la primera carga tarda unos 7 s y cada actualización unos 3 s en SQLite.
+   - **Se descartan:** IPs no públicas, redes más amplias que /16 en IPv4 o /32 en IPv6 y dominios no válidos. La página indica cuántos.
+   - **Límites:** 64 MiB por lista y 500.000 indicadores.
+3. **Vigencia:**
+   - Una lista se usa mientras se haya comprobado en las últimas 36 horas.
+   - Si no, deja de usarse (estado seguro) y se abre `platform:threat-intel` en «Salud del SOC». Ese aviso se abre también, al momento, si Q-Feeds rechaza la clave o la licencia.
+   - Tras un 401, 403 o 429, el trabajo espera una hora antes de reintentar, como el plugin oficial.
+   - A los 7 días sin comprobar, o al retirar la clave, la copia se borra: son datos con licencia.
+4. **Consulta local:** «Investigar IP» y el buscador de la página indican si una IP (o la red que la contiene) o un dominio figura en las listas, con sus categorías. No se envía nada a Q-Feeds; tampoco se usa su portal de consulta, que sí recibiría la IP.
+5. **Coincidencias con los clientes (7 días):** `ThreatIntelMatch` guarda las IPs públicas de las detecciones que figuran en las listas, recalculadas en cada ejecución (hasta 2000). Las ven solo los operadores con ese cliente en su ámbito.
+   - **Destinos salientes:** conexiones de equipos del cliente hacia IPs de las listas, con las IPs internas implicadas. Hasta ahora no se podían revisar, porque no se consultan a terceros (véase [seguridad](security.md#terceros-con-datos-de-ip)). Una conexión permitida hacia infraestructura de malware o C2 es motivo para revisar el equipo. No acredita una infección, y la interpretación del evento no cambia (invariante 4).
+   - **Orígenes entrantes:** indica si el atacante también está en las listas de CrowdSec. Así se mide lo que Q-Feeds aporta antes de elegir plan.
+   - **Excluidas:** las IPs de clientes y del SOC (`protected_addresses`).
+6. **Límites:**
+   - Solo se revisan las IPs que aparecen en las detecciones que recibe el SOC, no todo el tráfico.
+   - Los dominios solo se consultan a mano: las evidencias no guardan nombres de dominio.
+   - Q-Feeds no publica la caducidad por entrada ni una tasa de falsos positivos.
+7. **Licencia:** el contrato de Q-Feeds limita el uso a fines internos y prohíbe redistribuir los datos a terceros, con una licencia por equipo que los use. Esta fase no sirve las listas a ningún firewall. Llevarlas a firewalls propios o de clientes (fases 2 y 3) requiere licencia por firewall y, para clientes, un acuerdo escrito con Q-Feeds.
+
+Probado con respuestas simuladas según el código del plugin oficial (`opnsense/plugins`, `security/q-feeds-connector` 1.7); pendiente de comprobar con una clave real.
+
 ## Archivos
 
 - OPNsense: `opnsense_api.py`, `provisioning.py`, `ssh_connection.py`, `protection.py`, `network_coverage.py`, `configuration_archives.py`.

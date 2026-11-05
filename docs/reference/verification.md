@@ -85,6 +85,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
 | [core/test_sla.py](../../core/test_sla.py) | 17 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
+| [core/test_threat_intel.py](../../core/test_threat_intel.py) | 12 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
@@ -167,3 +168,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0062_blocklist_repeat_unifi_efficacy.py](../../core/migrations/0062_blocklist_repeat_unifi_efficacy.py)
 - [core/migrations/0063_sla_plazos_atencion.py](../../core/migrations/0063_sla_plazos_atencion.py)
 - [core/migrations/0064_avisos_actuaciones_cliente.py](../../core/migrations/0064_avisos_actuaciones_cliente.py)
+- [core/migrations/0065_inteligencia_qfeeds.py](../../core/migrations/0065_inteligencia_qfeeds.py)
