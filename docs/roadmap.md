@@ -24,6 +24,20 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: inteligencia Q-Feeds, fase 1 (05/11/2026)
+
+Implementada la descarga de las listas de Q-Feeds como fuente de inteligencia del SOC, en modo observación:
+- copia local con vigencia;
+- consulta en «Investigar IP»;
+- coincidencias con los orígenes entrantes y, por primera vez, con los destinos salientes de los clientes, sin enviar IPs a terceros.
+
+Detalle: [integraciones](integrations.md#inteligencia-q-feeds-fase-1).
+
+Pendiente:
+- comprobarlo con una clave real;
+- fase 2: firewalls propios de ib-red, con el plugin oficial y la regla creada por el SOC con control de cambios;
+- fase 3: firewalls de clientes, solo con acuerdo escrito de licencia.
+
 ## Actualización: bloque 6, avisos de actuaciones (30/10/2026)
 
 Implementado el aviso por correo al cliente al asignar, devolver o validar una actuación publicada. Es opcional por cliente, con bandeja propia y sin reintento automático si el resultado es dudoso. Lleva solo el título, la fecha y el enlace al portal. Detalle: [avisos de actuaciones](reports-and-mail.md#avisos-de-actuaciones). Pendiente del bloque: informe mensual para dirección con versión publicada inmutable y correo mensual opcional.

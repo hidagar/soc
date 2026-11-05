@@ -67,6 +67,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `operations/campaigns/` | `campaign_list` | `campaigns.campaign_list` |
 | `operations/sla/` | `sla_settings` | `sla_views.settings_view` |
 | `operations/blocklists/` | `blocklists` | `blocklist.overview` |
+| `operations/inteligencia/` | `threat_intel` | `threat_intel.overview` |
 | `operations/crowdsec/lists/` | `crowdsec_lists` | `crowdsec_catalog.overview` |
 | `operations/crowdsec/lists/<int:pk>/` | `crowdsec_list_action` | `crowdsec_catalog.action` |
 | `operations/blocklists/<int:client_pk>/` | `blocklist_detail` | `blocklist.detail` |

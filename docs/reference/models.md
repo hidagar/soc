@@ -1171,6 +1171,36 @@ Fuente: [core/sla_models.py](../../core/sla_models.py).
 | `investigate_minutes` | PositiveIntegerField |  |
 | `resolve_minutes` | PositiveIntegerField |  |
 | `updated_at` | DateTimeField |  |
+## ThreatIndicator
+
+Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `feed` | CharField | max_length=32 |
+| `kind` | CharField | max_length=8 |
+| `value` | CharField | max_length=253; db_index=True |
+| `categories` | JSONField | blank=True |
+## ThreatIntelMatch
+
+Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `ip` | GenericIPAddressField |  |
+| `role` | CharField | max_length=12 |
+| `feeds` | JSONField | blank=True |
+| `categories` | JSONField | blank=True |
+| `events` | PositiveIntegerField |  |
+| `allowed` | PositiveIntegerField |  |
+| `first_seen` | DateTimeField |  |
+| `last_seen` | DateTimeField |  |
+| `peers` | JSONField | blank=True |
+| `crowdsec_listed` | BooleanField |  |
+| `updated_at` | DateTimeField |  |
 ## VpnAccessEvent
 
 Fuente: [core/vpn_security.py](../../core/vpn_security.py).
