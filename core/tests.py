@@ -374,8 +374,8 @@ class PortalWorkflowTests(TestCase):
             _source_owner_check([self.client_record, self.other_client])
 
     def test_cannot_enable_weekly_email_without_recipient(self):
-        from .forms import ClientForm
-        form = ClientForm(data={"name": "Empresa C", "code": "empresa-c", "weekly_reports_enabled": "on", "active": "on"})
+        from .client_services import ClientServicesForm
+        form = ClientServicesForm(data={"weekly_reports_enabled": "on"}, instance=Client(name="Empresa C", code="empresa-c"))
         self.assertFalse(form.is_valid())
         self.assertIn("report_email", form.errors)
 
@@ -753,8 +753,8 @@ class UrgentAlertTests(TestCase):
         send.assert_not_called()
 
     def test_client_form_requires_recipient_for_urgent_alerts(self):
-        from .forms import ClientForm
-        form = ClientForm(data={"name": "Otro", "code": "otro", "urgent_alerts_enabled": "on", "active": "on"})
+        from .client_services import ClientServicesForm
+        form = ClientServicesForm(data={"urgent_alerts_enabled": "on"}, instance=Client(name="Otro", code="otro"))
         self.assertFalse(form.is_valid())
         self.assertIn("urgent_email", form.errors)
 

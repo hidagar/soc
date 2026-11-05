@@ -262,7 +262,7 @@ class SocSecurityMiddleware:
             'mail_settings':'manage_connections','verify_public_reports':'manage_connections',
             'manage_report_link':'manage_connections','rectify_report':'manage_connections','export_destination':'manage_connections',
             'monthly_link':'manage_connections','monthly_rectify':'manage_connections',
-            'monthly_publish':'change_incident','monthly_send':'change_incident'}
+            'monthly_publish':'change_incident','monthly_send':'change_incident','client_services':'change_client'}
         required = permissions.get(name)
         if required and not request.user.has_perm('core.'+required):
             return HttpResponseForbidden('Tu perfil no permite esta operación.')

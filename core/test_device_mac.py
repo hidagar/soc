@@ -69,7 +69,7 @@ class DeviceMacTests(TestCase):
 
     def test_client_inventory_and_site_show_only_its_equipment(self):
         response = self.client.get(reverse('client_detail', args=[self.customer.pk]))
-        self.assertContains(response, 'Equipos del cliente')
+        self.assertContains(response, 'Sedes y firewalls')
         self.assertContains(response, '00:0B:82:12:34:56')
         self.assertNotContains(response, '00:0B:82:12:34:57')
         self.assertNotContains(response, 'SECRET FOREIGN NAME')

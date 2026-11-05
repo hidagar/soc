@@ -5,7 +5,11 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
 ## Operador
 
 1. Acceder por correo y contraseña propia; completar MFA. El perfil de cuenta limita clientes y acciones.
-2. Crear/seleccionar cliente y sede. Al añadir sede desde cliente, conservar ese contexto; no debe abrir acceso al catálogo de otros clientes.
+2. Crear/seleccionar cliente y sede. Al añadir sede desde cliente, conservar ese contexto; no debe abrir acceso al catálogo de otros clientes. La edición del cliente solo tiene sus datos básicos.
+   - **«Servicios del cliente»**, en la ficha del cliente y en la de cada sede, reúne todo lo que se activa:
+     - **Se editan ahí, con un solo botón:** portal (firewalls y detecciones, mapa en vivo), informe semanal y mensual por correo, avisos urgentes (y caídas de Internet) y avisos de actuaciones, cada uno con su destinatario.
+     - **Se ven con su estado y un enlace a su página,** que conserva MFA y control de cambios: lista de bloqueo, plazos de atención, informe mensual y panel Wazuh.
+   - **«Sedes y firewalls»** (o «Firewalls de esta sede») muestra por equipo la recepción de registros, Zenarmor, la regla de bloqueo del SOC y las copias de configuración.
 3. Añadir equipo con fabricante/perfil (incluido OPNsense + Zenarmor). Elegir gestión API/SSH cuando se necesite automatización, o instrucciones manuales cuando basten.
 4. Completar dirección remota/selección cloud/MAC y credenciales solo en formularios específicos. Inventario descubre datos disponibles sin borrar los últimos hechos conocidos si falla una lectura.
 5. Configurar exportación siguiendo el wizard. Revisar conflictos, categorías, destino, protocolo y red protegida. API conectada no cierra la recepción.

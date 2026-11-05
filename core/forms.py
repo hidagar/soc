@@ -56,46 +56,17 @@ class StyledModelForm(ScopedModelForm):
 
 
 class ClientForm(StyledModelForm):
-    sections = [
-        {'title': 'Datos del cliente', 'fields': ['name', 'code', 'contact_email', 'active', 'notes']},
-        {'title': 'Informes y portal del cliente', 'fields': ['report_email', 'weekly_reports_enabled',
-                                                             'customer_portal_detail_enabled', 'customer_live_map_enabled']},
-        {'title': 'Avisos urgentes', 'fields': ['urgent_alerts_enabled', 'urgent_email', 'urgent_availability_enabled']},
-        {'title': 'Avisos de actuaciones', 'fields': ['task_notices_enabled', 'task_email']},
-        {'title': 'Informe mensual', 'fields': ['monthly_reports_enabled', 'monthly_email']},
-    ]
+    """Datos básicos del cliente. Portal, informes y avisos se activan en «Servicios del cliente» (core/client_services.py)."""
+    sections = [{'title': 'Datos del cliente', 'fields': ['name', 'code', 'contact_email', 'active', 'notes']}]
 
     class Meta:
         model = Client
-        fields = ["name", "code", "contact_email", "report_email", "weekly_reports_enabled", "customer_live_map_enabled", "customer_portal_detail_enabled", "urgent_email", "urgent_alerts_enabled", "urgent_availability_enabled", "task_notices_enabled", "task_email", "monthly_reports_enabled", "monthly_email", "active", "notes"]
+        fields = ["name", "code", "contact_email", "active", "notes"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["report_email"].help_text = "Destinatario del informe de seguridad. Puede ser distinto del contacto general."
-        self.fields["weekly_reports_enabled"].help_text = "Se enviará cada lunes si hay eventos recibidos y el correo del servidor está configurado."
-        self.fields["urgent_email"].help_text = "Opcional: si queda vacío, se usará el correo de informes semanales."
-        self.fields["urgent_alerts_enabled"].help_text = "Envía avisos de seguridad urgentes en pocos minutos. Los intentos bloqueados habituales quedan en el informe semanal."
-        self.fields["urgent_availability_enabled"].help_text = "También avisa de eventos «Internet Down». Requiere activar los avisos urgentes."
-        self.fields["task_notices_enabled"].help_text = ("Correo cuando el SOC asigna, devuelve o valida una actuación publicada en el portal. "
-                                                         "Solo lleva el título, la fecha y el enlace al portal.")
-        self.fields["task_email"].help_text = "Opcional: si queda vacío, se usa el correo de contacto (o el de informes)."
-        self.fields["monthly_reports_enabled"].help_text = ("El SOC publica el informe del mes en el portal; con esta opción, al publicarlo "
-                                                            "se envía también un enlace por correo. Nunca se envía sin publicarlo antes.")
-        self.fields["monthly_email"].help_text = "Opcional, por ejemplo la dirección o gerencia: si queda vacío, se usa el correo de informes."
-
-    def clean(self):
-        values = super().clean()
-        if values.get("weekly_reports_enabled") and not values.get("report_email"):
-            self.add_error("report_email", "Indica el correo que recibirá el informe antes de activar el envío.")
-        if values.get("urgent_alerts_enabled") and not (values.get("urgent_email") or values.get("report_email")):
-            self.add_error("urgent_email", "Indica el correo para avisos urgentes o el de informes semanales.")
-        if values.get("task_notices_enabled") and not (values.get("task_email") or values.get("contact_email") or values.get("report_email")):
-            self.add_error("task_email", "Indica a quién avisar: este correo, el de contacto o el de informes.")
-        if values.get("monthly_reports_enabled") and not (values.get("monthly_email") or values.get("report_email")):
-            self.add_error("monthly_email", "Indica el correo del informe mensual o el de informes.")
-        if values.get("urgent_availability_enabled") and not values.get("urgent_alerts_enabled"):
-            self.add_error("urgent_availability_enabled", "Activa primero los avisos urgentes.")
-        return values
+        self.fields["contact_email"].help_text = ("Contacto general del cliente. Los servicios (portal, informes y avisos) "
+                                                  "se activan después en la ficha del cliente, en «Servicios del cliente».")
 
 
 class MailSettingsForm(StyledModelForm):

@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import monthly_report
-from .forms import ClientForm
+from .client_services import ClientServicesForm
 from .mail_delivery import MailDeliveryError
 from .models import (Client, CustomerPublication, CustomerTask, Incident, MailSettings, MonthlyReport, MonthlyReportShare,
                      MonthlyReportVersion, OperationalIssue, StaffAccess, WeeklyReport)
@@ -209,10 +209,10 @@ class MonthlyReportTests(TestCase):
         self.assertFalse(MonthlyReport.objects.filter(published_at__isnull=False).exists())
 
     def test_client_form_requires_a_recipient_when_enabled(self):
-        form = ClientForm({'name': 'Empresa C', 'code': 'c', 'monthly_reports_enabled': 'on', 'active': 'on'})
+        form = ClientServicesForm({'monthly_reports_enabled': 'on'}, instance=Client(name='Empresa C', code='c'))
         self.assertIn('monthly_email', form.errors)
-        self.assertTrue(ClientForm({'name': 'Empresa C', 'code': 'c', 'monthly_reports_enabled': 'on', 'active': 'on',
-                                    'report_email': 'it@c.test'}).is_valid())
+        self.assertTrue(ClientServicesForm({'monthly_reports_enabled': 'on', 'report_email': 'it@c.test'},
+                                           instance=Client(name='Empresa C', code='c')).is_valid())
 
     def test_monthly_link_is_hidden_in_logs(self):
         from socportal.log_redaction import redact

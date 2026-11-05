@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from . import customer_notices
-from .forms import ClientForm
+from .client_services import ClientServicesForm
 from .mail_delivery import MailDeliveryError
 from .models import Client, CustomerNotice, CustomerTask, Incident, StaffAccess
 
@@ -143,9 +143,8 @@ class CustomerNoticeTests(TestCase):
         self.assertContains(page, 'aviso «Nueva actuación»: en cola')
 
     def test_client_form_requires_a_recipient_when_enabled(self):
-        data = {'name': 'Empresa C', 'code': 'c', 'task_notices_enabled': 'on', 'active': 'on'}
-        form = ClientForm(data)
+        form = ClientServicesForm({'task_notices_enabled': 'on'}, instance=Client(name='Empresa C', code='c'))
         self.assertFalse(form.is_valid())
         self.assertIn('task_email', form.errors)
-        form = ClientForm({**data, 'contact_email': 'it@empresa-c.test'})
+        form = ClientServicesForm({'task_notices_enabled': 'on'}, instance=Client(name='Empresa C', code='c', contact_email='it@empresa-c.test'))
         self.assertTrue(form.is_valid(), form.errors)

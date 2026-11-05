@@ -264,7 +264,10 @@ def client_detail(request, pk):
     from .investigation import evidence_queryset
     from .models import BlocklistFeed
     evidence = evidence_queryset(client, 7, "", "all")
+    from .client_services import ClientServicesForm, device_rows, status
+    devices = Device.objects.filter(site__client=client).select_related('site', 'health', 'onboarding', 'export_configuration').order_by('site__name', '-active', 'name')
     return render(request, "client_detail.html", {
+        "services_form": ClientServicesForm(instance=client), "status": status(client), "service_devices": device_rows(devices),
         "client": client,
         "evidence": {"total": evidence.count(), "allowed": evidence.filter(action="allowed").count()},
         "open_tasks": CustomerTask.objects.filter(incident__client=client, status__in=("pending", "rework", "submitted")).count(),
@@ -275,7 +278,6 @@ def client_detail(request, pk):
         "incidents": client.incidents.select_related("site", "device")[:10],
         "recent_urgent_alerts": client.urgent_alerts.all()[:5],
         "device_count": Device.objects.filter(site__client=client).count(),
-        "client_devices": Device.objects.filter(site__client=client).select_related('site', 'health'),
         "open_count": client.incidents.exclude(status=Incident.Status.RESOLVED).count(),
     })
 
@@ -283,8 +285,11 @@ def client_detail(request, pk):
 @login_required
 def site_detail(request, pk):
     site = get_object_or_404(Site.objects.select_related("client"), pk=pk)
-    devices = site.devices.select_related("health", "onboarding", "export_configuration").order_by("-active", "name")
-    return render(request, "site_detail.html", {"site": site, "devices": devices, "incidents": site.incidents.all()[:8]})
+    devices = site.devices.select_related("site", "health", "onboarding", "export_configuration").order_by("-active", "name")
+    from .client_services import ClientServicesForm, device_rows, status
+    return render(request, "site_detail.html", {"site": site, "client": site.client, "devices": device_rows(devices),
+                                                "services_form": ClientServicesForm(instance=site.client), "status": status(site.client),
+                                                "incidents": site.incidents.all()[:8]})
 
 
 @login_required
