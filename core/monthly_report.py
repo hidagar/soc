@@ -178,7 +178,15 @@ def customer_context(client, month, report=None):
         'proactive': client_protection(client, first, following - timedelta(days=1)),
         'soc_summary': report.soc_summary if report else '', 'customer_view': True,
         **_index(client, first, following),
+        'connectivity': _connectivity(client, first, following),
     }
+
+
+def _connectivity(client, first, following):
+    from .connectivity import month as month_connectivity
+    data = month_connectivity(client, first, following)
+    # Solo datos agregados por sede y firewall; la lista de eventos no se publica en el informe.
+    return {'rows': data['rows'], 'total': data['total'], 'reporting': data['reporting'], 'firewalls': data['firewalls']}
 
 
 def _index(client, first, following):

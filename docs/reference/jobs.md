@@ -46,6 +46,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | `threat_intel` | 900 | Inteligencia Q-Feeds |
 | `soc_reputation` | 3600 | Reputación propia del SOC |
 | `security_score` | 3600 | Índice de seguridad |
+| `connectivity` | 900 | Conexión a Internet |
 
 ## Unidades incluidas
 

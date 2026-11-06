@@ -92,7 +92,18 @@ def device_rows(devices):
     archives = {}
     for archive in ConfigurationArchive._base_manager.filter(device_id__in=ids, status='saved').order_by('created_at'):
         archives[archive.device_id] = archive
+    from datetime import timedelta
+    from django.db.models import Count
+    from django.utils import timezone
+    from .connectivity import INTERNET, REPORTING_VENDORS
+    from .models import ConnectivityEvent
+    outages = dict(ConnectivityEvent._base_manager.filter(device_id__in=ids, kind__in=INTERNET,
+                                                          observed_at__gte=timezone.now() - timedelta(days=30))
+                   .values('device_id').annotate(n=Count('id')).values_list('device_id', 'n'))
     for device in devices:
+        n = outages.get(device.pk, 0)
+        device.svc_internet = (('pending', f'{n} caída' + ('s' if n != 1 else '')) if n else ('ok', 'Sin caídas')) \
+            if device.vendor in REPORTING_VENDORS else None
         export = getattr(device, 'export_configuration', None)
         health = getattr(device, 'health', None)
         if health and health.last_log_at:

@@ -26,6 +26,8 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/client_services.py](../../core/client_services.py) | Servicios de un cliente en un solo sitio: la ficha del cliente y, filtrada, la de cada sede. — `ClientServicesForm`, `status`, `device_rows`, `save`, `portal_users`, `invite`, `can_invite` |
 | [core/configuration_archives.py](../../core/configuration_archives.py) | Root-only encrypted OPNsense backups and a redacted change summary. — `fetch_configuration`, `summarize_xml`, `archive_device`, `refresh_archives` |
 | [core/connection_help.py](../../core/connection_help.py) | Operator guidance using the same destinations as actual provisioning. — `connection_guide` |
+| [core/connectivity.py](../../core/connectivity.py) | Conexión a Internet por sede: caídas que notifica el propio firewall. — `collect`, `summary`, `last_days`, `month` |
+| [core/connectivity_models.py](../../core/connectivity_models.py) | Caídas de conexión notificadas por los firewalls de cada sede. — `ConnectivityEvent` |
 | [core/context_processors.py](../../core/context_processors.py) | `connection_permissions` |
 | [core/continuity.py](../../core/continuity.py) | Continuidad del servicio: IP real de los accesos, silencio global, ensayo de recuperación y monitor exterior. — `note_login_origin`, `check_login_origin`, `silence_reason`, `check_ingest_silence`, `check_restore_rehearsal`, `healthy`, `heartbeat_url`, `send_heartbeat`, `run`, `healthz` |
 | [core/control_views.py](../../core/control_views.py) | `global_permission`, `TemplateForm`, `changes`, `change_detail`, `vpn_sites`, `vpn_download`, `RecoveryForm`, `recovery` |

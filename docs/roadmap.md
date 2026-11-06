@@ -24,6 +24,14 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: conexión a Internet por sede (06/11/2026)
+
+Se recogen las caídas de Internet que notifican los firewalls UniFi. Se muestran por sede en el portal, en el informe mensual y en la ficha del SOC.
+
+No hay duración ni porcentaje de disponibilidad: el fabricante no envía la recuperación, y OPNsense no envía sus alarmas de gateway (comprobado con los datos reales). Detalle: [operación](operations.md#conexión-a-internet-por-sede).
+
+Pendiente: duración mediante el estado de las consolas en la nube de UniFi.
+
 ## Actualización: índice de seguridad del cliente (06/11/2026)
 
 Implementado el índice de seguridad, de 0 a 100, con 8 factores medidos por el SOC y una foto diaria con su evolución. Se ve en el portal (resumen y página propia, con los 3 pasos que más lo mejorarían), en el informe mensual y en la ficha del cliente. Detalle: [operación](operations.md#índice-de-seguridad-del-cliente).

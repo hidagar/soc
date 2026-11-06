@@ -28,6 +28,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_client_services.py](../../core/test_client_services.py) | 6 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
+| [core/test_connectivity.py](../../core/test_connectivity.py) | 5 |
 | [core/test_continuity.py](../../core/test_continuity.py) | 22 |
 | [core/test_crowdsec_catalog.py](../../core/test_crowdsec_catalog.py) | 9 |
 | [core/test_customer_notices.py](../../core/test_customer_notices.py) | 12 |
@@ -180,3 +181,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0067_informe_mensual.py](../../core/migrations/0067_informe_mensual.py)
 - [core/migrations/0068_ancla_auditoria.py](../../core/migrations/0068_ancla_auditoria.py)
 - [core/migrations/0069_indice_seguridad.py](../../core/migrations/0069_indice_seguridad.py)
+- [core/migrations/0070_conexion_internet.py](../../core/migrations/0070_conexion_internet.py)

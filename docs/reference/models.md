@@ -99,6 +99,19 @@ Fuente: [core/audit_models.py](../../core/audit_models.py).
 | `status` | CharField | max_length=12 |
 | `error` | CharField | max_length=240; blank=True |
 | `provider_id` | CharField | max_length=180; blank=True |
+## ConnectivityEvent
+
+Fuente: [core/connectivity_models.py](../../core/connectivity_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `device` | ForeignKey | → 'core.Device'; on_delete=models.SET_NULL; null=True; blank=True |
+| `kind` | CharField | max_length=16 |
+| `observed_at` | DateTimeField | db_index=True |
+| `event_key` | CharField | max_length=64; unique=True |
 ## RunbookStep
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

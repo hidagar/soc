@@ -465,5 +465,6 @@ from .threat_intel_models import SocReputation, ThreatIndicator, ThreatIntelMatc
 from .monthly_models import MonthlyReport, MonthlyReportShare, MonthlyReportVersion
 from .audit_models import AuditAnchor
 from .score_models import SecurityScore
+from .connectivity_models import ConnectivityEvent
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

@@ -158,7 +158,8 @@ def customer_home_context(client,preview=False):
     news=CustomerPublication.objects.filter(client=client,visible=True)
     from .models import SecurityScore
     latest=SecurityScore.objects.filter(client=client,score__isnull=False).first()
-    return {**_portal_base(client,preview,'home'),'index_latest':latest,'security_summary':customer_security_summary(client) if live else None,
+    from .connectivity import last_days
+    return {**_portal_base(client,preview,'home'),'index_latest':latest,'connectivity':last_days(client),'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
         'tasks':tasks,'tasks_to_do':[t for t in tasks if t.status in ('pending','rework')],
         'publications':news[:6],'publication_count':news.count(),

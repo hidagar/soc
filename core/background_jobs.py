@@ -31,6 +31,7 @@ JOBS={
     'threat_intel':(900,'Inteligencia Q-Feeds'),
     'soc_reputation':(3600,'Reputación propia del SOC'),
     'security_score':(3600,'Índice de seguridad'),
+    'connectivity':(900,'Conexión a Internet'),
 }
 BUDGET=180
 
@@ -165,6 +166,9 @@ def execute(name):
     if name=='security_score':
         from .security_score import record as record_scores
         return record_scores()
+    if name=='connectivity':
+        from .connectivity import collect as collect_connectivity
+        return collect_connectivity()
     raise ValueError('Trabajo no permitido.')
 
 def run_job(name):

@@ -113,3 +113,27 @@ Registrar versión, migración y manifiesto; copia/reversión; distinguir genera
 
 **Límite:** no garantiza la ausencia de riesgos. Mide lo que el SOC comprueba.
 
+## Conexión a Internet por sede
+
+`core/connectivity.py`.
+
+**Origen de los datos.** Se comprobó con los datos reales de noviembre de 2026:
+- UniFi envía «Internet Down», «Multiple Internet Disconnections» y «Device Offline», pero no la recuperación de la conexión.
+- OPNsense no envía al SOC las alarmas de su gateway.
+
+Por eso se registran y se cuentan **las caídas notificadas**, sin duración ni porcentaje de disponibilidad.
+
+**Recogida:** el trabajo `connectivity`, cada 15 minutos.
+- Lee esos eventos del índice de Wazuh desde un cursor, repasando 30 minutos de margen. La primera vez recupera 35 días.
+- Una consulta incompleta no avanza el cursor (invariante 5), y cada evento se guarda una sola vez (`ConnectivityEvent`).
+- El evento se asigna al cliente propietario del origen en esa fecha (invariante 2) y al firewall que lo envió.
+
+**Dónde se ve:**
+- **Portal:** en el resumen, por sede y firewall, las caídas de los últimos 30 días y la última.
+- **Informe mensual:** las caídas del mes por sede, congeladas con la versión. No se publica la lista de eventos.
+- **SOC:** la columna «Internet (30 d)» en «Sedes y firewalls».
+
+Los firewalls que no informan de caídas aparecen como «No informa», nunca como «Sin caídas».
+
+**Siguiente paso:** obtener la duración consultando el estado de conexión de las consolas en la nube de UniFi, y añadir una regla de Wazuh para las alarmas de gateway de OPNsense si se envían.
+

@@ -64,6 +64,17 @@ def render_monthly_pdf(context):
                        + (f" (mes anterior: {index['previous']})." if index['previous'] is not None else '.')))
         for f in index['weak']:
             story.append(p(f"· {f['label']}: {f['detail']}" + (f" {f['action']}" if f.get('action') else '')))
+    connectivity = context.get('connectivity') or {}
+    if connectivity.get('firewalls'):
+        story.append(p('Conexión a Internet', 'SOCHeading'))
+        if connectivity['reporting']:
+            story.append(p(f"{connectivity['total']} caída{'s' if connectivity['total'] != 1 else ''} de Internet notificada"
+                           f"{'s' if connectivity['total'] != 1 else ''} por los firewalls durante el mes."))
+        for row in connectivity['rows']:
+            story.append(p(f"· {row['site']} / {row['firewall']}: " + (
+                (f"{row['outages']} caída{'s' if row['outages'] != 1 else ''}" + (f", la última el {row['last']:%d/%m %H:%M}" if row['last'] else ''))
+                if row['reports'] else 'no informa de caídas') + '.'))
+        story.append(p('El fabricante no informa de cuándo vuelve la conexión, así que no se indica la duración.', 'SOCSmall'))
     story.append(p('Evolución por semanas', 'SOCHeading'))
     rows = [[p(label, 'SOCSmall') for label in ('Semana', 'Detecciones', 'Bloqueadas', 'Permitidas', 'Sin confirmar', 'Firewalls con datos')]]
     for week in context['weeks']:
