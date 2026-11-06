@@ -226,7 +226,8 @@ def scan_events(now=None,pages=MAX_PAGES):
     return recorded
 
 
-def _message(alert):
+def content(alert):
+    """Lo que cuenta un aviso urgente, igual en correo, Teams y Telegram: solo datos del propio aviso."""
     client = alert.client
     if alert.kind == UrgentAlert.Kind.SECURITY_ALLOWED:
         headline = "Detección de seguridad no bloqueada"
@@ -254,8 +255,13 @@ def _message(alert):
         from .event_contract import recommendation
         actions.insert(0,recommendation(alert.interpretation))
     action_label = {"allowed": "permitida", "blocked": "bloqueada"}.get(alert.action, "sin confirmar")
-    context = {"alert": alert, "client": client, "headline": headline, "meaning": meaning,
-               "actions": actions, "action_label": action_label}
+    return {"alert": alert, "client": client, "headline": headline, "meaning": meaning,
+            "actions": actions, "action_label": action_label}
+
+
+def _message(alert):
+    context = content(alert)
+    client = alert.client
     subject = f"[Centro SOC] Aviso urgente · {_clean_text(client.name, 80)} · {_clean_text(alert.asset_name, 80)}"
     return subject, render_to_string("urgent_email.txt", context), render_to_string("urgent_email.html", context)
 

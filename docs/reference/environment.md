@@ -47,6 +47,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_SECRET_KEY` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_SQLITE_PATH` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_SSH_KEY` | [core/ssh_connection.py](../../core/ssh_connection.py) |
+| `SOC_PORTAL_TELEGRAM_BOT_TOKEN` | [core/chat_alerts.py](../../core/chat_alerts.py) |
 | `SOC_PORTAL_TRUSTED_PROXIES` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_UNIFI_KEY` | [core/unifi_cloud.py](../../core/unifi_cloud.py) |
 | `SOC_PORTAL_VAULT_KEYS` | [socportal/settings.py](../../socportal/settings.py) |

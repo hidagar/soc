@@ -173,7 +173,7 @@ def api_connections(request):
 @login_required
 def urgent_alert_list(request):
     client_id = request.GET.get("client", "")
-    alerts = UrgentAlert.objects.select_related("client")
+    alerts = UrgentAlert.objects.select_related("client").prefetch_related("chat_notices__channel")
     if client_id.isdigit():
         alerts = alerts.filter(client_id=int(client_id))
     monitor = UrgentMonitorCursor.objects.filter(pk=1).first()

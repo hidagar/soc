@@ -32,6 +32,17 @@ La activación del webhook quedó pendiente por decisión del usuario. Hasta obs
 
 Invitación de un solo uso y 48 h: usuario establece contraseña sin que el administrador la elija. GET de escáner no consume el enlace. Avisos urgentes usan interpretación común, agrupación/estado y acuse; no convertir toda alerta menor o fallo del colector en ataque al cliente.
 
+### Avisos urgentes por Teams y Telegram
+
+Los avisos urgentes pueden llegar también a un canal de Microsoft Teams o a un grupo de Telegram del cliente (`core/chat_alerts.py`). El correo sigue saliendo igual; el chat es una copia con el mismo contenido (`urgent_alerts.content`): qué ha pasado, equipo, origen, acción del firewall y qué hacer. Las URL del registro se desactivan (`hxxp://`) y los corchetes se cambian para que no haya enlaces pulsables.
+
+- **Dónde:** ficha del cliente › «Servicios del cliente» › «Avisos urgentes por Teams o Telegram» › «Configurar». Guardar, probar o activar exige `change_client` y MFA reciente; desactivar no espera al MFA. Todo queda auditado sin el destino.
+- **Orden:** guardar el destino, «Enviar mensaje de prueba», comprobar que ha llegado y «Activar». Cambiar el destino desactiva el canal hasta repetir la prueba. Solo salen los avisos creados después de activar, dentro del plazo de envío inmediato (2 h); los ya revisados por el SOC, los de caídas de Internet sin esa opción y los repetidos de la última hora no salen.
+- **Teams:** en el canal, «⋯ › Workflows» y la plantilla «Publicar en un canal cuando se recibe una solicitud de webhook». Solo se aceptan URL HTTPS de flujos de Microsoft (`*.logic.azure.com`, `*.powerplatform.com`, `*.webhook.office.com`), sin seguir redirecciones. La URL lleva su firma: se guarda cifrada con `SOC_PORTAL_MAIL_KEY` y no se vuelve a mostrar. Teams responde 202: «Aceptado por Teams» indica que el flujo aceptó la tarjeta, no que se publicara.
+- **Telegram:** un bot único del SOC (`SOC_PORTAL_TELEGRAM_BOT_TOKEN`, ver [configuración](configuration.md)). El cliente añade el bot a su grupo; «Buscar grupos del bot» (acceso global, porque muestra los grupos de todos los clientes) lista los grupos de las últimas 24 h con su identificador. «Publicado en Telegram» se confirma con el identificador del mensaje.
+- **Entrega:** un registro por aviso y canal (`ChatNotice`, restricción única), reservado antes de llamar a la API. Un rechazo se reintenta hasta 3 veces (Telegram 429: lo que pida esperar). Un corte de conexión, un tiempo agotado o un 5xx quedan «Entrega por comprobar» y **no se reintentan**: podría haberse publicado. Lo envía `poll_urgent_alerts` cada minuto, después del correo; un fallo del chat no retrasa el correo.
+- **Límites:** el chat no sustituye al correo (los avisos urgentes siguen necesitando su correo activado); no hay confirmación de lectura; el token del bot va en la ruta de la API de Telegram, así que los errores se describen con texto propio, sin URL ni respuesta del fabricante.
+
 Revisar HTML, texto, PDF, logo y pruebas de scope al cambiar comunicaciones. Véase [frontend](frontend.md) e [inventario de pruebas](reference/verification.md).
 
 ## Avisos de actuaciones

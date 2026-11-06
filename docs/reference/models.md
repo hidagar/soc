@@ -99,6 +99,43 @@ Fuente: [core/audit_models.py](../../core/audit_models.py).
 | `status` | CharField | max_length=12 |
 | `error` | CharField | max_length=240; blank=True |
 | `provider_id` | CharField | max_length=180; blank=True |
+## ChatChannel
+
+Fuente: [core/chat_models.py](../../core/chat_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `kind` | CharField | max_length=16 |
+| `enabled` | BooleanField |  |
+| `enabled_at` | DateTimeField | null=True; blank=True |
+| `encrypted_target` | TextField | blank=True |
+| `chat_id` | CharField | max_length=64; blank=True |
+| `label` | CharField | max_length=120; blank=True |
+| `last_test_at` | DateTimeField | null=True; blank=True |
+| `last_test_ok` | BooleanField | null=True |
+| `last_test_error` | CharField | max_length=250; blank=True |
+| `updated_at` | DateTimeField |  |
+## ChatNotice
+
+Fuente: [core/chat_models.py](../../core/chat_models.py).
+
+Ámbito declarado: `'alert__client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `alert` | ForeignKey | → 'core.UrgentAlert'; on_delete=models.CASCADE |
+| `channel` | ForeignKey | → ChatChannel; on_delete=models.CASCADE |
+| `status` | CharField | max_length=16; db_index=True |
+| `attempts` | PositiveSmallIntegerField |  |
+| `next_retry_at` | DateTimeField | null=True; blank=True |
+| `last_attempt_at` | DateTimeField | null=True; blank=True |
+| `sent_at` | DateTimeField | null=True; blank=True |
+| `provider_id` | CharField | max_length=64; blank=True |
+| `last_error` | CharField | max_length=250; blank=True |
+| `created_at` | DateTimeField |  |
 ## ConnectivityEvent
 
 Fuente: [core/connectivity_models.py](../../core/connectivity_models.py).

@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 
 from . import campaigns
 from . import client_services
+from . import chat_alerts
 from . import monthly_report
 from . import threat_intel
 from . import soc_reputation
@@ -160,6 +161,7 @@ urlpatterns = [
     path("clients/<int:pk>/", views.client_detail, name="client_detail"),
     path("clients/<int:pk>/servicios/", client_services.save, name="client_services"),
     path("clients/<int:pk>/portal/invitar/", client_services.invite, name="client_portal_invite"),
+    path("clients/<int:pk>/avisos-chat/", chat_alerts.configure, name="client_chat_channels"),
     path("clients/<int:pk>/edit/", views.client_form, name="client_edit"),
     path("clients/<int:client_pk>/report/", views.weekly_report, name="weekly_report"),
     path("sites/new/", views.site_form, name="site_new"),

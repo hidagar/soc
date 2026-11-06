@@ -26,6 +26,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_browser.py](../../core/test_browser.py) | 5 |
 | [core/test_campaigns.py](../../core/test_campaigns.py) | 6 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
+| [core/test_chat_alerts.py](../../core/test_chat_alerts.py) | 20 |
 | [core/test_client_services.py](../../core/test_client_services.py) | 6 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_connectivity.py](../../core/test_connectivity.py) | 5 |
@@ -182,3 +183,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0068_ancla_auditoria.py](../../core/migrations/0068_ancla_auditoria.py)
 - [core/migrations/0069_indice_seguridad.py](../../core/migrations/0069_indice_seguridad.py)
 - [core/migrations/0070_conexion_internet.py](../../core/migrations/0070_conexion_internet.py)
+- [core/migrations/0071_avisos_chat.py](../../core/migrations/0071_avisos_chat.py)

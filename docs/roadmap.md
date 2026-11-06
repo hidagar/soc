@@ -24,6 +24,12 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: avisos urgentes por Teams y Telegram (06/11/2026)
+
+Los avisos urgentes llegan también a un canal de Teams (flujo de Workflows) o a un grupo de Telegram (bot del SOC), con el mismo contenido que el correo, prueba antes de activar y una sola publicación por aviso y canal. Detalle: [informes y correo](reports-and-mail.md#avisos-urgentes-por-teams-y-telegram).
+
+Pendiente: crear el bot del SOC y probarlo con un cliente real; avisos de actuaciones o del informe mensual por chat si se piden.
+
 ## Actualización: conexión a Internet por sede (06/11/2026)
 
 Se recogen las caídas de Internet que notifican los firewalls UniFi. Se muestran por sede en el portal, en el informe mensual y en la ficha del SOC.
@@ -38,7 +44,7 @@ Implementado el índice de seguridad, de 0 a 100, con 8 factores medidos por el 
 
 Siguientes ideas de valor para el cliente:
 - disponibilidad de Internet por sede;
-- avisos urgentes por Teams;
+- avisos urgentes por Teams (hecho, también Telegram);
 - avisos de vulnerabilidad dirigidos;
 - solicitudes al SOC desde el portal.
 

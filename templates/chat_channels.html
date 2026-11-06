@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Avisos por Teams y Telegram · {{ client.name }}{% endblock %}
+{% block content %}
+<div class="breadcrumbs"><a href="{% url 'client_detail' client.pk %}">{{ client.name }}</a><span>›</span><a href="{% url 'client_detail' client.pk %}#servicios">Servicios del cliente</a><span>›</span>Teams y Telegram</div>
+<header class="page-head"><div><p class="eyebrow">Avisos urgentes</p><h1>Avisos por Teams y Telegram</h1><p class="muted">Los avisos urgentes de {{ client.name }} llegan también a un canal de Teams o a un grupo de Telegram, con el mismo contenido que el correo. El correo sigue saliendo igual.</p></div></header>
+{% if not client.urgent_alerts_enabled %}<div class="notice"><strong>Los avisos urgentes de este cliente están desactivados.</strong> Actívalos en <a href="{% url 'client_detail' client.pk %}#servicios">Servicios del cliente</a>; Teams y Telegram solo reenvían esos avisos.</div>{% endif %}
+<div class="form-grid">
+<section class="card"><div class="card-head"><h2>Microsoft Teams</h2>{% if teams and teams.enabled %}<span class="pill status-ok">Activado</span>{% elif teams and teams.configured %}<span class="pill status-pending">Guardado, sin activar</span>{% else %}<span class="pill status-paused">Sin configurar</span>{% endif %}</div>
+<ol class="report-steps"><li>En el canal de Teams del cliente: <strong>⋯ › Workflows</strong> y la plantilla <strong>«Publicar en un canal cuando se recibe una solicitud de webhook»</strong>.</li><li>Copia la URL que muestra al terminar y pégala aquí. Se guarda cifrada y no se vuelve a mostrar.</li><li>Envía la prueba, comprueba que aparece en el canal y activa.</li></ol>
+{% if teams.configured %}<p><small>URL guardada{% if teams.label %} · {{ teams.label }}{% endif %}. Para cambiarla, pega la nueva.</small></p>{% endif %}
+{% if can_change %}<form method="post">{% csrf_token %}<input type="hidden" name="kind" value="teams"><input type="hidden" name="action" value="save">
+<label>{{ teams_form.url.label }}{{ teams_form.url }}</label>{% for e in teams_form.url.errors %}<p class="errorlist">{{ e }}</p>{% endfor %}
+<label>{{ teams_form.label.label }} <small class="muted">(opcional, para reconocerlo)</small>{{ teams_form.label }}</label>
+<p><button class="button secondary">Guardar</button></p></form>{% endif %}
+{% if teams.configured %}{% include 'partials/chat_channel_actions.html' with channel=teams %}{% endif %}
+</section>
+<section class="card"><div class="card-head"><h2>Telegram</h2>{% if telegram and telegram.enabled %}<span class="pill status-ok">Activado</span>{% elif telegram and telegram.configured %}<span class="pill status-pending">Guardado, sin activar</span>{% else %}<span class="pill status-paused">Sin configurar</span>{% endif %}</div>
+{% if not telegram_ready %}<div class="notice"><strong>Falta el bot del SOC.</strong> Hay que crearlo una vez con @BotFather y guardar su token en el servidor (<code>SOC_PORTAL_TELEGRAM_BOT_TOKEN</code>). Ver la guía de configuración.</div>{% endif %}
+<ol class="report-steps"><li>El cliente añade el bot del SOC a su grupo de Telegram.</li><li>Pulsa «Buscar grupos del bot» y copia el identificador del grupo (los grupos empiezan por <code>-100</code>).</li><li>Envía la prueba, comprueba que aparece en el grupo y activa.</li></ol>
+{% if can_find and telegram_ready %}<form method="post">{% csrf_token %}<input type="hidden" name="kind" value="telegram"><input type="hidden" name="action" value="find"><p><button class="button secondary">Buscar grupos del bot</button></p><p class="muted"><small>Muestra los grupos donde se añadió el bot en las últimas 24 horas.</small></p></form>{% endif %}
+{% if chats is not None %}<div class="table-wrap"><table><thead><tr><th>Grupo</th><th>Identificador</th></tr></thead><tbody>{% for chat in chats %}<tr><td>{{ chat.title|default:'(sin nombre)' }}<small>{{ chat.type }}</small></td><td><code>{{ chat.id }}</code></td></tr>{% empty %}<tr><td colspan="2" class="empty">No hay grupos recientes. Quita y vuelve a añadir el bot al grupo, o escribe en el grupo mencionándolo, y repite la búsqueda.</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if can_change %}<form method="post">{% csrf_token %}<input type="hidden" name="kind" value="telegram"><input type="hidden" name="action" value="save">
+<label>{{ telegram_form.chat_id.label }}{{ telegram_form.chat_id }}</label>{% for e in telegram_form.chat_id.errors %}<p class="errorlist">{{ e }}</p>{% endfor %}
+<label>{{ telegram_form.label.label }} <small class="muted">(opcional)</small>{{ telegram_form.label }}</label>
+<p><button class="button secondary">Guardar</button></p></form>{% endif %}
+{% if telegram.configured %}{% include 'partials/chat_channel_actions.html' with channel=telegram %}{% endif %}
+</section>
+</div>
+<section class="card lower"><h2>Últimos avisos por chat</h2><div class="table-wrap stacked"><table><thead><tr><th>Aviso</th><th>Canal</th><th>Estado</th></tr></thead><tbody>{% for notice in notices %}<tr><td><strong>{{ notice.alert.asset_name|default:'Equipo sin identificar' }}</strong><small>{{ notice.alert.observed_at|date:'d/m/Y H:i' }} · {{ notice.alert.get_kind_display }}</small></td><td data-label="Canal">{{ notice.channel.get_kind_display }}</td><td data-label="Estado"><span class="pill {% if notice.status == 'accepted' or notice.status == 'delivered' %}status-ok{% elif notice.status == 'failed' or notice.status == 'uncertain' %}status-attention{% else %}status-pending{% endif %}">{{ notice.get_status_display }}</span>{% if notice.sent_at %}<small>{{ notice.sent_at|date:'d/m/Y H:i' }}</small>{% elif notice.last_error %}<small>{{ notice.last_error }}</small>{% endif %}</td></tr>{% empty %}<tr><td colspan="3" class="empty">Todavía no ha salido ningún aviso por chat.</td></tr>{% endfor %}</tbody></table></div>
+<p class="muted">«Aceptado por Teams» indica que el flujo aceptó el aviso, no que se haya publicado. «Publicado en Telegram» lo confirma Telegram con el mensaje del grupo. «Entrega por comprobar»: la conexión se cortó y no se reenvía solo para no duplicarlo.</p></section>
+{% endblock %}

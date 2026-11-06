@@ -133,6 +133,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `clients/<int:pk>/` | `client_detail` | `views.client_detail` |
 | `clients/<int:pk>/servicios/` | `client_services` | `client_services.save` |
 | `clients/<int:pk>/portal/invitar/` | `client_portal_invite` | `client_services.invite` |
+| `clients/<int:pk>/avisos-chat/` | `client_chat_channels` | `chat_alerts.configure` |
 | `clients/<int:pk>/edit/` | `client_edit` | `views.client_form` |
 | `clients/<int:client_pk>/report/` | `weekly_report` | `views.weekly_report` |
 | `sites/new/` | `site_new` | `views.site_form` |

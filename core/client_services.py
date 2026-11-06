@@ -72,8 +72,9 @@ def status(client):
     from .monthly_report import month_label
     users = StaffAccess.objects.filter(role='customer', clients=client).count()
     from .customer_portal import wazuh_ready
+    from .chat_alerts import status as chat_status
     return {
-        'blocklist': blocklist, 'sla': plazos, 'portal_users': users, 'wazuh': wazuh_ready(client),
+        'chat': chat_status(client), 'blocklist': blocklist, 'sla': plazos, 'portal_users': users, 'wazuh': wazuh_ready(client),
         'monthly': ('ok', 'Último publicado: ' + month_label(latest.month)) if latest else ('paused', 'Ninguno publicado'),
     }
 

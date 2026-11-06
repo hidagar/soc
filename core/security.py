@@ -218,9 +218,9 @@ def mark_mfa(request, profile):
 
 # Guardan credenciales, destinos de envío o borran datos: un MFA de hace más de 10 minutos no basta.
 FRESH_MFA_VIEWS = {'mail_settings','verify_public_reports','unifi_cloud','opnsense_api','ssh_connection',
-                   'export_destination','site_delete','hillstone_api','gdms_cloud'}
+                   'export_destination','site_delete','hillstone_api','gdms_cloud','client_chat_channels'}
 # Desactivar el envío es una parada segura: no se retrasa con el MFA.
-FRESH_MFA_EXEMPT = {('mail_settings','disable')}
+FRESH_MFA_EXEMPT = {('mail_settings','disable'),('client_chat_channels','disable')}
 # Tiempo máximo de una sesión verificada con MFA, aunque se siga usando.
 MFA_SESSION_MAX = 12 * 3600
 
@@ -262,7 +262,8 @@ class SocSecurityMiddleware:
             'mail_settings':'manage_connections','verify_public_reports':'manage_connections',
             'manage_report_link':'manage_connections','rectify_report':'manage_connections','export_destination':'manage_connections',
             'monthly_link':'manage_connections','monthly_rectify':'manage_connections',
-            'monthly_publish':'change_incident','monthly_send':'change_incident','client_services':'change_client'}
+            'monthly_publish':'change_incident','monthly_send':'change_incident','client_services':'change_client',
+            'client_chat_channels':'change_client'}
         required = permissions.get(name)
         if required and not request.user.has_perm('core.'+required):
             return HttpResponseForbidden('Tu perfil no permite esta operación.')
