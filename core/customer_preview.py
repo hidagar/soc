@@ -46,6 +46,15 @@ def home(request, pk):
 @login_required
 @never_cache
 @require_GET
+def vulnerabilities(request, pk):
+    from .service_development import customer_vulnerabilities_context
+    client = preview_client(request, pk, 'vulnerabilidades')
+    return _render(request, 'customer_vulnerabilities.html', customer_vulnerabilities_context(client, preview=True))
+
+
+@login_required
+@never_cache
+@require_GET
 def index(request, pk):
     client = preview_client(request, pk, 'indice')
     return _render(request, 'customer_index.html', customer_index_context(client, preview=True))

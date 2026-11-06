@@ -32,6 +32,7 @@ JOBS={
     'soc_reputation':(3600,'Reputación propia del SOC'),
     'security_score':(3600,'Índice de seguridad'),
     'connectivity':(900,'Conexión a Internet'),
+    'vulnerabilities':(3600,'Avisos de vulnerabilidad'),
 }
 BUDGET=180
 
@@ -122,7 +123,9 @@ def execute(name):
         from .sla import check as check_sla
         from .customer_notices import send_pending as send_customer_notices
         from .monthly_report import check_pending as check_monthly, send_pending as send_monthly
-        escalate_unacknowledged();check_sla();send_customer_notices();send_monthly();check_monthly();return op.notify_issues()
+        from .vulnerabilities import send_pending as send_vulnerability_notices
+        escalate_unacknowledged();check_sla();send_customer_notices();send_monthly();check_monthly();send_vulnerability_notices()
+        return op.notify_issues()
     if name=='housekeeping':
         from .vpn_security import VpnAccessEvent
         from .models import UserInvitation
@@ -166,6 +169,9 @@ def execute(name):
     if name=='security_score':
         from .security_score import record as record_scores
         return record_scores()
+    if name=='vulnerabilities':
+        from .vulnerabilities import run as run_vulnerabilities
+        return run_vulnerabilities()
     if name=='connectivity':
         from .connectivity import collect as collect_connectivity
         return collect_connectivity()

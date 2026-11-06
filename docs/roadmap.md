@@ -24,6 +24,15 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: avisos de vulnerabilidad dirigidos (06/11/2026)
+
+El SOC cruza el modelo y la versión de cada firewall con las CVE de NVD (gravedad alta o crítica, o explotadas según CISA). Revisa, publica al cliente con una nota y el portal muestra el seguimiento hasta la versión corregida. Se envía un solo correo por cliente y el resultado cuenta en el factor «Firmware al día» del índice. Detalle: [operación](operations.md#avisos-de-vulnerabilidad-dirigidos).
+
+Pendiente:
+- llevar las vulnerabilidades avisadas al informe mensual;
+- vigilar UniFi Network Application si se obtiene su versión;
+- productos de Hillstone y Grandstream con datos reales.
+
 ## Actualización: avisos urgentes por Teams y Telegram (06/11/2026)
 
 Los avisos urgentes llegan también a un canal de Teams (flujo de Workflows) o a un grupo de Telegram (bot del SOC), con el mismo contenido que el correo, prueba antes de activar y una sola publicación por aviso y canal. Detalle: [informes y correo](reports-and-mail.md#avisos-urgentes-por-teams-y-telegram).
@@ -45,7 +54,7 @@ Implementado el índice de seguridad, de 0 a 100, con 8 factores medidos por el 
 Siguientes ideas de valor para el cliente:
 - disponibilidad de Internet por sede;
 - avisos urgentes por Teams (hecho, también Telegram);
-- avisos de vulnerabilidad dirigidos;
+- avisos de vulnerabilidad dirigidos (hecho);
 - solicitudes al SOC desde el portal.
 
 ## Actualización: bloque 8, anclaje externo de la auditoría (06/11/2026)

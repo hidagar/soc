@@ -99,6 +99,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
 | [core/test_unifi_zone_scope.py](../../core/test_unifi_zone_scope.py) | 18 |
+| [core/test_vulnerabilities.py](../../core/test_vulnerabilities.py) | 16 |
 | [core/test_wazuh_customer_isolation.py](../../core/test_wazuh_customer_isolation.py) | 10 |
 | [core/test_wazuh_delivery.py](../../core/test_wazuh_delivery.py) | 22 |
 | [core/test_wazuh_sso.py](../../core/test_wazuh_sso.py) | 7 |
@@ -184,3 +185,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0069_indice_seguridad.py](../../core/migrations/0069_indice_seguridad.py)
 - [core/migrations/0070_conexion_internet.py](../../core/migrations/0070_conexion_internet.py)
 - [core/migrations/0071_avisos_chat.py](../../core/migrations/0071_avisos_chat.py)
+- [core/migrations/0072_avisos_vulnerabilidad.py](../../core/migrations/0072_avisos_vulnerabilidad.py)

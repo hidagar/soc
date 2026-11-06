@@ -45,6 +45,8 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `cliente/informes/` | `customer_reports` | `service.customer_reports` |
 | `cliente/actuaciones/` | `customer_tasks` | `service.customer_tasks` |
 | `cliente/indice/` | `customer_index` | `service.customer_index` |
+| `cliente/vulnerabilidades/` | `customer_vulnerabilities` | `service.customer_vulnerabilities` |
+| `operations/vulnerabilities/` | `vulnerabilities` | `vulnerabilities.overview` |
 | `clients/<int:pk>/customer-view/` | `customer_preview` | `customer_preview.home` |
 | `clients/<int:pk>/customer-view/firewalls/` | `customer_preview_firewalls` | `customer_preview.firewalls` |
 | `clients/<int:pk>/customer-view/detections/` | `customer_preview_detections` | `customer_preview.detections` |
@@ -53,6 +55,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `clients/<int:pk>/customer-view/reports/` | `customer_preview_reports` | `customer_preview.reports` |
 | `clients/<int:pk>/customer-view/tasks/` | `customer_preview_tasks` | `customer_preview.tasks` |
 | `clients/<int:pk>/customer-view/indice/` | `customer_preview_index` | `customer_preview.index` |
+| `clients/<int:pk>/customer-view/vulnerabilidades/` | `customer_preview_vulnerabilities` | `customer_preview.vulnerabilities` |
 | `clients/<int:pk>/customer-view/reports/<int:report_pk>/` | `customer_preview_report` | `customer_preview.report` |
 | `clients/<int:pk>/customer-view/reports/<int:report_pk>/pdf/` | `customer_preview_report_pdf` | `customer_preview.report_pdf` |
 | `cliente/detecciones/` | `customer_detections` | `customer_portal.detections` |

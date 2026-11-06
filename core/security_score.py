@@ -71,10 +71,21 @@ def _ips(snapshot):
     return 0.0 if modes & {'ids', 'disabled'} else None
 
 
-def _firmware(device, snapshot, now):
+def _firmware(device, snapshot, now, vulnerable=()):
+    """Una vulnerabilidad publicada al cliente y sin resolver resta; una pendiente de revisar por el SOC
+    deja el factor sin comprobar (no se adelanta al cliente lo que no se le ha comunicado). Sin ninguna y
+    con el catálogo al día, el firewall cuenta como correcto aunque no sea OPNsense."""
+    state = vulnerable.get(device.pk) if vulnerable else None
+    if state == 'published':
+        return 0.0
+    if state == 'review':
+        return None
     firmware = snapshot['firmware'] or {}
     catalogue = snapshot['catalogue']
-    if device.vendor != 'opnsense' or not snapshot['current']:
+    if device.vendor != 'opnsense':
+        from .vulnerabilities import catalog_fresh
+        return 1.0 if device.software_version and catalog_fresh(device, now) else None
+    if not snapshot['current']:
         return None
     if firmware.get('updates_available') is True:
         return 0.0
@@ -124,13 +135,15 @@ def compute(client, now=None):
     findings = {}
     for finding in ExposureFinding.objects.filter(device__in=devices, present=True, severity__in=('high', 'medium')):
         findings.setdefault(finding.device_id, []).append(finding)
+    from .vulnerabilities import open_by_device
+    vulnerable = open_by_device([d.pk for d in devices])
     per_device = {key: [] for key in ('exposure', 'engines', 'ips', 'firmware', 'visibility')}
     for device in devices:
         snap = protection_snapshot(device, now, incidents=False)
         per_device['exposure'].append(_exposure(device, findings, now))
         per_device['engines'].append(_engines(snap))
         per_device['ips'].append(_ips(snap))
-        per_device['firmware'].append(_firmware(device, snap, now))
+        per_device['firmware'].append(_firmware(device, snap, now, vulnerable))
         per_device['visibility'].append(_visibility(snap))
     total = len(devices)
 
@@ -149,7 +162,8 @@ def compute(client, now=None):
             ('engines', 'Todos los motores de protección están en marcha.', 'con algún motor detenido o en bypass',
              'Algún motor de protección está detenido o en bypass.'),
             ('ips', 'El IPS bloquea los ataques que detecta.', 'con el IPS solo en detección', 'El IPS solo detecta: no bloquea.'),
-            ('firmware', 'Firmware al día.', 'con actualizaciones pendientes', 'Hay actualizaciones de firmware pendientes.'),
+            ('firmware', 'Firmware al día.', 'con actualizaciones o vulnerabilidades pendientes',
+             'Hay actualizaciones de firmware o vulnerabilidades pendientes.'),
             ('visibility', 'El SOC recibe los registros de todos los firewalls.', 'sin registros recientes en el SOC',
              'El SOC no recibe registros recientes del firewall.')):
         value, unknown = _average(per_device[key])

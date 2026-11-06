@@ -481,6 +481,8 @@ Fuente: [core/models.py](../../core/models.py).
 | `task_email` | EmailField | blank=True |
 | `monthly_reports_enabled` | BooleanField |  |
 | `monthly_email` | EmailField | blank=True |
+| `vulnerability_notices_enabled` | BooleanField |  |
+| `vulnerability_email` | EmailField | blank=True |
 | `active` | BooleanField |  |
 | `notes` | TextField | blank=True |
 | `created_at` | DateTimeField |  |
@@ -618,6 +620,7 @@ Fuente: [core/models.py](../../core/models.py).
 | `vendor` | CharField | max_length=20 |
 | `model` | CharField | max_length=120; blank=True |
 | `software_version` | CharField | max_length=120; blank=True |
+| `vulnerability_product` | CharField | max_length=120; blank=True |
 | `management_method` | CharField | max_length=16 |
 | `log_method` | CharField | max_length=16 |
 | `zenarmor_edition` | CharField | max_length=120; blank=True |
@@ -1366,3 +1369,60 @@ Fuente: [core/vpn_security.py](../../core/vpn_security.py).
 | `outcome` | CharField | max_length=12 |
 | `protocol` | CharField | max_length=24 |
 | `country` | CharField | max_length=2; blank=True |
+## VulnerabilityRecord
+
+Fuente: [core/vulnerability_models.py](../../core/vulnerability_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `cve_id` | CharField | max_length=24 |
+| `product` | CharField | max_length=120; db_index=True |
+| `severity` | CharField | max_length=10; blank=True |
+| `score` | FloatField | null=True; blank=True |
+| `kev_added` | DateField | null=True; blank=True |
+| `published` | DateField | null=True; blank=True |
+| `modified` | DateTimeField | null=True; blank=True |
+| `summary` | TextField | blank=True |
+| `ranges` | JSONField |  |
+| `fixed_version` | CharField | max_length=60; blank=True |
+| `references` | JSONField |  |
+| `fetched_at` | DateTimeField |  |
+## VulnerabilityAdvisory
+
+Fuente: [core/vulnerability_models.py](../../core/vulnerability_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `cve_id` | CharField | max_length=24 |
+| `note` | TextField | blank=True; max_length=1500 |
+| `published_at` | DateTimeField |  |
+| `published_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `notice_status` | CharField | max_length=16; blank=True |
+| `notice_recipient` | EmailField | blank=True |
+| `notice_error` | CharField | max_length=240; blank=True |
+| `notice_attempted_at` | DateTimeField | null=True; blank=True |
+| `notice_sent_at` | DateTimeField | null=True; blank=True |
+| `provider_id` | CharField | max_length=180; blank=True |
+## DeviceExposure
+
+Fuente: [core/vulnerability_models.py](../../core/vulnerability_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `device` | ForeignKey | → 'core.Device'; on_delete=models.CASCADE |
+| `record` | ForeignKey | → VulnerabilityRecord; on_delete=models.CASCADE |
+| `version` | CharField | max_length=120 |
+| `first_seen` | DateTimeField |  |
+| `last_seen` | DateTimeField |  |
+| `resolved_at` | DateTimeField | null=True; blank=True |
+| `resolved_version` | CharField | max_length=120; blank=True |
+| `dismissed_at` | DateTimeField | null=True; blank=True |
+| `dismissed_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `dismiss_reason` | CharField | max_length=240; blank=True |
+| `advisory` | ForeignKey | → VulnerabilityAdvisory; on_delete=models.SET_NULL; null=True; blank=True |

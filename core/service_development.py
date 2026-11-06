@@ -112,6 +112,15 @@ def customer_index_context(client,preview=False):
 
 @login_required
 @require_GET
+def customer_vulnerabilities(request):
+    return render(request,'customer_vulnerabilities.html',customer_vulnerabilities_context(customer_client(request)))
+
+def customer_vulnerabilities_context(client,preview=False):
+    from .vulnerabilities import portal_context
+    return {**_portal_base(client,preview,'vulnerabilities'),**portal_context(client)}
+
+@login_required
+@require_GET
 def customer_tasks(request):
     return render(request,'customer_tasks.html',customer_tasks_context(customer_client(request)))
 
@@ -146,7 +155,9 @@ def portal_tasks(client,preview=False):
 
 def _portal_base(client,preview,section):
     from .customer_portal import portal_links,wazuh_ready
-    return {'client':client,'portal_section':section,'portal':portal_links(client,preview),'wazuh_ready':wazuh_ready(client)}
+    from .models import VulnerabilityAdvisory
+    return {'client':client,'portal_section':section,'portal':portal_links(client,preview),'wazuh_ready':wazuh_ready(client),
+            'has_vulnerabilities':VulnerabilityAdvisory.objects.filter(client=client).exists()}
 
 def customer_home_context(client,preview=False):
     """Inicio del portal del cliente; la vista previa del SOC usa el mismo contenido sin enlaces de respuesta."""
@@ -159,7 +170,8 @@ def customer_home_context(client,preview=False):
     from .models import SecurityScore
     latest=SecurityScore.objects.filter(client=client,score__isnull=False).first()
     from .connectivity import last_days
-    return {**_portal_base(client,preview,'home'),'index_latest':latest,'connectivity':last_days(client),'security_summary':customer_security_summary(client) if live else None,
+    from .vulnerabilities import open_count
+    return {**_portal_base(client,preview,'home'),'open_vulnerabilities':open_count(client),'index_latest':latest,'connectivity':last_days(client),'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
         'tasks':tasks,'tasks_to_do':[t for t in tasks if t.status in ('pending','rework')],
         'publications':news[:6],'publication_count':news.count(),

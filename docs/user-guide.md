@@ -13,6 +13,7 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
    - **«Servicios del cliente»**, en la ficha del cliente y en la de cada sede, reúne todo lo que se activa:
      - **Se editan ahí, con un solo botón:** portal (firewalls y detecciones, mapa en vivo), informe semanal y mensual por correo, avisos urgentes (y caídas de Internet) y avisos de actuaciones, cada uno con su destinatario.
      - **Se ven con su estado y un enlace a su página,** que conserva MFA y control de cambios: avisos urgentes por Teams o Telegram, lista de bloqueo, plazos de atención, informe mensual y panel Wazuh.
+     - **Avisos de vulnerabilidad:** activarlo para que el cliente reciba un correo cuando el SOC publique vulnerabilidades de sus firewalls. Se revisan y publican en «Cobertura y salud › Vulnerabilidades».
      - **Teams o Telegram:** guardar el canal, enviar la prueba, comprobar que llega y activar. Solo salen los avisos nuevos; el correo sigue saliendo igual.
      - **Acceso al portal:** con administración de seguridad y acceso global, «Dar acceso al portal» crea la cuenta del cliente (solo verá ese cliente) y le envía la invitación en un paso. Pide el MFA reciente. La lista muestra quién tiene la invitación pendiente.
    - **«Sedes y firewalls»** (o «Firewalls de esta sede») muestra por equipo la recepción de registros, Zenarmor, la regla de bloqueo del SOC y las copias de configuración.

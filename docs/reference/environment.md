@@ -38,6 +38,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_LOGIN_IP_LIMIT` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_MAIL_KEY` | [core/mail_delivery.py](../../core/mail_delivery.py) |
 | `SOC_PORTAL_MFA_REQUIRED` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_NVD_KEY` | [core/vulnerabilities.py](../../core/vulnerabilities.py) |
 | `SOC_PORTAL_OPNSENSE_KEY` | [core/opnsense_api.py](../../core/opnsense_api.py) |
 | `SOC_PORTAL_PUBLIC_SYSLOG_IP` | [core/provisioning.py](../../core/provisioning.py) |
 | `SOC_PORTAL_QFEEDS_FEEDS` | [core/threat_intel.py](../../core/threat_intel.py) |

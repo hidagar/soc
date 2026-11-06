@@ -19,7 +19,8 @@ from .security import audit
 
 COMMUNICATION_FIELDS = ['customer_portal_detail_enabled', 'customer_live_map_enabled', 'weekly_reports_enabled', 'report_email',
                         'monthly_reports_enabled', 'monthly_email', 'urgent_alerts_enabled', 'urgent_email',
-                        'urgent_availability_enabled', 'task_notices_enabled', 'task_email']
+                        'urgent_availability_enabled', 'task_notices_enabled', 'task_email',
+                        'vulnerability_notices_enabled', 'vulnerability_email']
 
 
 class ClientServicesForm(forms.ModelForm):
@@ -49,6 +50,8 @@ class ClientServicesForm(forms.ModelForm):
             self.add_error('urgent_availability_enabled', 'Activa primero los avisos urgentes.')
         if values.get('task_notices_enabled') and not (values.get('task_email') or contact or values.get('report_email')):
             self.add_error('task_email', 'Indica a quién avisar: este correo, el de contacto o el de informes.')
+        if values.get('vulnerability_notices_enabled') and not (values.get('vulnerability_email') or contact or values.get('report_email')):
+            self.add_error('vulnerability_email', 'Indica a quién avisar: este correo, el de contacto o el de informes.')
         return values
 
 

@@ -92,7 +92,7 @@ Registrar versión, migración y manifiesto; copia/reversión; distinguir genera
 | Exposición a Internet | 20 | Servicios publicados de riesgo alto (0) o medio (mitad) sin excepción documentada; control de exposición de los últimos 7 días |
 | Protección en marcha | 10 | Motores en ejecución, sin detener ni en bypass |
 | IPS en modo bloqueo | 10 | Suricata o el IPS de UniFi en modo IPS, frente a IDS |
-| Firmware al día | 15 | OPNsense sin actualizaciones pendientes y catálogo comprobado en 7 días |
+| Firmware al día | 15 | OPNsense sin actualizaciones pendientes y catálogo comprobado en 7 días. Cualquier firewall con una vulnerabilidad publicada al cliente y sin resolver cuenta 0; con una pendiente de revisar por el SOC, «sin comprobar». Los que no son OPNsense cuentan como correctos si el catálogo de vulnerabilidades de su producto está al día y no tienen ninguna |
 | Visibilidad del SOC | 15 | Registros recibidos sin silencio |
 | Ataques que entran | 10 | Detecciones permitidas en 30 días: ninguna, hasta 10 (mitad) o más |
 | Bloqueo proactivo del SOC | 10 | Lista de bloqueo publicada con regla activa |
@@ -136,4 +136,41 @@ Por eso se registran y se cuentan **las caídas notificadas**, sin duración ni 
 Los firewalls que no informan de caídas aparecen como «No informa», nunca como «Sin caídas».
 
 **Siguiente paso:** obtener la duración consultando el estado de conexión de las consolas en la nube de UniFi, y añadir una regla de Wazuh para las alarmas de gateway de OPNsense si se envían.
+
+## Avisos de vulnerabilidad dirigidos
+
+`core/vulnerabilities.py`. Avisa solo a los clientes cuyo firewall tiene una versión afectada.
+
+**Catálogo:** el trabajo `vulnerabilities` (cada hora) descarga de NVD las CVE de cada producto vigilado, como mucho una vez cada 20 horas por producto.
+- Para cada CVE guarda los rangos de versiones afectadas, la gravedad CVSS y si CISA la marca como explotada activamente (KEV).
+- A NVD solo se le envía el nombre del producto; nunca versiones, equipos ni datos de clientes.
+- Una descarga incompleta no se guarda ni cuenta como actualizada. Si el catálogo tiene más de 3 días y falla, se abre un aviso en «Salud del SOC».
+- `SOC_PORTAL_NVD_KEY` es opcional: sin ella, NVD permite 5 peticiones cada 30 segundos y la descarga va más despacio.
+
+**Productos:**
+- OPNsense: `a:opnsense:opnsense`, con la versión del inventario.
+- Consolas UniFi: `o:ui:unifi_os` y el producto de su modelo (`UNIFI_MODELS`: UDM Pro, UDM SE, UCG Ultra…), con la versión de UniFi OS que da la nube.
+- Otros fabricantes (Hillstone, Grandstream): NVD apenas tiene datos. El SOC puede indicar su producto en «Firewalls que no se pueden vigilar».
+
+**Cruce:** compara la versión de cada firewall activo con los rangos.
+- Solo cuentan las gravedades alta y crítica y las explotadas activamente (`DeviceExposure`).
+- Si un formato de versión no se puede comparar con seguridad (por ejemplo, `5.5R10P2` frente a `5.5R10`), no se abre ni se cierra nada.
+- Cuando el inventario muestra una versión corregida, se marca resuelta; si vuelve a una afectada, se reabre.
+- Comprobado con NVD real (noviembre de 2026): OPNsense 25.7.3 queda afectado por 5 CVE corregidas en 26.1.4–26.1.8; una UDM Pro con 4.3.6, por 9 CVE, 3 de ellas explotadas activamente.
+
+**Revisión del SOC:** «Cobertura y salud › Vulnerabilidades», agrupado por cliente.
+- **Publicar las pendientes** (o una sola), con una nota para el cliente sobre qué hará el SOC y cuándo. Requiere `change_incident`.
+- **Descartar**, con un motivo interno (falso positivo, servicio no activo). El cliente no lo ve.
+- Mientras haya algo sin revisar, «Salud del SOC» muestra el aviso «Vulnerabilidades sin revisar», crítico si alguna se está explotando.
+
+**Cliente:**
+- Página del portal «Vulnerabilidades» (solo lo publicado: CVE, gravedad, versión corregida, firewalls con su versión, estado y la nota del SOC) y una tarjeta en el resumen mientras quede alguna pendiente.
+- Si tiene activado «Avisos de vulnerabilidad» en «Servicios del cliente», recibe **un solo correo por cliente** con lo publicado en esa pasada. Va sin datos técnicos y enlaza al portal.
+- El correo se envía desde el trabajo de avisos operativos. Un envío dudoso queda «por comprobar» y no se repite (invariante 6).
+
+**Límites:**
+- La versión del inventario puede ir con retraso respecto a la real.
+- NVD puede tardar días en analizar una CVE nueva; sin rangos de versión no se puede cruzar.
+- La UniFi Network Application no se vigila: la nube no da su versión.
+- Una versión afectada no demuestra un ataque.
 

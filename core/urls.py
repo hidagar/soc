@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from . import campaigns
 from . import client_services
 from . import chat_alerts
+from . import vulnerabilities
 from . import monthly_report
 from . import threat_intel
 from . import soc_reputation
@@ -72,6 +73,8 @@ urlpatterns = [
     path('cliente/informes/',service.customer_reports,name='customer_reports'),
     path('cliente/actuaciones/',service.customer_tasks,name='customer_tasks'),
     path('cliente/indice/',service.customer_index,name='customer_index'),
+    path('cliente/vulnerabilidades/',service.customer_vulnerabilities,name='customer_vulnerabilities'),
+    path('operations/vulnerabilities/',vulnerabilities.overview,name='vulnerabilities'),
     path('clients/<int:pk>/customer-view/',customer_preview.home,name='customer_preview'),
     path('clients/<int:pk>/customer-view/firewalls/',customer_preview.firewalls,name='customer_preview_firewalls'),
     path('clients/<int:pk>/customer-view/detections/',customer_preview.detections,name='customer_preview_detections'),
@@ -80,6 +83,7 @@ urlpatterns = [
     path('clients/<int:pk>/customer-view/reports/',customer_preview.reports,name='customer_preview_reports'),
     path('clients/<int:pk>/customer-view/tasks/',customer_preview.tasks,name='customer_preview_tasks'),
     path('clients/<int:pk>/customer-view/indice/',customer_preview.index,name='customer_preview_index'),
+    path('clients/<int:pk>/customer-view/vulnerabilidades/',customer_preview.vulnerabilities,name='customer_preview_vulnerabilities'),
     path('clients/<int:pk>/customer-view/reports/<int:report_pk>/',customer_preview.report,name='customer_preview_report'),
     path('clients/<int:pk>/customer-view/reports/<int:report_pk>/pdf/',customer_preview.report_pdf,name='customer_preview_report_pdf'),
     path('cliente/detecciones/',customer_portal.detections,name='customer_detections'),

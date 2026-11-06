@@ -25,6 +25,8 @@ class Client(models.Model):
     task_email = models.EmailField("Correo para avisos de actuaciones", blank=True)
     monthly_reports_enabled = models.BooleanField("Enviar por correo el informe mensual al publicarlo", default=False)
     monthly_email = models.EmailField("Correo para el informe mensual (dirección)", blank=True)
+    vulnerability_notices_enabled = models.BooleanField("Avisar por correo de las vulnerabilidades publicadas", default=False)
+    vulnerability_email = models.EmailField("Correo para avisos de vulnerabilidad", blank=True)
     active = models.BooleanField("Activo", default=True)
     notes = models.TextField("Notas internas", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -212,6 +214,8 @@ class Device(models.Model):
     vendor = models.CharField("Fabricante", max_length=20, choices=Vendor.choices)
     model = models.CharField("Modelo", max_length=120, blank=True)
     software_version = models.CharField("Versión", max_length=120, blank=True)
+    vulnerability_product = models.CharField("Producto en NVD", max_length=120, blank=True,
+        help_text="Solo si el SOC no lo deduce del modelo: parte:fabricante:producto de CPE, p. ej. o:hillstonenet:sc-6000-e3960_firmware.")
     management_method = models.CharField("Acceso de gestión", max_length=16, choices=ManagementMethod.choices, default=ManagementMethod.NONE)
     log_method = models.CharField("Envío de eventos", max_length=16, choices=LogMethod.choices, default=LogMethod.NONE)
     zenarmor_edition = models.CharField("Edición de Zenarmor", max_length=120, blank=True)
@@ -467,5 +471,6 @@ from .audit_models import AuditAnchor
 from .score_models import SecurityScore
 from .connectivity_models import ConnectivityEvent
 from .chat_models import ChatChannel, ChatNotice
+from .vulnerability_models import DeviceExposure, VulnerabilityAdvisory, VulnerabilityRecord
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

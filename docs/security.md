@@ -58,6 +58,8 @@ Service API de CrowdSec: su clave puede cambiar las suscripciones de toda la org
 
 Listas de bloqueo para firewalls (`/feeds/bloqueo/`): ruta pública sin sesión, autorizada solo por un token por cliente (guardado como hash y cifrado, comparación en tiempo constante, rotación con `manage_connections` y MFA reciente). Va en la URL porque los alias de OPNsense no admiten cabeceras: no registrar la ruta completa en logs compartidos y rotarlo si se expone. La lista vacía es el estado seguro (desactivada, detenida o cliente inactivo). La regla en el firewall solo se crea y activa con el control de cambios.
 
+Catálogo de vulnerabilidades (NVD): a NVD solo se le pide la lista de CVE de cada producto vigilado (`a:opnsense:opnsense`, `o:ui:…`). No salen versiones, equipos ni datos de clientes; el cruce es local. Lo detectado no llega al cliente hasta que el SOC lo publica (invariante 3).
+
 Avisos por Teams y Telegram: salen los mismos datos que el correo urgente, al canal del propio cliente. La URL del flujo de Teams se valida contra hosts de Microsoft por HTTPS (sin redirecciones) para que el portal no sirva para llamar a otras direcciones, y se guarda cifrada. El token del bot de Telegram vive solo en el entorno; «Buscar grupos del bot» exige acceso global porque lista los grupos de todos los clientes.
 
 ## Proxy y SSO Wazuh
