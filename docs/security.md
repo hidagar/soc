@@ -19,7 +19,7 @@ Contraseñas de al menos 12 caracteres (validadores de Django). HSTS con `SOC_PO
 | reader | Consulta de los clientes autorizados; sin POST de modificación. |
 | operator | Operación permitida por permisos Django y ámbito asignado. No implica gestión global de credenciales. |
 | manager | Administración sujeta a permisos/ámbito; operaciones globales requieren acceso global (también crear clientes y cambiar suscripciones de CrowdSec). |
-| customer | Exactamente un cliente activo, sin acceso global; portal y respuestas de tareas autorizadas. |
+| customer | Exactamente un cliente activo, sin acceso global; portal, respuestas de tareas y solicitudes al SOC. El middleware solo le admite POST en `/cliente/tareas/<id>/responder/`, `/cliente/solicitudes/` y `/cliente/solicitudes/<id>/`; cada vista vuelve a comprobar que la solicitud o la sede son de su empresa. |
 | superuser | Acceso global; sigue sujeto al flujo MFA en las rutas protegidas. |
 
 La tabla resume el diseño, no concede permisos por sí misma. Revisar `roles.py`, middleware y decoradores de cada vista. `core.manage_connections` y `core.manage_operations` son capacidades diferenciadas. Los formularios y querysets de relaciones también deben respetar el ámbito; filtrar únicamente la página inicial no basta.

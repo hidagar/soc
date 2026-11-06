@@ -35,6 +35,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_customer_notices.py](../../core/test_customer_notices.py) | 12 |
 | [core/test_customer_portal.py](../../core/test_customer_portal.py) | 8 |
 | [core/test_customer_preview.py](../../core/test_customer_preview.py) | 5 |
+| [core/test_customer_requests.py](../../core/test_customer_requests.py) | 8 |
 | [core/test_customer_task_history.py](../../core/test_customer_task_history.py) | 7 |
 | [core/test_dashboard_sources.py](../../core/test_dashboard_sources.py) | 1 |
 | [core/test_database_concurrency.py](../../core/test_database_concurrency.py) | 3 |
@@ -186,3 +187,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0070_conexion_internet.py](../../core/migrations/0070_conexion_internet.py)
 - [core/migrations/0071_avisos_chat.py](../../core/migrations/0071_avisos_chat.py)
 - [core/migrations/0072_avisos_vulnerabilidad.py](../../core/migrations/0072_avisos_vulnerabilidad.py)
+- [core/migrations/0073_solicitudes_cliente.py](../../core/migrations/0073_solicitudes_cliente.py)

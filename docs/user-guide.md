@@ -25,11 +25,24 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
 8. Atender los plazos de cada caso (si están activados en «Plazos de atención»): asumirlo es el acuse; la primera nota, acción, tarea para el cliente o comprobación de la guía es el diagnóstico. La cola «Plazo vencido o próximo» de la bandeja ordena lo urgente.
 9. Con Q-Feeds configurado, revisar en «Inteligencia Q-Feeds» las conexiones salientes permitidas hacia indicadores de malware o C2: cada una es un motivo para investigar el equipo interno, no una infección confirmada.
 10. Con acceso global, «Reputación propia» muestra las IPs que atacan a varios clientes y si, una vez marcadas, atacaron después a otros: es la medida para decidir si distribuir esa lista. No bloquea nada.
-11. Revisar informe y acciones propuestas antes de activar envío semanal/avisos. Publicación y dirección de contacto no equivalen a preferencias de correo activadas.
+11. Atender las **solicitudes de clientes** («Respuesta › Solicitudes de clientes», también en la bandeja). Opciones:
+    - **Responder:** el cliente lo ve en su portal y recibe un aviso por correo sin el texto. Al responder se elige si la solicitud queda en curso, esperando al cliente o resuelta.
+    - **Nota interna:** no la ve el cliente.
+    - **Asignársela.**
+    - **Abrir una incidencia enlazada:** se usa cuando hay que investigar.
+
+    Las nuevas, y las que tienen un mensaje nuevo del cliente, llegan por correo al «Correo de operaciones» (Copias y recuperación). Si el cliente marca «afecta al trabajo ahora», el aviso lleva «URGENTE».
+12. Revisar informe y acciones propuestas antes de activar envío semanal/avisos. Publicación y dirección de contacto no equivalen a preferencias de correo activadas.
 
 ## Cliente
 
-Recibe invitación para establecer contraseña. La cuenta pertenece exactamente a su empresa; puede consultar comunicaciones e informes publicados, responder tareas permitidas y acceder a su dashboard Wazuh si el ámbito está preparado. El mapa agregado es opcional. No accede a notas/secretos del operador ni a incidentes internos por el hecho de existir.
+Recibe invitación para establecer contraseña. La cuenta pertenece exactamente a su empresa; puede consultar comunicaciones e informes publicados, responder tareas permitidas y acceder a su dashboard Wazuh si el ámbito está preparado.
+
+**Solicitudes al SOC** (portal › «Solicitudes»):
+- Elige qué necesita: consulta, cambio en el firewall o la red, desbloquear algo o sospecha de incidente. Después indica el asunto, la sede (opcional), el detalle y si afecta al trabajo ahora.
+- Sigue la conversación y recibe un correo, sin el texto, cuando el SOC responde.
+- Puede cerrarla cuando está resuelta y reabrirla, si no lo está, durante 14 días.
+- Límites: 20 abiertas a la vez y 10 nuevas al día. El mapa agregado es opcional. No accede a notas/secretos del operador ni a incidentes internos por el hecho de existir.
 
 Con «Mostrar firewalls y detecciones en el portal del cliente» activado en la ficha del cliente (desactivado por defecto), el portal añade:
 

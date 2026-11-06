@@ -1,0 +1,14 @@
+{% if status == 'waiting' %}El SOC necesita información sobre vuestra solicitud.{% elif status == 'resolved' %}El SOC ha resuelto vuestra solicitud.{% else %}El SOC ha respondido a vuestra solicitud.{% endif %}
+
+{{ client.name }}:
+
+Solicitud: {{ request.reference }} · {{ request.subject }}
+
+La respuesta está en el portal (usuario y código de doble factor):
+{{ url }}
+
+Por seguridad, este correo no incluye el texto de la respuesta.
+Si no esperabais este aviso, respondednos antes de abrir el enlace.
+
+Atentamente,
+Equipo de seguridad · ib-red empresas

@@ -298,7 +298,7 @@ class SocSecurityMiddleware:
             if request.method not in ('GET','HEAD','OPTIONS') and not exempt:
                 role = 'manager' if request.user.is_superuser else access.role if access else 'reader'
                 import re
-                customer_reply=role=='customer' and bool(re.fullmatch(r'/cliente/tareas/[0-9]+/responder/',request.path))
+                customer_reply=role=='customer' and bool(re.fullmatch(r'/cliente/(tareas/[0-9]+/responder|solicitudes|solicitudes/[0-9]+)/',request.path))
                 if role in ('reader','customer') and not customer_reply:
                     return HttpResponseForbidden('Tu perfil es de consulta. Solicita acceso de operador.')
         scope_token = customer_scope.set(ids if not public else None)

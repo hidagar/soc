@@ -24,6 +24,24 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: solicitudes al SOC desde el portal (06/11/2026)
+
+El cliente pide al SOC desde su portal:
+- consultas;
+- cambios;
+- desbloqueos;
+- sospechas de incidente.
+
+El SOC las atiende desde su bandeja:
+- responde (con aviso por correo sin el texto);
+- pide información o resuelve;
+- añade notas internas;
+- abre una incidencia enlazada.
+
+Detalle: [operación](operations.md#solicitudes-de-clientes).
+
+Pendiente: plazos de respuesta para las solicitudes, adjuntos y solicitudes en el informe mensual.
+
 ## Actualización: avisos de vulnerabilidad dirigidos (06/11/2026)
 
 El SOC cruza el modelo y la versión de cada firewall con las CVE de NVD (gravedad alta o crítica, o explotadas según CISA). Revisa, publica al cliente con una nota y el portal muestra el seguimiento hasta la versión corregida. Se envía un solo correo por cliente y el resultado cuenta en el factor «Firmware al día» del índice. Detalle: [operación](operations.md#avisos-de-vulnerabilidad-dirigidos).
@@ -55,7 +73,7 @@ Siguientes ideas de valor para el cliente:
 - disponibilidad de Internet por sede;
 - avisos urgentes por Teams (hecho, también Telegram);
 - avisos de vulnerabilidad dirigidos (hecho);
-- solicitudes al SOC desde el portal.
+- solicitudes al SOC desde el portal (hecho).
 
 ## Actualización: bloque 8, anclaje externo de la auditoría (06/11/2026)
 

@@ -73,7 +73,17 @@ def work_queue(request):
         'counts': counts, 'incidents': shown, 'incident_total': total,
         'overdue_actions': overdue.order_by('due_at', 'pk')[:50],
         'issues': issues.order_by('opened_at', 'pk')[:50], 'issue_total': issues.count(),
+        'customer_requests': _requests(selected),
     })
+
+
+def _requests(selected):
+    """Solicitudes de clientes que esperan al SOC (nuevas o en curso), las urgentes primero."""
+    from .models import CustomerRequest
+    rows = CustomerRequest.objects.filter(status__in=('new', 'in_progress')).select_related('client', 'owner')
+    if selected.isdigit():
+        rows = rows.filter(client_id=int(selected))
+    return list(rows.order_by('-urgent', 'updated_at')[:30])
 
 
 @login_required

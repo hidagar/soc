@@ -174,3 +174,15 @@ Los firewalls que no informan de caídas aparecen como «No informa», nunca com
 - La UniFi Network Application no se vigila: la nube no da su versión.
 - Una versión afectada no demuestra un ataque.
 
+## Solicitudes de clientes
+
+`core/customer_requests.py`, con los modelos `CustomerRequest` y `CustomerRequestEntry`.
+
+- **Estados:** recibida, en curso, esperando al cliente y resuelta.
+- **Primera respuesta:** se guarda en `first_response_at`, para medir el tiempo de respuesta.
+- **Avisos del trabajo `notifications`:**
+  - `notify_soc` envía un correo interno al «Correo de operaciones» con las solicitudes nuevas o con un mensaje nuevo del cliente. Las marca antes de enviar: como mucho un correo por novedad.
+  - `send_pending` envía al cliente un aviso de cada respuesta del SOC (`MailDispatch` de tipo `request`). Agrupa por solicitud, no incluye el texto y, si el envío es dudoso, no lo repite.
+- **Lo que ve el cliente:** sus solicitudes y los mensajes del SOC dirigidos a él. Nunca ve las notas internas ni la incidencia enlazada (invariante 3).
+- **Pendiente:** plazos de respuesta para las solicitudes (hoy solo se mide la primera respuesta) y adjuntos.
+

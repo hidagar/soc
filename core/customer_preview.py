@@ -46,6 +46,15 @@ def home(request, pk):
 @login_required
 @never_cache
 @require_GET
+def requests(request, pk):
+    from .customer_requests import customer_requests_context
+    client = preview_client(request, pk, 'solicitudes')
+    return _render(request, 'customer_requests.html', customer_requests_context(client, preview=True))
+
+
+@login_required
+@never_cache
+@require_GET
 def vulnerabilities(request, pk):
     from .service_development import customer_vulnerabilities_context
     client = preview_client(request, pk, 'vulnerabilidades')

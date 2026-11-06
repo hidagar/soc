@@ -24,6 +24,7 @@ def _staff_groups(user, global_access):
         ("respuesta", "Respuesta", [
             _item("Incidencias", "incident_list", ["incident_new", "incident_detail", "incident_edit",
                   "incident_note", "runbook", "customer_task_new", "customer_task_edit"]),
+            _item("Solicitudes de clientes", "requests", ["request_detail"]),
             _item("Avisos urgentes", "urgent_alert_list", ["acknowledge_alert"]),
             _item("Acciones y seguimiento", "action_list", ["action_new", "action_edit"]),
             _item("Entrega y atención", "delivery_status", ["delivery_settings"]),
