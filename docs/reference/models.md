@@ -1266,6 +1266,48 @@ Fuente: [core/operations_models.py](../../core/operations_models.py).
 | `observed_at` | DateTimeField |  |
 | `snapshot` | JSONField |  |
 | `changes` | JSONField |  |
+## CustomerRequest
+
+Fuente: [core/request_models.py](../../core/request_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `site` | ForeignKey | → 'core.Site'; on_delete=models.SET_NULL; null=True; blank=True |
+| `created_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `contact_email` | EmailField | blank=True |
+| `kind` | CharField | max_length=16 |
+| `subject` | CharField | max_length=160 |
+| `urgent` | BooleanField |  |
+| `status` | CharField | max_length=16; db_index=True |
+| `owner` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `incident` | ForeignKey | → 'core.Incident'; on_delete=models.SET_NULL; null=True; blank=True |
+| `created_at` | DateTimeField |  |
+| `updated_at` | DateTimeField |  |
+| `first_response_at` | DateTimeField | null=True; blank=True |
+| `resolved_at` | DateTimeField | null=True; blank=True |
+| `soc_notified_at` | DateTimeField | null=True; blank=True |
+## CustomerRequestEntry
+
+Fuente: [core/request_models.py](../../core/request_models.py).
+
+Ámbito declarado: `'request__client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `request` | ForeignKey | → CustomerRequest; on_delete=models.CASCADE |
+| `kind` | CharField | max_length=16 |
+| `author` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `text` | TextField |  |
+| `status` | CharField | max_length=16; blank=True |
+| `created_at` | DateTimeField |  |
+| `notice_status` | CharField | max_length=16; blank=True |
+| `notice_error` | CharField | max_length=240; blank=True |
+| `notice_attempted_at` | DateTimeField | null=True; blank=True |
+| `notice_sent_at` | DateTimeField | null=True; blank=True |
+| `provider_id` | CharField | max_length=180; blank=True |
 ## SecurityScore
 
 Fuente: [core/score_models.py](../../core/score_models.py).

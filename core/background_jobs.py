@@ -124,7 +124,9 @@ def execute(name):
         from .customer_notices import send_pending as send_customer_notices
         from .monthly_report import check_pending as check_monthly, send_pending as send_monthly
         from .vulnerabilities import send_pending as send_vulnerability_notices
+        from .customer_requests import notify_soc as notify_requests, send_pending as send_request_notices
         escalate_unacknowledged();check_sla();send_customer_notices();send_monthly();check_monthly();send_vulnerability_notices()
+        notify_requests();send_request_notices()
         return op.notify_issues()
     if name=='housekeeping':
         from .vpn_security import VpnAccessEvent

@@ -30,3 +30,15 @@
 .feed-url{word-break:break-all;font-size:11px}
 .preview-banner{margin:-12px 0 14px;padding:10px 14px;border-radius:10px;background:#fff1dc;color:#7a4b00;border:1px solid #f4ddac}.preview-banner a{font-weight:700;margin-left:6px}
 .score-card{display:flex;gap:26px;align-items:center}.score-card h2{margin:0 0 6px}.score-card p{margin:4px 0}.score-value{display:grid;place-items:center;width:112px;height:112px;border-radius:50%;flex-shrink:0;border:8px solid #d7e2e8;background:white}.score-value strong{font-size:38px;line-height:1;letter-spacing:-.05em}.score-value span{font-size:11px;color:#6c7d8e;margin-top:-10px}.score-good .score-value{border-color:#4cae6e;color:#0B612D}.score-fair .score-value{border-color:#e3a650;color:#7a4b00}.score-poor .score-value{border-color:#d9534f;color:#8a1f2b}@media(max-width:700px){.score-card{flex-direction:column;align-items:flex-start}}
+
+/* Solicitudes al SOC */
+.request-kinds { border:0; padding:0; margin:0 0 16px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.request-kinds legend { font-weight:700; margin-bottom:10px; }
+.request-kind { display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border:1px solid #d9e2dc; border-radius:10px; cursor:pointer; background:#fff; }
+.request-kind:has(input:checked) { border-color:#0b6b33; background:#f1f8f3; }
+.request-kind input { margin-top:3px; accent-color:#0b6b33; }
+.request-kind small { display:block; color:#5f7068; margin-top:3px; line-height:1.4; }
+label.check { display:flex; gap:8px; align-items:center; font-weight:400; margin:6px 0; }
+.task-history li.internal-note { background:#fff8e6; border-left:3px solid #d9a400; padding-left:10px; }
+@media (max-width: 700px) { .request-kinds { grid-template-columns:1fr; } }
+.plain-fieldset { border:0; padding:0; margin:12px 0; } .plain-fieldset legend { font-weight:700; margin-bottom:4px; }

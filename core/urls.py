@@ -6,6 +6,7 @@ from . import campaigns
 from . import client_services
 from . import chat_alerts
 from . import vulnerabilities
+from . import customer_requests
 from . import monthly_report
 from . import threat_intel
 from . import soc_reputation
@@ -74,6 +75,10 @@ urlpatterns = [
     path('cliente/actuaciones/',service.customer_tasks,name='customer_tasks'),
     path('cliente/indice/',service.customer_index,name='customer_index'),
     path('cliente/vulnerabilidades/',service.customer_vulnerabilities,name='customer_vulnerabilities'),
+    path('cliente/solicitudes/',customer_requests.customer_list,name='customer_requests'),
+    path('cliente/solicitudes/<int:pk>/',customer_requests.customer_detail,name='customer_request_detail'),
+    path('operations/requests/',customer_requests.soc_list,name='requests'),
+    path('operations/requests/<int:pk>/',customer_requests.soc_detail,name='request_detail'),
     path('operations/vulnerabilities/',vulnerabilities.overview,name='vulnerabilities'),
     path('clients/<int:pk>/customer-view/',customer_preview.home,name='customer_preview'),
     path('clients/<int:pk>/customer-view/firewalls/',customer_preview.firewalls,name='customer_preview_firewalls'),
@@ -84,6 +89,7 @@ urlpatterns = [
     path('clients/<int:pk>/customer-view/tasks/',customer_preview.tasks,name='customer_preview_tasks'),
     path('clients/<int:pk>/customer-view/indice/',customer_preview.index,name='customer_preview_index'),
     path('clients/<int:pk>/customer-view/vulnerabilidades/',customer_preview.vulnerabilities,name='customer_preview_vulnerabilities'),
+    path('clients/<int:pk>/customer-view/solicitudes/',customer_preview.requests,name='customer_preview_requests'),
     path('clients/<int:pk>/customer-view/reports/<int:report_pk>/',customer_preview.report,name='customer_preview_report'),
     path('clients/<int:pk>/customer-view/reports/<int:report_pk>/pdf/',customer_preview.report_pdf,name='customer_preview_report_pdf'),
     path('cliente/detecciones/',customer_portal.detections,name='customer_detections'),
