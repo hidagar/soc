@@ -463,5 +463,6 @@ from .sla_models import SlaPolicy, SlaSettings
 from .notice_models import CustomerNotice
 from .threat_intel_models import SocReputation, ThreatIndicator, ThreatIntelMatch
 from .monthly_models import MonthlyReport, MonthlyReportShare, MonthlyReportVersion
+from .audit_models import AuditAnchor
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

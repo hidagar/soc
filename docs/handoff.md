@@ -49,7 +49,7 @@ Cerrar cuando existan evidencias de migración, concurrencia, recuperación, ais
 
 **Bloque 6 (parcial):** versiones publicadas inmutables de los informes semanales (HTML y PDF, `ReportVersion`, migración `0049`) y rectificación que conserva ambas versiones. Faltan cobertura y fecha de corte explícitas, marca común en todas las comunicaciones y preferencias por destinatario.
 
-**Bloque 8 (parcial):** rotación de la bóveda y de las claves de conectores sin perder secretos ni MFA (`SOC_PORTAL_VAULT_KEYS`, listas «nueva,anterior», `rotate_encryption_keys`). No se ha rotado ninguna clave real. Faltan rotación de SECRET_KEY/auditoría, anclaje externo de auditoría, recuperación completa de VM y monitor exterior.
+**Bloque 8 (parcial):** rotación de la bóveda y de las claves de conectores sin perder secretos ni MFA (`SOC_PORTAL_VAULT_KEYS`, listas «nueva,anterior», `rotate_encryption_keys`). No se ha rotado ninguna clave real. Anclaje externo diario de la auditoría por correo, con comprobación automática y manual (`core/audit_anchor.py`, véase [seguridad](security.md)). Faltan rotación de SECRET_KEY/auditoría y recuperación completa de VM; el monitor exterior está implementado y pendiente de configurar su URL.
 
 **Ensayo de actualización de la pila completa (20/10/2026, contenedor):** instalación limpia de `main` (`4351945`, migración 0046) con datos anonimizados (cliente, MFA, tarea respondida y revisada, informe ya enviado), `update.sh` hasta la última rama (0047–0049 aplicadas, historial sembrado desde la respuesta y revisión existentes, portal, tarea, informe y PDF con 200 bajo MFA, versión 1 congelada en el primer acceso) y `--rollback` a 0046 con los datos intactos. No sustituye el ensayo con una copia de la base real.
 
@@ -60,7 +60,7 @@ Cerrar cuando existan evidencias de migración, concurrencia, recuperación, ais
 - SendGrid: activación del webhook firmado de entrega pendiente por decisión del usuario. Aceptado por SendGrid no significa entregado.
 - SLA y conversación/histórico de tareas, publicaciones HTML/PDF inmutables y rectificaciones, matrices de cobertura y pruebas completas de continuidad: bloques 5–8.
 - CrowdSec: motor local instalado en la VM con lista comunitaria; reputación combinada listas + API CTI de pago (cupo diario y mensual), página propia y filtro de ruido de fondo. 7A/C2 fase 1 en revisión: listas de bloqueo por cliente con observación, freno de emergencia y plantilla OPNsense; piloto previsto: Conservas Roselló. Recomendador de listas de CrowdSec (Service API) medido con los ataques reales, con suscripción en cola y modo automático opcional. VictoriaLogs: piloto condicional, sin sustituir Wazuh ni dar por cerrada la ingesta.
-- Rotación de SECRET_KEY (auditoría y firmas) y anclaje externo de auditoría. La cadena local no acredita por sí sola que no se borrara su tramo final.
+- Rotación de SECRET_KEY (auditoría y firmas). El anclaje externo ya detecta que se borre el final de la cadena (desde el ancla del día anterior).
 
 ## Para retomar sin historia del chat
 

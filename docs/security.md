@@ -74,4 +74,11 @@ Las instalaciones anteriores lo adoptan con `sudo deploy/configurar_registros.sh
 
 ## Límites conocidos
 
-La cadena HMAC local detecta modificaciones internas, pero no prueba ausencia de truncamiento final sin anclaje externo. La rotación versionada de claves y ese anclaje siguen en roadmap. El canal de logs autentica al emisor configurado; no acredita que todos sus mensajes sean ciertos ni que UDP no pierda datagramas. Probar aislamiento al añadir cada nueva superficie.
+La cadena HMAC local detecta modificaciones internas, pero sola no prueba que no se haya borrado su tramo final. Por eso tiene un **anclaje externo** (`core/audit_anchor.py`):
+
+- **Envío diario:** el trabajo «Conservación y limpieza» envía por correo, fuera de la VM, el número del último registro, su huella HMAC (no permite firmar eventos) y el número de registros hasta él. Destinatario: `SOC_PORTAL_AUDIT_ANCHOR_EMAIL` o, si no hay, la copia de informes. Se guarda en `AuditAnchor` y figura en «Entrega y avisos» como «Ancla de auditoría».
+- **Comprobación:** cada ancla enviada debe seguir cumpliéndose: el evento existe con esa huella y hay los mismos registros hasta él. Si no, aviso crítico `platform:audit-anchor`. Sin destinatario, o con más de 3 días sin un ancla aceptada, aviso `platform:audit-anchor-missing`.
+- **Comprobación a mano:** quien pudiera borrar la auditoría podría borrar también las anclas guardadas. Por eso «Auditoría → Comprobar un ancla recibida por correo» compara el número y la huella de un correo con la base actual. Conservar esos correos en un buzón que no administre la misma persona.
+- **Límite:** el ancla se envía una vez al día, así que un borrado de los registros de las últimas horas antes del ancla siguiente solo se detecta si rompe la cadena.
+
+La rotación versionada de `SECRET_KEY` (que firma la auditoría) sigue en roadmap. El canal de logs autentica al emisor configurado; no acredita que todos sus mensajes sean ciertos ni que UDP no pierda datagramas. Probar aislamiento al añadir cada nueva superficie.

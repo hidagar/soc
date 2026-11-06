@@ -13,6 +13,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_advanced_expansion.py](../../core/test_advanced_expansion.py) | 6 |
 | [core/test_asn.py](../../core/test_asn.py) | 5 |
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
+| [core/test_audit_anchor.py](../../core/test_audit_anchor.py) | 9 |
 | [core/test_audit_chain.py](../../core/test_audit_chain.py) | 7 |
 | [core/test_audit_fixes.py](../../core/test_audit_fixes.py) | 11 |
 | [core/test_audit_presentation.py](../../core/test_audit_presentation.py) | 10 |
@@ -176,3 +177,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0065_inteligencia_qfeeds.py](../../core/migrations/0065_inteligencia_qfeeds.py)
 - [core/migrations/0066_reputacion_propia.py](../../core/migrations/0066_reputacion_propia.py)
 - [core/migrations/0067_informe_mensual.py](../../core/migrations/0067_informe_mensual.py)
+- [core/migrations/0068_ancla_auditoria.py](../../core/migrations/0068_ancla_auditoria.py)

@@ -108,6 +108,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `security/staff/` | `staff` | `ops.staff` |
 | `security/staff/<int:pk>/` | `staff_edit` | `ops.staff` |
 | `security/audit/` | `audit_log` | `ops.audit_log` |
+| `security/audit/anchor/` | `audit_anchor_send` | `ops.audit_anchor_send` |
 | `security/mfa/setup/` | `mfa_setup` | `security.mfa_setup` |
 | `security/mfa/verify/` | `mfa_challenge` | `security.mfa_challenge` |
 | `reports/health/` | `report_health` | `report_sharing.report_health` |

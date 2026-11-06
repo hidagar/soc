@@ -58,7 +58,7 @@ El correo semanal enlaza al informe web, desde donde puede descargar PDF. No se 
 | Detecciones / investigación | ¿Qué evidencia llegó, qué acción indicó el motor y qué activo puede atribuirse? |
 | Bandeja/incidencias/tareas | ¿Qué requiere trabajo, quién lo atiende y qué se ha comunicado? |
 | Mapa | ¿Desde/hacia qué infraestructura pública se observaron eventos? No acredita identidad del atacante. |
-| Auditoría | ¿Quién hizo qué acción y cuándo? No sustituye logs del firewall ni anclaje externo. |
+| Auditoría | ¿Quién hizo qué acción y cuándo? Con ancla diaria por correo para detectar borrados. No sustituye los logs del firewall. |
 | Copias | ¿Qué copia y verificación existen? No prueba por sí sola una restauración VM completa. |
 
 Eliminar una sede o cambiar propiedad no es una limpieza inocua: revisar relaciones, permisos y datos históricos según el formulario/constraints. No usar una operación masiva para saltarse las señales de propiedad.

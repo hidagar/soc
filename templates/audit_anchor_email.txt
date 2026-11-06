@@ -1,0 +1,12 @@
+Ancla de auditoría del Centro SOC · ib-red empresas
+
+Conserva este correo: sirve para comprobar que nadie ha borrado ni alterado el registro de auditoría del SOC.
+
+Fecha del ancla: {{ anchor.created_at|date:'d/m/Y H:i' }}
+Último evento: {{ anchor.event_id }} ({{ event_at|date:'d/m/Y H:i' }})
+Eventos hasta él: {{ anchor.event_count }}
+Huella: {{ anchor.digest }}
+
+Para comprobarlo: Centro SOC → Administración → Auditoría → «Comprobar un ancla recibida por correo», con el número del evento y la huella.
+
+No contiene datos de clientes ni del contenido de la auditoría. La huella no permite firmar eventos.

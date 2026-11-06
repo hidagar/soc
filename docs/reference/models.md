@@ -85,6 +85,20 @@ Fuente: [core/access_models.py](../../core/access_models.py).
 | `decoder` | CharField | max_length=120; blank=True |
 | `encrypted_event` | TextField | blank=True |
 | `error` | CharField | max_length=240; blank=True |
+## AuditAnchor
+
+Fuente: [core/audit_models.py](../../core/audit_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `created_at` | DateTimeField |  |
+| `event_id` | PositiveBigIntegerField |  |
+| `digest` | CharField | max_length=64 |
+| `event_count` | PositiveBigIntegerField |  |
+| `recipient` | EmailField | blank=True |
+| `status` | CharField | max_length=12 |
+| `error` | CharField | max_length=240; blank=True |
+| `provider_id` | CharField | max_length=180; blank=True |
 ## RunbookStep
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

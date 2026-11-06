@@ -24,6 +24,16 @@ Las pruebas de autorización, navegador y concurrencia deben acompañar todas la
 
 
 
+## Actualización: bloque 8, anclaje externo de la auditoría (06/11/2026)
+
+Implementado el ancla diaria de la auditoría por correo:
+- comprobación automática de las anclas enviadas, con aviso crítico si se borra o altera el final de la cadena;
+- comprobación manual de un ancla recibida por correo desde «Auditoría».
+
+Detalle: [seguridad](security.md).
+
+Pendiente del bloque: rotación de `SECRET_KEY`, ensayo completo de recuperación de la VM y configurar la URL del monitor exterior.
+
 ## Actualización: bloque 6, informe mensual para dirección (05/11/2026)
 
 Implementado el informe mensual para dirección:

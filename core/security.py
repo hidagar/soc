@@ -245,7 +245,7 @@ class SocSecurityMiddleware:
                 return redirect('customer_home')
             if not allowed:
                 return HttpResponseForbidden('Esta cuenta solo puede acceder al portal de su empresa.')
-        global_views={'mail_settings','verify_public_reports','audit_log','recovery','staff','staff_edit','mfa_reset','delivery_settings',
+        global_views={'mail_settings','verify_public_reports','audit_log','audit_anchor_send','recovery','staff','staff_edit','mfa_reset','delivery_settings',
             'crowdsec_list_action',  # cambia las suscripciones de toda la organización de CrowdSec
             'client_new'}  # un gestor limitado no vería el cliente que acaba de crear
         if request.resolver_match and request.resolver_match.url_name in global_views and not (access and access.all_clients):

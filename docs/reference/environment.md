@@ -14,6 +14,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_INDEXER_READER_FILE` | [core/reporting.py](../../core/reporting.py) |
 | `SOC_NATIVE_ENGINE_GATE` | [core/test_native_pipeline.py](../../core/test_native_pipeline.py) |
 | `SOC_PORTAL_ALLOWED_HOSTS` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_PORTAL_AUDIT_ANCHOR_EMAIL` | [core/audit_anchor.py](../../core/audit_anchor.py) |
 | `SOC_PORTAL_CROWDSEC_CTI_PER_RUN` | [core/reputation.py](../../core/reputation.py) |
 | `SOC_PORTAL_CROWDSEC_DAILY_LIMIT` | [core/reputation.py](../../core/reputation.py) |
 | `SOC_PORTAL_CROWDSEC_ENGINE_ID` | [core/crowdsec_catalog.py](../../core/crowdsec_catalog.py) |

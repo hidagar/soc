@@ -134,6 +134,7 @@ urlpatterns = [
     path('security/staff/',ops.staff,name='staff'),
     path('security/staff/<int:pk>/',ops.staff,name='staff_edit'),
     path('security/audit/',ops.audit_log,name='audit_log'),
+    path('security/audit/anchor/',ops.audit_anchor_send,name='audit_anchor_send'),
     path('security/mfa/setup/', security.mfa_setup, name='mfa_setup'),
     path('security/mfa/verify/', security.mfa_challenge, name='mfa_challenge'),
     path("reports/health/", report_sharing.report_health, name="report_health"),

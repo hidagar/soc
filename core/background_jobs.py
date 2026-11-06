@@ -137,6 +137,8 @@ def execute(name):
         prune_data(now)  # detecciones, contadores e intentos de acceso caducados, sin depender de las copias
         from .security import check_audit_chain
         check_audit_chain(now)  # pasada completa diaria; la página de auditoría solo mira lo posterior
+        from .audit_anchor import check as check_anchors
+        check_anchors(now)  # ancla externa diaria y comprobación de las enviadas
         return cleanup(now)
     if name=='reputation':
         from .reputation import refresh

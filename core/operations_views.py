@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404,redirect,render
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from .models import (Asset,AuditEvent,Client,Device,DeviceHealth,Incident,IncidentUpdate,
     OperationalIssue,StaffAccess,WorkerState)
 from .release import deployed_release
@@ -257,4 +257,24 @@ def audit_log(request):
     if not permitted(request,'manage_security'): return HttpResponseForbidden('Permiso de seguridad requerido.')
     from .audit_presentation import present
     events=AuditEvent.objects.select_related('actor')[:300]
-    return render(request,'operations_audit.html',{'rows':present(events),'integrity':audit_status()})
+    from .audit_anchor import recipient
+    from .models import AuditAnchor
+    checked=None
+    raw_id,raw_digest=request.GET.get('evento','').strip(),request.GET.get('huella','').strip().lower()
+    if raw_id or raw_digest:
+        # Comprobación de un ancla recibida por correo: solo lectura, sobre la base actual.
+        valid=raw_id.isdigit() and len(raw_id)<19 and len(raw_digest)==64 and all(c in '0123456789abcdef' for c in raw_digest)
+        checked={'valid':valid,'event_id':raw_id[:18],'ok':valid and AuditEvent.objects.filter(pk=int(raw_id),digest=raw_digest).exists()}
+    return render(request,'operations_audit.html',{'rows':present(events),'integrity':audit_status(),
+        'anchors':AuditAnchor.objects.all()[:10],'anchor_recipient':recipient(),'anchor_check':checked})
+
+@login_required
+@require_POST
+def audit_anchor_send(request):
+    if not permitted(request,'manage_security'): return HttpResponseForbidden('Permiso de seguridad requerido.')
+    from .audit_anchor import send_anchor
+    anchor=send_anchor(force=True)
+    if not anchor:messages.error(request,'No se ha enviado: falta destinatario o aún no hay registros de auditoría.')
+    elif anchor.status=='accepted':messages.success(request,f'Ancla enviada a {anchor.recipient}: evento {anchor.event_id}.')
+    else:messages.error(request,f'Ancla guardada pero no enviada: {anchor.error}')
+    return redirect('audit_log')
