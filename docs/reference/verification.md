@@ -89,6 +89,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_sla.py](../../core/test_sla.py) | 17 |
 | [core/test_soc_reputation.py](../../core/test_soc_reputation.py) | 6 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
+| [core/test_text_encoding.py](../../core/test_text_encoding.py) | 1 |
 | [core/test_threat_intel.py](../../core/test_threat_intel.py) | 15 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
