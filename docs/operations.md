@@ -82,3 +82,34 @@ Al cambiar Wazuh/reglas, verificar y sincronizar perfil con servicios privados p
 ## Entrega
 
 Registrar versión, migración y manifiesto; copia/reversión; distinguir generación y envío; comprobar login/MFA/scope/descargas, tareas y llegada real cuando exista equipo disponible. Registrar lo no validado. No cerrar ausencia de logs por un API correcto.
+
+## Índice de seguridad del cliente
+
+`core/security_score.py`. Es una cifra de 0 a 100 que resume lo que el SOC puede comprobar de la protección de un cliente. El trabajo `security_score` la calcula cada hora y guarda una foto por día (`SecurityScore`) para mostrar su evolución.
+
+| Factor | Puntos | Cómo se mide |
+|---|---|---|
+| Exposición a Internet | 20 | Servicios publicados de riesgo alto (0) o medio (mitad) sin excepción documentada; control de exposición de los últimos 7 días |
+| Protección en marcha | 10 | Motores en ejecución, sin detener ni en bypass |
+| IPS en modo bloqueo | 10 | Suricata o el IPS de UniFi en modo IPS, frente a IDS |
+| Firmware al día | 15 | OPNsense sin actualizaciones pendientes y catálogo comprobado en 7 días |
+| Visibilidad del SOC | 15 | Registros recibidos sin silencio |
+| Ataques que entran | 10 | Detecciones permitidas en 30 días: ninguna, hasta 10 (mitad) o más |
+| Bloqueo proactivo del SOC | 10 | Lista de bloqueo publicada con regla activa |
+| Actuaciones al día | 10 | Sin actuaciones visibles con la fecha acordada vencida |
+
+**Cómo se calcula:**
+- Los factores por firewall son la media de los firewalls activos del cliente.
+- **Lo que no se puede comprobar cuenta la mitad** y se muestra como «Sin comprobar», con el paso para que el SOC pueda comprobarlo.
+- **Niveles:** 85 o más, «Bien»; de 65 a 84, «Mejorable»; menos de 65, «Requiere atención».
+- Los pesos están en `WEIGHTS` para ajustarlos.
+
+**Qué ve el cliente:**
+- En el portal: el resumen y la página «Índice de seguridad», con cada factor en texto claro (solo recuentos), los 3 pasos que más puntos darían y la evolución.
+- En el informe mensual: la foto del último día del mes, comparada con la del mes anterior y congelada con la versión.
+- Nunca ve IPs, títulos internos del control de exposición ni notas del SOC (invariante 3).
+
+**Qué ve el SOC:** el índice en la ficha del cliente, que enlaza a «Ver como cliente».
+
+**Límite:** no garantiza la ausencia de riesgos. Mide lo que el SOC comprueba.
+

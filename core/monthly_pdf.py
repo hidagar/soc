@@ -57,6 +57,13 @@ def render_monthly_pdf(context):
     if previous:
         story.append(p(f"Mes anterior: {previous['security']} detecciones, {previous['blocked']} bloqueadas y "
                        f"{previous['allowed']} permitidas.", 'SOCSmall'))
+    index = context.get('index')
+    if index:
+        story.append(p('Índice de seguridad', 'SOCHeading'))
+        story.append(p(f"{index['score']} de 100 · {index['label']} al {index['day']:%d/%m/%Y}"
+                       + (f" (mes anterior: {index['previous']})." if index['previous'] is not None else '.')))
+        for f in index['weak']:
+            story.append(p(f"· {f['label']}: {f['detail']}" + (f" {f['action']}" if f.get('action') else '')))
     story.append(p('Evolución por semanas', 'SOCHeading'))
     rows = [[p(label, 'SOCSmall') for label in ('Semana', 'Detecciones', 'Bloqueadas', 'Permitidas', 'Sin confirmar', 'Firewalls con datos')]]
     for week in context['weeks']:

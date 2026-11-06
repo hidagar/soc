@@ -1213,6 +1213,20 @@ Fuente: [core/operations_models.py](../../core/operations_models.py).
 | `observed_at` | DateTimeField |  |
 | `snapshot` | JSONField |  |
 | `changes` | JSONField |  |
+## SecurityScore
+
+Fuente: [core/score_models.py](../../core/score_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `day` | DateField |  |
+| `score` | PositiveSmallIntegerField | null=True |
+| `level` | CharField | max_length=12; blank=True |
+| `factors` | JSONField | blank=True |
+| `computed_at` | DateTimeField |  |
 ## SlaSettings
 
 Fuente: [core/sla_models.py](../../core/sla_models.py).

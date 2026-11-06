@@ -103,6 +103,15 @@ def customer_reports(request):
 
 @login_required
 @require_GET
+def customer_index(request):
+    return render(request,'customer_index.html',customer_index_context(customer_client(request)))
+
+def customer_index_context(client,preview=False):
+    from .security_score import portal_context
+    return {**_portal_base(client,preview,'index'),**portal_context(client)}
+
+@login_required
+@require_GET
 def customer_tasks(request):
     return render(request,'customer_tasks.html',customer_tasks_context(customer_client(request)))
 
@@ -147,7 +156,9 @@ def customer_home_context(client,preview=False):
     tasks,_=portal_tasks(client,preview)
     reports=portal_reports(client,preview)
     news=CustomerPublication.objects.filter(client=client,visible=True)
-    return {**_portal_base(client,preview,'home'),'security_summary':customer_security_summary(client) if live else None,
+    from .models import SecurityScore
+    latest=SecurityScore.objects.filter(client=client,score__isnull=False).first()
+    return {**_portal_base(client,preview,'home'),'index_latest':latest,'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
         'tasks':tasks,'tasks_to_do':[t for t in tasks if t.status in ('pending','rework')],
         'publications':news[:6],'publication_count':news.count(),

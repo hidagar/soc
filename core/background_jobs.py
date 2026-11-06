@@ -30,6 +30,7 @@ JOBS={
     'blocklist_efficacy':(3600,'Eficacia de las reglas de bloqueo'),
     'threat_intel':(900,'Inteligencia Q-Feeds'),
     'soc_reputation':(3600,'Reputación propia del SOC'),
+    'security_score':(3600,'Índice de seguridad'),
 }
 BUDGET=180
 
@@ -161,6 +162,9 @@ def execute(name):
     if name=='soc_reputation':
         from .soc_reputation import refresh as refresh_soc_reputation
         return refresh_soc_reputation()
+    if name=='security_score':
+        from .security_score import record as record_scores
+        return record_scores()
     raise ValueError('Trabajo no permitido.')
 
 def run_job(name):
