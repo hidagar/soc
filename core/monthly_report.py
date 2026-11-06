@@ -177,7 +177,20 @@ def customer_context(client, month, report=None):
         'recommendations': _recommendations(sorted(weekly.values(), key=lambda r: r.week_start)),
         'proactive': client_protection(client, first, following - timedelta(days=1)),
         'soc_summary': report.soc_summary if report else '', 'customer_view': True,
+        **_index(client, first, following),
     }
+
+
+def _index(client, first, following):
+    """Índice de seguridad al cierre del mes y al cierre del anterior (fotos diarias guardadas)."""
+    from .security_score import at, level_of
+    end = at(client, following - timedelta(days=1))
+    if not end or end.day < first:
+        return {'index': None}
+    before = at(client, first - timedelta(days=1))
+    weak = [f for f in end.factors if f.get('state') != 'ok'][:3]
+    return {'index': {'score': end.score, 'level': end.level, 'label': level_of(end.score)[1], 'day': end.day,
+                      'previous': before.score if before else None, 'weak': weak}}
 
 
 def release_problem(client, month, now=None):

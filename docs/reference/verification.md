@@ -83,6 +83,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
 | [core/test_security_review.py](../../core/test_security_review.py) | 6 |
+| [core/test_security_score.py](../../core/test_security_score.py) | 9 |
 | [core/test_service_development.py](../../core/test_service_development.py) | 18 |
 | [core/test_session_policy.py](../../core/test_session_policy.py) | 1 |
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
@@ -178,3 +179,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0066_reputacion_propia.py](../../core/migrations/0066_reputacion_propia.py)
 - [core/migrations/0067_informe_mensual.py](../../core/migrations/0067_informe_mensual.py)
 - [core/migrations/0068_ancla_auditoria.py](../../core/migrations/0068_ancla_auditoria.py)
+- [core/migrations/0069_indice_seguridad.py](../../core/migrations/0069_indice_seguridad.py)

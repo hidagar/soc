@@ -269,6 +269,7 @@ def client_detail(request, pk):
     return render(request, "client_detail.html", {
         "services_form": ClientServicesForm(instance=client), "status": status(client), "service_devices": device_rows(devices),
         "portal_users": portal_users(client), "can_invite": can_invite(request.user),
+        "index_latest": client.security_scores.filter(score__isnull=False).first(),
         "client": client,
         "evidence": {"total": evidence.count(), "allowed": evidence.filter(action="allowed").count()},
         "open_tasks": CustomerTask.objects.filter(incident__client=client, status__in=("pending", "rework", "submitted")).count(),
