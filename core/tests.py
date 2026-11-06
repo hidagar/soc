@@ -86,9 +86,10 @@ class PortalWorkflowTests(TestCase):
 
     def test_operator_creates_client_site_and_device_from_panel(self):
         self.client.force_login(self.user)
-        response = self.client.post(reverse("client_new"), {"name": "Empresa C", "code": "empresa-c", "active": "on"})
+        token = self.client.get(reverse("client_new")).context["creation_token"]
+        response = self.client.post(reverse("client_new"), {"name": "Empresa C", "code": "empresa-c", "creation_token": token})
         created_client = Client.objects.get(code="empresa-c")
-        self.assertRedirects(response, reverse("client_detail", args=[created_client.pk]))
+        self.assertRedirects(response, reverse("site_new") + f"?client={created_client.pk}", fetch_redirect_response=False)
         response = self.client.post(reverse("site_new"), {
             "client": created_client.pk, "name": "Bilbao",
             "devices-TOTAL_FORMS": "1", "devices-INITIAL_FORMS": "0", "devices-MIN_NUM_FORMS": "0", "devices-MAX_NUM_FORMS": "20",
@@ -152,7 +153,7 @@ class PortalWorkflowTests(TestCase):
         response = self.client.get(reverse("site_new"), {"client": self.client_record.pk})
         self.assertContains(response, "Identificador")
         self.assertContains(response, "Nombre")
-        self.assertContains(response, "Paso 1 de 5")
+        self.assertContains(response, "Paso 2 de 7")
         self.assertNotContains(response, 'name="vendor"')
         self.assertNotContains(response, 'name="devices-0-model"')
         self.assertNotContains(response, 'name="devices-0-software_version"')

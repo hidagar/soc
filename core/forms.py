@@ -69,6 +69,31 @@ class ClientForm(StyledModelForm):
                                                   "se activan después en la ficha del cliente, en «Servicios del cliente».")
 
 
+class NewClientForm(ClientForm):
+    """Primer paso del alta: el código es opcional y se genera a partir del nombre."""
+
+    class Meta(ClientForm.Meta):
+        fields = ["name", "code", "contact_email", "notes"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["code"].required = False
+        self.fields["code"].label = "Identificador (opcional)"
+        self.fields["code"].help_text = "Si queda vacío, se genera a partir del nombre."
+        self.fields["notes"].widget.attrs["rows"] = 3
+
+    def clean(self):
+        values = super().clean()
+        if values.get("name") and not values.get("code"):
+            base = (slugify(values["name"], allow_unicode=False) or "cliente")[:50]
+            code, number = base, 2
+            while Client.objects.filter(code=code).exists():
+                ending = f"-{number}"
+                code, number = base[:50 - len(ending)] + ending, number + 1
+            values["code"] = code
+        return values
+
+
 class MailSettingsForm(StyledModelForm):
     api_key = forms.CharField(
         label="Clave API de SendGrid", required=False,

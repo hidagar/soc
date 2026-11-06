@@ -264,10 +264,11 @@ def client_detail(request, pk):
     from .investigation import evidence_queryset
     from .models import BlocklistFeed
     evidence = evidence_queryset(client, 7, "", "all")
-    from .client_services import ClientServicesForm, device_rows, status
+    from .client_services import ClientServicesForm, can_invite, device_rows, portal_users, status
     devices = Device.objects.filter(site__client=client).select_related('site', 'health', 'onboarding', 'export_configuration').order_by('site__name', '-active', 'name')
     return render(request, "client_detail.html", {
         "services_form": ClientServicesForm(instance=client), "status": status(client), "service_devices": device_rows(devices),
+        "portal_users": portal_users(client), "can_invite": can_invite(request.user),
         "client": client,
         "evidence": {"total": evidence.count(), "allowed": evidence.filter(action="allowed").count()},
         "open_tasks": CustomerTask.objects.filter(incident__client=client, status__in=("pending", "rework", "submitted")).count(),
@@ -286,8 +287,9 @@ def client_detail(request, pk):
 def site_detail(request, pk):
     site = get_object_or_404(Site.objects.select_related("client"), pk=pk)
     devices = site.devices.select_related("site", "health", "onboarding", "export_configuration").order_by("-active", "name")
-    from .client_services import ClientServicesForm, device_rows, status
+    from .client_services import ClientServicesForm, can_invite, device_rows, portal_users, status
     return render(request, "site_detail.html", {"site": site, "client": site.client, "devices": device_rows(devices),
+                                                "portal_users": portal_users(site.client), "can_invite": can_invite(request.user),
                                                 "services_form": ClientServicesForm(instance=site.client), "status": status(site.client),
                                                 "incidents": site.incidents.all()[:8]})
 
@@ -391,6 +393,9 @@ def _save_form(request, form_class, instance, initial, title, cancel_url, succes
 @login_required
 def client_form(request, pk=None):
     instance = get_object_or_404(Client, pk=pk) if pk else None
+    if instance is None:
+        from .onboarding import new_client
+        return new_client(request)  # el alta es el primer paso del asistente: cliente → sede → firewall
     return _save_form(request, ClientForm, instance, {}, "Cliente", reverse("client_detail", args=[pk]) if pk else reverse("client_list"), "client_detail")
 
 
@@ -515,6 +520,10 @@ def site_form(request, pk=None):
 def device_form(request, pk=None):
     instance = get_object_or_404(Device, pk=pk) if pk else None
     site_id = request.GET.get("site", "")
+    if instance is None and request.method == "GET":
+        # Un equipo nuevo se da de alta con el asistente, que guía la conexión y comprueba la recepción.
+        site = Site.objects.filter(pk=site_id).first() if site_id.isdigit() else None
+        return redirect("onboarding_add_device", site_pk=site.pk) if site else redirect("client_list")
     initial = {"site": site_id} if site_id.isdigit() and Site.objects.filter(pk=site_id).exists() else {}
     cancel = reverse("device_detail", args=[pk]) if pk else reverse("site_detail", args=[site_id]) if initial else reverse("client_list")
     return _save_form(request, DeviceForm, instance, initial, "Equipo", cancel, "device_detail")

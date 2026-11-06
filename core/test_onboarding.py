@@ -51,7 +51,7 @@ class OnboardingTests(TestCase):
     def test_new_site_scoped_to_selected_customer_and_duplicate_submit_does_not_duplicate_site(self):
         url = reverse('site_new') + f'?client={self.customer.pk}'
         response = self.client.get(url)
-        self.assertContains(response, 'Paso 1 de 5')
+        self.assertContains(response, 'Paso 2 de 7')
         self.assertContains(response, 'id="selected-client-name"')
         self.assertNotContains(response, self.other.name)
         token = response.context['creation_token']
@@ -224,12 +224,12 @@ class OnboardingTests(TestCase):
     def test_changing_method_resets_verification_and_progress_can_resume(self):
         device, row, config = self.make_verification()
         url = reverse('device_onboarding', args=[device.pk])
-        self.assertContains(self.client.get(url), 'Paso 5 de 5')
+        self.assertContains(self.client.get(url), 'Paso 6 de 7')
         self.client.post(url + '?step=3', {'method': 'manual'})
         row.refresh_from_db()
         self.assertEqual(row.step, 4)
         self.assertIsNone(row.verification_started_at)
-        self.assertContains(self.client.get(url), 'Paso 4 de 5')
+        self.assertContains(self.client.get(url), 'Paso 5 de 7')
 
     def test_paused_device_is_not_activated_by_background_verification(self):
         device, row, config = self.make_verification()

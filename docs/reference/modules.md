@@ -21,7 +21,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/blocklist_efficacy.py](../../core/blocklist_efficacy.py) | Eficacia de las reglas de bloqueo del SOC en los firewalls (listas de bloqueo, fase 2). — `state_name`, `rule_counters`, `loaded_entries`, `accumulate`, `measure`, `refresh`, `summary`, `client_protection` |
 | [core/campaigns.py](../../core/campaigns.py) | Ataques a varios clientes: una misma IP pública que ataca a varios clientes del SOC en poco tiempo. — `campaigns`, `pending_count`, `campaign_list` |
 | [core/change_control.py](../../core/change_control.py) | Versioned review plans. Remote changes are disabled drafts until explicit approval. — `preview`, `api`, `snapshot`, `digest`, `completed`, `stage_ids`, `stage_zenarmor`, `stage_blocklist_alias`, `stage`, `rollback`, `enable`, `process_queue` |
-| [core/client_services.py](../../core/client_services.py) | Servicios de un cliente en un solo sitio: la ficha del cliente y, filtrada, la de cada sede. — `ClientServicesForm`, `status`, `device_rows`, `save` |
+| [core/client_services.py](../../core/client_services.py) | Servicios de un cliente en un solo sitio: la ficha del cliente y, filtrada, la de cada sede. — `ClientServicesForm`, `status`, `device_rows`, `save`, `portal_users`, `invite`, `can_invite` |
 | [core/configuration_archives.py](../../core/configuration_archives.py) | Root-only encrypted OPNsense backups and a redacted change summary. — `fetch_configuration`, `summarize_xml`, `archive_device`, `refresh_archives` |
 | [core/connection_help.py](../../core/connection_help.py) | Operator guidance using the same destinations as actual provisioning. — `connection_guide` |
 | [core/context_processors.py](../../core/context_processors.py) | `connection_permissions` |
@@ -44,7 +44,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/exposure_ssh.py](../../core/exposure_ssh.py) | Fixed read-only OPNsense SSH reader; emits only whitelisted legacy settings. — `read_legacy` |
 | [core/exposure_views.py](../../core/exposure_views.py) | `ReviewForm`, `exposure_list`, `exposure_recheck`, `exposure_interfaces`, `exposure_detail`, `json_evidence`, `unifi_policies` |
 | [core/findings.py](../../core/findings.py) | Turn indexed firewall alerts into evidence-backed customer findings. — `inventories_for_sources`, `build_findings` |
-| [core/forms.py](../../core/forms.py) | `ScopedModelForm`, `StyledModelForm`, `ClientForm`, `MailSettingsForm`, `SiteForm`, `SiteEditForm`, `DeviceForm`, `SiteDeviceForm`, `IncidentForm` |
+| [core/forms.py](../../core/forms.py) | `ScopedModelForm`, `StyledModelForm`, `ClientForm`, `NewClientForm`, `MailSettingsForm`, `SiteForm`, `SiteEditForm`, `DeviceForm`, `SiteDeviceForm`, `IncidentForm` |
 | [core/gdms_api.py](../../core/gdms_api.py) | GDMS Networking OAuth probe. Fixed vendor hosts, no configuration writes. — `GdmsError`, `NoRedirect`, `encrypt`, `decrypt`, `credential`, `access_token`, `check_connection`, `read_inventory`, `discover_device` |
 | [core/gdms_views.py](../../core/gdms_views.py) | `ConnectionForm`, `gdms_cloud` |
 | [core/hillstone_api.py](../../core/hillstone_api.py) | StoneOS REST login and bounded inventory discovery; no configuration writes. — `HillstoneApiError`, `NoRedirect`, `validate_url`, `validate_ca`, `encrypt`, `decrypt`, `username`, `inventory`, `check_connection` |
@@ -73,7 +73,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/network_models.py](../../core/network_models.py) | `NetworkCheck`, `NetworkCoverage` |
 | [core/network_views.py](../../core/network_views.py) | `NetworkForm`, `coverage`, `requirements` |
 | [core/notice_models.py](../../core/notice_models.py) | Bandeja de salida de los avisos al cliente sobre sus actuaciones del portal (hoja de ruta 6). — `CustomerNotice` |
-| [core/onboarding.py](../../core/onboarding.py) | Small, persistent wizard. Credentials use the existing encrypted connection forms. — `EquipmentForm`, `MethodForm`, `source_conflict`, `ExportForm`, `new_site`, `add_device`, `device_wizard`, `status` |
+| [core/onboarding.py](../../core/onboarding.py) | Small, persistent wizard. Credentials use the existing encrypted connection forms. — `EquipmentForm`, `MethodForm`, `source_conflict`, `ExportForm`, `new_client`, `new_site`, `add_device`, `device_wizard`, `status` |
 | [core/onboarding_verification.py](../../core/onboarding_verification.py) | Read actual Wazuh output as root; expose only receipt metadata to the portal. — `confirm_onboarding_events`, `verify_pending_onboardings` |
 | [core/operations.py](../../core/operations.py) | Vendor-neutral evidence and operational health. Never configure remote devices. — `clean`, `ip`, `private`, `normalize`, `source_map`, `recommendation`, `ingest_events`, `set_issue`, `silence_threshold`, `evaluate_health`, `observe_asset`, `probe_device`, `read_receipts`, `reconcile_security`, … (ver archivo) |
 | [core/operations_models.py](../../core/operations_models.py) | `IncidentAction`, `ProtectionPolicy`, `ExposureCheck`, `ExposureFinding`, `StaffAccess`, `MfaProfile`, `AuthAttempt`, `AuditEvent`, `DeviceHealth`, `DeviceFeed`, `FeedBucket`, `Asset`, `SecurityEvidence`, `AttributionCatalog`, … (ver archivo) |

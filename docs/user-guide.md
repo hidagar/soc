@@ -5,10 +5,15 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
 ## Operador
 
 1. Acceder por correo y contraseña propia; completar MFA. El perfil de cuenta limita clientes y acciones.
-2. Crear/seleccionar cliente y sede. Al añadir sede desde cliente, conservar ese contexto; no debe abrir acceso al catálogo de otros clientes. La edición del cliente solo tiene sus datos básicos.
+2. **Alta guiada en 7 pasos:** cliente → sede → firewall → conexión → envío de logs → comprobación → servicios.
+   - «+ Añadir cliente» abre el paso 1: nombre y, si se quiere, contacto. El identificador se genera solo.
+   - Cada paso lleva al siguiente. Al confirmar la recepción, «Activar los servicios del cliente» abre su panel de servicios.
+   - Se puede dejar a medias: la ficha del cliente indica el siguiente paso («Añadir la primera sede», «añadir firewall», «Continuar asistente»).
+   - Un equipo nuevo siempre se da de alta con el asistente; la edición del cliente solo tiene sus datos básicos.
    - **«Servicios del cliente»**, en la ficha del cliente y en la de cada sede, reúne todo lo que se activa:
      - **Se editan ahí, con un solo botón:** portal (firewalls y detecciones, mapa en vivo), informe semanal y mensual por correo, avisos urgentes (y caídas de Internet) y avisos de actuaciones, cada uno con su destinatario.
      - **Se ven con su estado y un enlace a su página,** que conserva MFA y control de cambios: lista de bloqueo, plazos de atención, informe mensual y panel Wazuh.
+     - **Acceso al portal:** con administración de seguridad y acceso global, «Dar acceso al portal» crea la cuenta del cliente (solo verá ese cliente) y le envía la invitación en un paso. Pide el MFA reciente. La lista muestra quién tiene la invitación pendiente.
    - **«Sedes y firewalls»** (o «Firewalls de esta sede») muestra por equipo la recepción de registros, Zenarmor, la regla de bloqueo del SOC y las copias de configuración.
 3. Añadir equipo con fabricante/perfil (incluido OPNsense + Zenarmor). Elegir gestión API/SSH cuando se necesite automatización, o instrucciones manuales cuando basten.
 4. Completar dirección remota/selección cloud/MAC y credenciales solo en formularios específicos. Inventario descubre datos disponibles sin borrar los últimos hechos conocidos si falla una lectura.

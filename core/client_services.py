@@ -138,3 +138,58 @@ def save(request, pk):
         label = form.fields[field].label if field in form.fields else ''
         messages.error(request, (f'{label}: ' if label else '') + ' '.join(errors))
     return redirect(target + '#servicios')
+
+
+def portal_users(client):
+    """Cuentas del portal de este cliente y si ya han activado su acceso."""
+    from .models import StaffAccess
+    rows = StaffAccess.objects.filter(role='customer', clients=client).select_related('user').order_by('user__email')
+    return [{'email': a.user.email or a.user.get_username(), 'active': a.user.is_active,
+             'pending': not a.user.has_usable_password()} for a in rows]
+
+
+@login_required
+@require_POST
+def invite(request, pk):
+    """Alta de un usuario del portal para este cliente y su invitación, en un paso.
+
+    Mismas condiciones que la gestión de usuarios: permiso de seguridad, acceso global y MFA reciente.
+    La cuenta solo ve este cliente; la contraseña la pone el usuario con el enlace (48 h, un solo uso).
+    """
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    from .blocklist import global_access
+    from .invitations import queue
+    from .models import StaffAccess
+    from .security import mfa_fresh
+    if not request.user.has_perm('core.manage_security') or not global_access(request.user):
+        return HttpResponseForbidden('Dar acceso al portal requiere administración global de seguridad.')
+    if not mfa_fresh(request):
+        return redirect('mfa_challenge')
+    client = get_object_or_404(Client, pk=pk)
+    target = reverse('client_detail', args=[client.pk]) + '#servicios'
+    email = request.POST.get('email', '').strip().lower()
+    try:
+        forms.EmailField().clean(email)
+    except forms.ValidationError:
+        messages.error(request, 'Indica un correo válido para el usuario del portal.')
+        return redirect(target)
+    User = get_user_model()
+    if User.objects.filter(email__iexact=email).exists() or User.objects.filter(username__iexact=email).exists():
+        messages.error(request, 'Ya existe una cuenta con ese correo. Revísala en «Usuarios y permisos».')
+        return redirect(target)
+    with transaction.atomic():
+        user = User(username=email, email=email, is_active=True)
+        user.set_unusable_password()
+        user.save()
+        access = StaffAccess.objects.create(user=user, role='customer', all_clients=False)
+        access.clients.set([client])
+        audit('staff.access', user, {'role': 'customer', 'clients': [client.pk], 'all_clients': False})
+        queue(user)
+    messages.success(request, f'Acceso al portal creado para {email}. La invitación sale en el próximo minuto y caduca en 48 horas.')
+    return redirect(target)
+
+
+def can_invite(user):
+    from .blocklist import global_access
+    return user.has_perm('core.manage_security') and global_access(user)

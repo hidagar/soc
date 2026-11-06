@@ -50,6 +50,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_gcc_connection_status.py](../../core/test_gcc_connection_status.py) | 3 |
 | [core/test_gdms_cloud.py](../../core/test_gdms_cloud.py) | 12 |
 | [core/test_grandstream_gcc.py](../../core/test_grandstream_gcc.py) | 4 |
+| [core/test_guided_onboarding.py](../../core/test_guided_onboarding.py) | 7 |
 | [core/test_hillstone_api.py](../../core/test_hillstone_api.py) | 14 |
 | [core/test_hillstone_flow.py](../../core/test_hillstone_flow.py) | 7 |
 | [core/test_hillstone_security.py](../../core/test_hillstone_security.py) | 8 |
@@ -88,6 +89,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_sla.py](../../core/test_sla.py) | 17 |
 | [core/test_soc_reputation.py](../../core/test_soc_reputation.py) | 6 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
+| [core/test_text_encoding.py](../../core/test_text_encoding.py) | 1 |
 | [core/test_threat_intel.py](../../core/test_threat_intel.py) | 15 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
