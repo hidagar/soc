@@ -35,3 +35,27 @@
 .map-presentation .noc-event strong,#map-panel:fullscreen .noc-event strong,#map-panel.is-fullscreen .noc-event strong{font-size:18px}
 .map-presentation .noc-event small,#map-panel:fullscreen .noc-event small,#map-panel.is-fullscreen .noc-event small{font-size:12px}
 @media(max-width:750px){.map-presentation .noc-metrics strong,#map-panel:fullscreen .noc-metrics strong,#map-panel.is-fullscreen .noc-metrics strong{font-size:25px}.map-presentation .noc-event strong,#map-panel:fullscreen .noc-event strong,#map-panel.is-fullscreen .noc-event strong{font-size:14px}}
+
+/* Mapa: columna, zoom, calor por país, líneas de ataque y proporción de permitidas */
+.map-main{align-items:start}.map-column{display:grid;gap:18px;min-width:0}.map-under{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px}
+@media(max-width:900px){.map-under{grid-template-columns:1fr}}
+.map-presentation .map-under,#map-panel:fullscreen~.map-under{display:none}
+.map-zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:5px;z-index:2}
+.map-zoom button{min-width:34px;height:30px;padding:0 9px;border:1px solid #3d6676;border-radius:8px;background:#0b202de6;color:#d9eef2;font-weight:700;font-size:12px;cursor:pointer}
+.map-zoom button:hover:not(:disabled){background:#14394a;border-color:#66e7d6}.map-zoom button:disabled{opacity:.4;cursor:default}
+.map-zoom button:focus-visible{outline:2px solid #66e7d6;outline-offset:2px}
+.world-stage.is-zoomed{cursor:grab}.world-stage.is-zoomed:active{cursor:grabbing}#world-map{touch-action:pan-y}
+.map-country{vector-effect:non-scaling-stroke}.map-country.is-dimmed{opacity:.45}
+.map-arc{fill:none;stroke-linecap:round;pointer-events:none}.map-arc.is-outbound{stroke-dasharray:1.5 4}
+.map-arc.is-recent{stroke-dasharray:7 6;animation:map-arc-flow 1.4s linear infinite}
+.map-arc.is-recent.is-outbound{stroke-dasharray:2 5}
+@keyframes map-arc-flow{to{stroke-dashoffset:-13}}
+.map-arc-dot{pointer-events:none;filter:drop-shadow(0 0 3px currentColor)}
+.map-home-ring{fill:#fff2;stroke:#fff;stroke-width:1.4}.map-home-dot{fill:#fff}
+.map-home text{fill:#fff;font-size:9px;font-weight:800;letter-spacing:.04em;paint-order:stroke;stroke:#071622;stroke-width:3px;pointer-events:none}
+.map-marker-share{pointer-events:none}
+.legend-line{display:inline-block;width:18px;height:0;border-top:2px solid #66e7d6;margin-right:6px;vertical-align:middle}.legend-line.outbound{border-top-style:dotted;border-top-color:#a09cf4}
+.map-motion-paused .map-arc.is-recent{animation:none}
+@media(prefers-reduced-motion:reduce){.map-arc.is-recent{animation:none}}
+@media print{.map-zoom{display:none!important}.map-arc.is-recent{animation:none}}
+.legend-home{display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #fff5;margin-right:7px}

@@ -120,6 +120,17 @@ def enrich_geography(limit=500):
         state.save()
         return 0
 
+def home_point():
+    """Zona aproximada de las sedes protegidas, para dibujar las líneas del mapa («lat,lon»; por defecto, Palma)."""
+    try:
+        lat, lon = (float(v) for v in os.environ.get('SOC_PORTAL_MAP_HOME', '39.57,2.65').split(','))
+        if -90 <= lat <= 90 and -180 <= lon <= 180:
+            return {'lat': lat, 'lon': lon}
+    except ValueError:
+        pass
+    return {'lat': 39.57, 'lon': 2.65}
+
+
 def filters(request):
     client_id=request.GET.get('client','')
     client=get_object_or_404(Client,pk=client_id) if client_id.isdigit() else None
@@ -163,7 +174,7 @@ def map_data(client=None,days=7,action='all',direction='all',with_recent=True):
         recent.append({'uid':e.uid,'observed_at':e.observed_at.isoformat(),'level':e.level,'contract_version':e.interpretation.get('contract_version'),'soc_priority':e.interpretation.get('soc_priority'),'vendor_severity':e.interpretation.get('vendor_severity'),'country_code':g.get('country_code',''),'client_id':e.client_scope_id,'time':timezone.localtime(e.observed_at).strftime('%d/%m %H:%M'),'client':e.device.site.client.name,'site':e.interpretation.get('site_name') or e.device.site.name,'device':e.device.name,'signature':e.signature,'action':e.action,'country':g.get('country') or ('Red privada' if status=='internal' else 'Sin ubicación'),'direction':g.get('direction','pending'),'peer':g.get('peer_ip') or '', 'asset':e.identified_label,'asset_ip':e.asset.ip if e.asset else '', 'incident_url':reverse('incident_detail',args=[e.incident_id]) if e.incident_id else ''})
     state=WorkerState.objects.filter(name='geography').first()
     history=WorkerState.objects.filter(name='map-history').first()
-    return {'generated_at_iso':now.isoformat(),'watch':{'window_minutes':15,'total':totals['recent_total'],'allowed':totals['recent_allowed'],'critical':totals['recent_critical']},'generated_at':timezone.localtime(now).strftime('%H:%M:%S'),'client':client.name if client else 'Clientes autorizados','days':days,'total':total,'displayed':len(rows),'limited':total>len(rows),'blocked':actions['blocked'],'allowed':actions['allowed'],'unknown_action':len(rows)-actions['blocked']-actions['allowed'],'located':flow['located'],'private':flow['internal'],'unknown_location':flow['unknown'],'pending':flow['pending'],'countries':sorted(countries.values(),key=lambda x:-x['count']),'points':list(points.values()),'engines':dict(engines),'timeline':[{'date':timezone.localtime(now-timedelta(days=i)).strftime('%d/%m'),'count':timeline[timezone.localtime(now-timedelta(days=i)).strftime('%d/%m')]} for i in reversed(range(days+1))],'recent':recent,'geo_database':state.details.get('database_date','')[:10] if state else '', 'geo_error':state.error if state else 'Geolocalización pendiente','history_pending':not history or not history.details.get('completed_until'),'last_event':timezone.localtime(rows[0][0]).strftime('%d/%m %H:%M') if rows else None}
+    return {'home':home_point(),'generated_at_iso':now.isoformat(),'watch':{'window_minutes':15,'total':totals['recent_total'],'allowed':totals['recent_allowed'],'critical':totals['recent_critical']},'generated_at':timezone.localtime(now).strftime('%H:%M:%S'),'client':client.name if client else 'Clientes autorizados','days':days,'total':total,'displayed':len(rows),'limited':total>len(rows),'blocked':actions['blocked'],'allowed':actions['allowed'],'unknown_action':len(rows)-actions['blocked']-actions['allowed'],'located':flow['located'],'private':flow['internal'],'unknown_location':flow['unknown'],'pending':flow['pending'],'countries':sorted(countries.values(),key=lambda x:-x['count']),'points':list(points.values()),'engines':dict(engines),'timeline':[{'date':timezone.localtime(now-timedelta(days=i)).strftime('%d/%m'),'count':timeline[timezone.localtime(now-timedelta(days=i)).strftime('%d/%m')]} for i in reversed(range(days+1))],'recent':recent,'geo_database':state.details.get('database_date','')[:10] if state else '', 'geo_error':state.error if state else 'Geolocalización pendiente','history_pending':not history or not history.details.get('completed_until'),'last_event':timezone.localtime(rows[0][0]).strftime('%d/%m %H:%M') if rows else None}
 
 @login_required
 @never_cache

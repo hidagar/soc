@@ -1,6 +1,6 @@
 # Trabajo pendiente
 
-Lista única de lo que falta, actualizada el **12/11/2026**. Reúne los «Pendiente» de la [hoja de ruta](roadmap.md), del [traspaso](handoff.md) y de cada entrega del [registro de cambios](changelog.md).
+Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendiente» de la [hoja de ruta](roadmap.md), del [traspaso](handoff.md) y de cada entrega del [registro de cambios](changelog.md).
 
 **Cómo se mantiene:** cada entrega quita aquí lo que cierra y añade lo que deja pendiente, en el mismo pull request (AGENTS.md, «Antes de terminar»). Cada punto indica quién puede hacerlo:
 - **Usuario:** requiere producción, credenciales, equipos de clientes o una decisión de negocio. No se hace desde el código.
@@ -10,7 +10,8 @@ Lista única de lo que falta, actualizada el **12/11/2026**. Reúne los «Pendie
 
 | Pendiente | Origen | Notas |
 |---|---|---|
-| Desplegar los contadores del menú y el buscador global | 12/11 | Sin migraciones. |
+| Desplegar el mapa mejorado | 13/11 | Sin migraciones. Opcional: `SOC_PORTAL_MAP_HOME`. |
+| Decidir si se publica la línea de tiempo por cliente | 13/11 | Hecha y probada en la rama local `interfaz/linea-tiempo`; se interrumpió antes de abrir su PR. |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |

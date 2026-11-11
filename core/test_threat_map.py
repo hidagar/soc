@@ -118,3 +118,18 @@ class ThreatMapTests(TestCase):
         self.assertTrue(WorkerState.objects.get(name='map-history').details['completed_until'])
         backfill_map_history()
         search.assert_called_once()
+
+
+class MapHomePointTests(TestCase):
+    """Zona de las sedes para las líneas del mapa: configurable y con un valor seguro por defecto."""
+
+    def test_default_configured_and_invalid_values(self):
+        from unittest import mock
+        from . import threat_map
+        self.assertEqual(threat_map.home_point(), {'lat': 39.57, 'lon': 2.65})
+        with mock.patch.dict('os.environ', {'SOC_PORTAL_MAP_HOME': '41.39, 2.17'}):
+            self.assertEqual(threat_map.home_point(), {'lat': 41.39, 'lon': 2.17})
+        for bad in ('', 'palma', '95,2', '39.5;2.6', '1,2,3'):
+            with mock.patch.dict('os.environ', {'SOC_PORTAL_MAP_HOME': bad}):
+                self.assertEqual(threat_map.home_point(), {'lat': 39.57, 'lon': 2.65}, bad)
+        self.assertEqual(threat_map.map_data()['home'], {'lat': 39.57, 'lon': 2.65})

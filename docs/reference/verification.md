@@ -99,7 +99,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
 | [core/test_text_encoding.py](../../core/test_text_encoding.py) | 1 |
 | [core/test_threat_intel.py](../../core/test_threat_intel.py) | 15 |
-| [core/test_threat_map.py](../../core/test_threat_map.py) | 10 |
+| [core/test_threat_map.py](../../core/test_threat_map.py) | 11 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
 | [core/test_unifi_zone_scope.py](../../core/test_unifi_zone_scope.py) | 18 |
