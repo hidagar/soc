@@ -218,7 +218,8 @@ def mark_mfa(request, profile):
 
 # Guardan credenciales, destinos de envío o borran datos: un MFA de hace más de 10 minutos no basta.
 FRESH_MFA_VIEWS = {'mail_settings','verify_public_reports','unifi_cloud','opnsense_api','ssh_connection',
-                   'export_destination','site_delete','hillstone_api','gdms_cloud','client_chat_channels'}
+                   'export_destination','site_delete','hillstone_api','gdms_cloud','client_chat_channels',
+                   'customer_policy_decision'}  # aprobar un cambio en el firewall: decisión del cliente con MFA reciente
 # Desactivar el envío es una parada segura: no se retrasa con el MFA.
 FRESH_MFA_EXEMPT = {('mail_settings','disable'),('client_chat_channels','disable')}
 # Tiempo máximo de una sesión verificada con MFA, aunque se siga usando.
@@ -298,7 +299,7 @@ class SocSecurityMiddleware:
             if request.method not in ('GET','HEAD','OPTIONS') and not exempt:
                 role = 'manager' if request.user.is_superuser else access.role if access else 'reader'
                 import re
-                customer_reply=role=='customer' and bool(re.fullmatch(r'/cliente/(tareas/[0-9]+/responder|solicitudes|solicitudes/[0-9]+)/',request.path))
+                customer_reply=role=='customer' and bool(re.fullmatch(r'/cliente/(tareas/[0-9]+/responder|solicitudes|solicitudes/[0-9]+|cambios/[0-9]+)/',request.path))
                 if role in ('reader','customer') and not customer_reply:
                     return HttpResponseForbidden('Tu perfil es de consulta. Solicita acceso de operador.')
         scope_token = customer_scope.set(ids if not public else None)

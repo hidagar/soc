@@ -33,6 +33,7 @@ JOBS={
     'security_score':(3600,'Índice de seguridad'),
     'connectivity':(900,'Conexión a Internet'),
     'vulnerabilities':(3600,'Avisos de vulnerabilidad'),
+    'policy_proposals':(21600,'Políticas propuestas'),
 }
 BUDGET=180
 
@@ -127,6 +128,8 @@ def execute(name):
         from .customer_requests import notify_soc as notify_requests, send_pending as send_request_notices
         escalate_unacknowledged();check_sla();send_customer_notices();send_monthly();check_monthly();send_vulnerability_notices()
         notify_requests();send_request_notices()
+        from .policy_views import notify_soc as notify_policy_decisions, send_pending as send_policy_notices
+        notify_policy_decisions();send_policy_notices()
         return op.notify_issues()
     if name=='housekeeping':
         from .vpn_security import VpnAccessEvent
@@ -171,6 +174,9 @@ def execute(name):
     if name=='security_score':
         from .security_score import record as record_scores
         return record_scores()
+    if name=='policy_proposals':
+        from .policy_proposals import run as run_policy_proposals
+        return run_policy_proposals()
     if name=='vulnerabilities':
         from .vulnerabilities import run as run_vulnerabilities
         return run_vulnerabilities()

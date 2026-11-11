@@ -49,6 +49,9 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `cliente/solicitudes/` | `customer_requests` | `customer_requests.customer_list` |
 | `cliente/solicitudes/<int:pk>/` | `customer_request_detail` | `customer_requests.customer_detail` |
 | `operations/requests/` | `requests` | `customer_requests.soc_list` |
+| `operations/policies/` | `policies` | `policy_views.overview` |
+| `cliente/cambios/` | `customer_policies` | `policy_views.customer_list` |
+| `cliente/cambios/<int:pk>/` | `customer_policy_decision` | `policy_views.customer_decision` |
 | `operations/requests/<int:pk>/` | `request_detail` | `customer_requests.soc_detail` |
 | `operations/vulnerabilities/` | `vulnerabilities` | `vulnerabilities.overview` |
 | `clients/<int:pk>/customer-view/` | `customer_preview` | `customer_preview.home` |
@@ -61,6 +64,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `clients/<int:pk>/customer-view/indice/` | `customer_preview_index` | `customer_preview.index` |
 | `clients/<int:pk>/customer-view/vulnerabilidades/` | `customer_preview_vulnerabilities` | `customer_preview.vulnerabilities` |
 | `clients/<int:pk>/customer-view/solicitudes/` | `customer_preview_requests` | `customer_preview.requests` |
+| `clients/<int:pk>/customer-view/cambios/` | `customer_preview_policies` | `customer_preview.policies` |
 | `clients/<int:pk>/customer-view/reports/<int:report_pk>/` | `customer_preview_report` | `customer_preview.report` |
 | `clients/<int:pk>/customer-view/reports/<int:report_pk>/pdf/` | `customer_preview_report_pdf` | `customer_preview.report_pdf` |
 | `cliente/detecciones/` | `customer_detections` | `customer_portal.detections` |

@@ -11,7 +11,7 @@ Guía técnica del código incluido en este repositorio. Estado de referencia: *
 | Integraciones | [conectores](integrations.md), [configuración](configuration.md), [operación](operations.md) |
 | Frontend e informes | [interfaz y marca](frontend.md), [informes y correo](reports-and-mail.md) |
 | Operación / NOC | [operación](operations.md), [diagnóstico](troubleshooting.md), [despliegue](deployment.md), [recuperación](recovery.md) |
-| Planificación | [estado y pendientes](handoff.md), [hoja de ruta](roadmap.md), [decisiones](decisions.md) |
+| Planificación | [registro de cambios](changelog.md), [trabajo pendiente](pending.md), [estado y traspaso](handoff.md), [hoja de ruta](roadmap.md), [decisiones](decisions.md) |
 
 ## Referencias del código
 

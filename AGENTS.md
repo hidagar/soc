@@ -10,6 +10,7 @@ Este repositorio contiene el Centro SOC de ib-red empresas. Antes de cambiar có
 - Nunca añadir `.env`, claves SSH, certificados privados, bases, ZIP de relay, credenciales, logs o datos reales de clientes. Usar fixtures anonimizadas. No imprimir respuestas crudas de fabricantes o secretos en diagnóstico.
 - Mantener la marca `ib-red` en minúsculas y los logos de empresas existentes. Interfaz y documentación operativa en español.
 - Antes de terminar: explicar cambios, pruebas ejecutadas, límites y trabajo pendiente. No confundir implementación, prueba aislada, despliegue y validación en una sede.
+- En el mismo pull request, añadir la entrega a [docs/changelog.md](docs/changelog.md) y actualizar [docs/pending.md](docs/pending.md): quitar lo que se cierra y añadir lo que queda pendiente, separando lo que requiere al usuario de lo que es código. Cuando el usuario confirme un despliegue, cambiar su estado en el registro.
 
 ## Invariantes que no se deben romper
 

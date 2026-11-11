@@ -1266,6 +1266,51 @@ Fuente: [core/operations_models.py](../../core/operations_models.py).
 | `observed_at` | DateTimeField |  |
 | `snapshot` | JSONField |  |
 | `changes` | JSONField |  |
+## PolicyProposal
+
+Fuente: [core/policy_models.py](../../core/policy_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `device` | ForeignKey | → 'core.Device'; on_delete=models.CASCADE; null=True; blank=True |
+| `exposure` | ForeignKey | → 'core.ExposureFinding'; on_delete=models.SET_NULL; null=True; blank=True |
+| `kind` | CharField | max_length=24 |
+| `key` | CharField | max_length=160 |
+| `status` | CharField | max_length=16; db_index=True |
+| `confidence` | CharField | max_length=8 |
+| `title` | CharField | max_length=220 |
+| `evidence` | JSONField |  |
+| `change` | TextField |  |
+| `risk` | TextField |  |
+| `customer_title` | CharField | max_length=220; blank=True |
+| `customer_text` | TextField | blank=True; max_length=3000 |
+| `customer_summary` | JSONField | blank=True |
+| `planned_for` | DateTimeField | null=True; blank=True |
+| `created_at` | DateTimeField |  |
+| `updated_at` | DateTimeField |  |
+| `evaluated_at` | DateTimeField |  |
+| `offered_at` | DateTimeField | null=True; blank=True |
+| `offered_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `decided_at` | DateTimeField | null=True; blank=True |
+| `decided_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `decision_note` | TextField | blank=True; max_length=2000 |
+| `applied_at` | DateTimeField | null=True; blank=True |
+| `applied_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `applied_note` | CharField | max_length=500; blank=True |
+| `change_plan` | ForeignKey | → 'core.ChangePlan'; on_delete=models.SET_NULL; null=True; blank=True |
+| `verified_at` | DateTimeField | null=True; blank=True |
+| `verification` | JSONField | blank=True |
+| `dismissed_reason` | CharField | max_length=240; blank=True |
+| `notice_status` | CharField | max_length=16; blank=True |
+| `notice_recipient` | EmailField | blank=True |
+| `notice_error` | CharField | max_length=240; blank=True |
+| `notice_attempted_at` | DateTimeField | null=True; blank=True |
+| `notice_sent_at` | DateTimeField | null=True; blank=True |
+| `provider_id` | CharField | max_length=180; blank=True |
+| `soc_notified_at` | DateTimeField | null=True; blank=True |
 ## CustomerRequest
 
 Fuente: [core/request_models.py](../../core/request_models.py).

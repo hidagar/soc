@@ -48,6 +48,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | `security_score` | 3600 | Índice de seguridad |
 | `connectivity` | 900 | Conexión a Internet |
 | `vulnerabilities` | 3600 | Avisos de vulnerabilidad |
+| `policy_proposals` | 21600 | Políticas propuestas |
 
 ## Unidades incluidas
 

@@ -72,6 +72,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_network_coverage.py](../../core/test_network_coverage.py) | 20 |
 | [core/test_onboarding.py](../../core/test_onboarding.py) | 16 |
 | [core/test_operations.py](../../core/test_operations.py) | 32 |
+| [core/test_policy_proposals.py](../../core/test_policy_proposals.py) | 8 |
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
@@ -188,3 +189,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0071_avisos_chat.py](../../core/migrations/0071_avisos_chat.py)
 - [core/migrations/0072_avisos_vulnerabilidad.py](../../core/migrations/0072_avisos_vulnerabilidad.py)
 - [core/migrations/0073_solicitudes_cliente.py](../../core/migrations/0073_solicitudes_cliente.py)
+- [core/migrations/0074_politicas_propuestas.py](../../core/migrations/0074_politicas_propuestas.py)

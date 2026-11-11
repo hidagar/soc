@@ -7,6 +7,7 @@ from . import client_services
 from . import chat_alerts
 from . import vulnerabilities
 from . import customer_requests
+from . import policy_views
 from . import monthly_report
 from . import threat_intel
 from . import soc_reputation
@@ -78,6 +79,9 @@ urlpatterns = [
     path('cliente/solicitudes/',customer_requests.customer_list,name='customer_requests'),
     path('cliente/solicitudes/<int:pk>/',customer_requests.customer_detail,name='customer_request_detail'),
     path('operations/requests/',customer_requests.soc_list,name='requests'),
+    path('operations/policies/',policy_views.overview,name='policies'),
+    path('cliente/cambios/',policy_views.customer_list,name='customer_policies'),
+    path('cliente/cambios/<int:pk>/',policy_views.customer_decision,name='customer_policy_decision'),
     path('operations/requests/<int:pk>/',customer_requests.soc_detail,name='request_detail'),
     path('operations/vulnerabilities/',vulnerabilities.overview,name='vulnerabilities'),
     path('clients/<int:pk>/customer-view/',customer_preview.home,name='customer_preview'),
@@ -90,6 +94,7 @@ urlpatterns = [
     path('clients/<int:pk>/customer-view/indice/',customer_preview.index,name='customer_preview_index'),
     path('clients/<int:pk>/customer-view/vulnerabilidades/',customer_preview.vulnerabilities,name='customer_preview_vulnerabilities'),
     path('clients/<int:pk>/customer-view/solicitudes/',customer_preview.requests,name='customer_preview_requests'),
+    path('clients/<int:pk>/customer-view/cambios/',customer_preview.policies,name='customer_preview_policies'),
     path('clients/<int:pk>/customer-view/reports/<int:report_pk>/',customer_preview.report,name='customer_preview_report'),
     path('clients/<int:pk>/customer-view/reports/<int:report_pk>/pdf/',customer_preview.report_pdf,name='customer_preview_report_pdf'),
     path('cliente/detecciones/',customer_portal.detections,name='customer_detections'),

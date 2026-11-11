@@ -186,3 +186,51 @@ Los firewalls que no informan de caídas aparecen como «No informa», nunca com
 - **Lo que ve el cliente:** sus solicitudes y los mensajes del SOC dirigidos a él. Nunca ve las notas internas ni la incidencia enlazada (invariante 3).
 - **Pendiente:** plazos de respuesta para las solicitudes (hoy solo se mide la primera respuesta) y adjuntos.
 
+## Políticas de firewall propuestas
+
+`core/policy_proposals.py` (motor y verificación) y `core/policy_views.py` (páginas y avisos), con el modelo `PolicyProposal`. Fase 1: reducir la exposición y endurecer, con lo que el SOC ya ve.
+
+**Qué propone el trabajo `policy_proposals`** (cada 6 horas, con 30 días de evidencia):
+
+| Tipo | Cuándo | Confianza |
+|---|---|---|
+| Restringir un servicio publicado | El control de exposición ve una publicación o un permiso WAN abierto a cualquier origen, de riesgo alto o con ataques a ese puerto | Alta con ataques permitidos o 20 o más; media con algún ataque; baja sin ataques |
+| Filtrar por país | Además, 20 o más ataques, al menos el 90 % de fuera de los países del cliente (`SOC_PORTAL_POLICY_HOME_COUNTRIES`, por defecto ES) y 3 o más países | Media |
+| IPS en modo bloqueo | Suricata o el IPS de UniFi en modo detección según la última lectura | Alta con detecciones permitidas |
+| Lista de salida C2 | Q-Feeds ve destinos de malware o control remoto y la lista de salida del SOC no está activa | Alta con conexiones permitidas |
+| Lista de bloqueo del SOC | 10 o más orígenes atacan 3 veces o más y la lista no está activa | Alta desde 50 orígenes |
+
+Cada propuesta lleva:
+- la evidencia: ataques, permitidos, orígenes y países;
+- el cambio con los pasos del fabricante (OPNsense o UniFi);
+- lo que podría romper.
+
+Una propuesta que nadie ha ofrecido y deja de cumplirse pasa a «Ya no aplica». Una rechazada o descartada se vuelve a proponer a los 90 días si sigue aplicando. Una verificada se reabre si la situación vuelve.
+
+**Ciclo**, en «Cobertura y salud › Políticas propuestas»:
+1. **Revisión del SOC** (`change_incident`):
+   - **Ofrecer al cliente:** con un título, una explicación (se sugiere un texto con solo cifras) y una ventana. Lo que ve el cliente se congela en `customer_summary`: cifras, servicio y firewall, nunca IPs, reglas internas ni notas.
+   - **Descartar:** con un motivo interno.
+   - **Retirar:** quita la propuesta del portal mientras está pendiente.
+2. **Cliente:** en «Cambios propuestos» del portal la aprueba o la rechaza, con un comentario opcional.
+   - Exige MFA reciente (`customer_policy_decision` está en `FRESH_MFA_VIEWS`).
+   - Queda registrado quién decidió y cuándo, también en la auditoría.
+   - Una propuesta ya decidida no cambia.
+3. **Aplicación** (`change_device`): el SOC aplica en la ventana y marca la propuesta como aplicada, con lo que cambió o el plan del control de cambios.
+   - Las listas del SOC usan el control de cambios que ya existe.
+   - Restringir un servicio, el filtro por país y el modo del IPS se aplican a mano con los pasos de la propuesta. La plantilla automática es la fase 2.
+4. **Verificación** (a partir de 7 días):
+   - Servicio restringido: el control de exposición ya no lo ve abierto a cualquier origen y no entran ataques permitidos a ese puerto.
+   - IPS: está en modo bloqueo.
+   - Listas: están publicadas y hay una regla activa que las usa.
+   - Si no se puede comprobar en 30 días, queda «Sin efecto comprobado» con el motivo.
+
+**Avisos** (trabajo `notifications`):
+- **Al cliente:** un correo por cliente con las propuestas ofrecidas, sin detalles y con enlace al portal (`MailDispatch` de tipo `policy`). Usa la opción y el destinatario de «Avisos de actuaciones».
+- **Al equipo:** las decisiones de los clientes llegan al «Correo de operaciones», como mucho una vez por decisión.
+
+**Límites:**
+- Sin el tráfico legítimo del cliente no se proponen políticas de mínimo privilegio (fase 3).
+- Las cifras son de eventos recibidos: un ataque no implica éxito, y una regla aplicada no garantiza el bloqueo; por eso se verifica.
+- El filtro por país depende de la base GeoIP del firewall.
+

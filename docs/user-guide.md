@@ -32,11 +32,20 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
     - **Abrir una incidencia enlazada:** se usa cuando hay que investigar.
 
     Las nuevas, y las que tienen un mensaje nuevo del cliente, llegan por correo al «Correo de operaciones» (Copias y recuperación). Si el cliente marca «afecta al trabajo ahora», el aviso lleva «URGENTE».
-12. Revisar informe y acciones propuestas antes de activar envío semanal/avisos. Publicación y dirección de contacto no equivalen a preferencias de correo activadas.
+12. Revisar las **políticas propuestas** («Cobertura y salud › Políticas propuestas»):
+    - Descartar las que no proceden.
+    - Ofrecer las demás al cliente, con una explicación y una ventana.
+    - Cuando el cliente apruebe, aplicar en la ventana y marcarlas como aplicadas. El SOC comprueba el efecto a partir de los 7 días.
+13. Revisar informe y acciones propuestas antes de activar envío semanal/avisos. Publicación y dirección de contacto no equivalen a preferencias de correo activadas.
 
 ## Cliente
 
 Recibe invitación para establecer contraseña. La cuenta pertenece exactamente a su empresa; puede consultar comunicaciones e informes publicados, responder tareas permitidas y acceder a su dashboard Wazuh si el ámbito está preparado.
+
+**Cambios propuestos** (portal › «Cambios propuestos», solo si el SOC ha ofrecido alguno):
+- El SOC propone cambios en sus firewalls, con el motivo en cifras y una ventana.
+- El cliente los aprueba o los rechaza con su código de doble factor, y puede dejar un comentario (por ejemplo, la IP de su proveedor).
+- Nada se aplica sin su aprobación, y el historial muestra si se aplicaron y comprobaron.
 
 **Solicitudes al SOC** (portal › «Solicitudes»):
 - Elige qué necesita: consulta, cambio en el firewall o la red, desbloquear algo o sospecha de incidente. Después indica el asunto, la sede (opcional), el detalle y si afecta al trabajo ahora.

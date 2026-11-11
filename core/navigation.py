@@ -48,6 +48,7 @@ def _staff_groups(user, global_access):
             _item("Cobertura por red", "network_coverage", ["device_coverage", "network_requirements",
                   "advanced_coverage"]),
             _item("Vulnerabilidades", "vulnerabilities"),
+            _item("Políticas propuestas", "policies"),
             _item("Control de exposición", "exposure_list", ["exposure_detail", "exposure_interfaces",
                   "exposure_recheck", "unifi_policies"]),
         ]),

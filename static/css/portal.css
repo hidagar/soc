@@ -42,3 +42,8 @@ label.check { display:flex; gap:8px; align-items:center; font-weight:400; margin
 .task-history li.internal-note { background:#fff8e6; border-left:3px solid #d9a400; padding-left:10px; }
 @media (max-width: 700px) { .request-kinds { grid-template-columns:1fr; } }
 .plain-fieldset { border:0; padding:0; margin:12px 0; } .plain-fieldset legend { font-weight:700; margin-bottom:4px; }
+/* Políticas propuestas */
+.policy-item { border-top:1px solid #e3e9e5; padding:16px 0 6px; }
+.policy-item:first-of-type { border-top:0; }
+.policy-item h3 { margin:0; font-size:1.02rem; }
+.policy-item h3 { text-transform:none; letter-spacing:0; color:#163728; font-weight:700; }

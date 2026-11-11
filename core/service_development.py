@@ -156,8 +156,10 @@ def portal_tasks(client,preview=False):
 def _portal_base(client,preview,section):
     from .customer_portal import portal_links,wazuh_ready
     from .models import VulnerabilityAdvisory
+    from .policy_views import has_policies
     return {'client':client,'portal_section':section,'portal':portal_links(client,preview),'wazuh_ready':wazuh_ready(client),
-            'has_vulnerabilities':VulnerabilityAdvisory.objects.filter(client=client).exists()}
+            'has_vulnerabilities':VulnerabilityAdvisory.objects.filter(client=client).exists(),
+            'has_policies':has_policies(client)}
 
 def customer_home_context(client,preview=False):
     """Inicio del portal del cliente; la vista previa del SOC usa el mismo contenido sin enlaces de respuesta."""
@@ -172,7 +174,8 @@ def customer_home_context(client,preview=False):
     from .connectivity import last_days
     from .vulnerabilities import open_count
     from .customer_requests import open_summary
-    return {**_portal_base(client,preview,'home'),'open_vulnerabilities':open_count(client),'request_summary':open_summary(client),'index_latest':latest,'connectivity':last_days(client),'security_summary':customer_security_summary(client) if live else None,
+    from .policy_views import pending_count
+    return {**_portal_base(client,preview,'home'),'pending_policies':pending_count(client),'open_vulnerabilities':open_count(client),'request_summary':open_summary(client),'index_latest':latest,'connectivity':last_days(client),'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
         'tasks':tasks,'tasks_to_do':[t for t in tasks if t.status in ('pending','rework')],
         'publications':news[:6],'publication_count':news.count(),

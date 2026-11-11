@@ -2,6 +2,8 @@
 
 **Fecha del registro: 20/10/2026.** Revalidar antes de operar producción.
 
+> **Estado actual (11/11/2026):** lo entregado desde entonces, con su PR, migración y estado de despliegue, está en el [registro de cambios](changelog.md). Todo lo que falta, separado entre acciones del usuario y desarrollo, está en [trabajo pendiente](pending.md). Producción: `main` en `5a7e4bf` (#59, confirmado el 06/11). Pendientes de desplegar: #60 (solicitudes, migración 0073) y las políticas propuestas (0074). Este archivo conserva el contexto histórico del 20/10.
+
 ## Qué hay construido
 
 Aplicación Django de gestión para equipos SOC y clientes: clientes/sedes/firewalls, onboarding guiado, credenciales cifradas, inventario, detecciones e incidentes, tareas, protección y cobertura, exposición, mapa, informes, invitaciones/MFA, SendGrid, auditoría, copias y dashboards Wazuh con acceso mediado por sesión.

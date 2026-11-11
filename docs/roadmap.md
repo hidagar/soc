@@ -1,6 +1,6 @@
 # Hoja de ruta
 
-Actualizada: 20 de octubre de 2026.
+Actualizada: 20 de octubre de 2026; secciones «Actualización» hasta el 11/11/2026. Lo entregado está en el [registro de cambios](changelog.md) y lo que falta, consolidado, en [trabajo pendiente](pending.md).
 
 
 
@@ -23,6 +23,23 @@ Tamaño relativo: **S** cambio acotado; **M** varias capas y pruebas integradas;
 Las pruebas de autorización, navegador y concurrencia deben acompañar todas las entregas. La auditoría y la recuperación se preparan desde el primer bloque; su cierre depende de disponer del destino y laboratorio necesarios.
 
 
+
+## Actualización: políticas de firewall propuestas, fase 1 (11/11/2026)
+
+El SOC propone por cliente, con la evidencia de 30 días:
+- restringir servicios publicados;
+- filtro por país;
+- IPS en bloqueo;
+- lista de salida C2;
+- lista de bloqueo.
+
+El SOC revisa y ofrece; el cliente aprueba o rechaza en su portal con MFA; el SOC aplica; a los 7 días se verifica el efecto. Detalle: [operación](operations.md#políticas-de-firewall-propuestas).
+
+Pendiente:
+- fase 2: aplicar con el control de cambios en OPNsense y por API en UniFi;
+- fase 3: mínimo privilegio con el tráfico legítimo.
+
+Ver [trabajo pendiente](pending.md).
 
 ## Actualización: solicitudes al SOC desde el portal (06/11/2026)
 

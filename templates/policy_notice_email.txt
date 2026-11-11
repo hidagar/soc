@@ -1,0 +1,14 @@
+Cambios de seguridad propuestos por el Centro SOC de ib-red empresas.
+
+{{ client.name }}:
+
+El SOC os propone {% if count == 1 %}un cambio{% else %}{{ count }} cambios{% endif %} en vuestros firewalls para reducir el riesgo, a partir de los ataques que reciben. No se aplicará nada sin vuestra aprobación.
+
+Podéis revisarlo y aprobarlo o rechazarlo en el portal (usuario y código de doble factor):
+{{ url }}
+
+Por seguridad, este correo no incluye detalles técnicos.
+Si no esperabais este aviso, respondednos antes de abrir el enlace.
+
+Atentamente,
+Equipo de seguridad · ib-red empresas

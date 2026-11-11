@@ -46,6 +46,15 @@ def home(request, pk):
 @login_required
 @never_cache
 @require_GET
+def policies(request, pk):
+    from .policy_views import customer_context
+    client = preview_client(request, pk, 'cambios')
+    return _render(request, 'customer_policies.html', customer_context(client, preview=True))
+
+
+@login_required
+@never_cache
+@require_GET
 def requests(request, pk):
     from .customer_requests import customer_requests_context
     client = preview_client(request, pk, 'solicitudes')

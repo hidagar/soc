@@ -473,5 +473,6 @@ from .connectivity_models import ConnectivityEvent
 from .chat_models import ChatChannel, ChatNotice
 from .vulnerability_models import DeviceExposure, VulnerabilityAdvisory, VulnerabilityRecord
 from .request_models import CustomerRequest, CustomerRequestEntry
+from .policy_models import PolicyProposal
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage
