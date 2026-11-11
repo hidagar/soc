@@ -52,3 +52,10 @@ label.check { display:flex; gap:8px; align-items:center; font-weight:400; margin
 .nav-badge{display:inline-block;min-width:19px;padding:1px 6px;margin-left:5px;border-radius:99px;background:#d7ead9;color:#063B2B;font-size:11px;font-weight:800;letter-spacing:0;text-align:center;line-height:1.5}.nav-badge.urgent{background:#ffb9b0;color:#7a1410}
 .nav-group[open]>summary .nav-badge{display:none}
 @media(max-width:700px){.nav-search{margin:0}.sidebar.nav-collapsible:not(.nav-open) .nav-search{display:none}}
+/* Línea de tiempo del cliente */
+.timeline-day{margin:22px 0 8px}.timeline-day:first-child{margin-top:0}
+.timeline{list-style:none;margin:0;padding:0;border-left:2px solid #e3e9e5}
+.timeline-item{display:grid;grid-template-columns:52px 1fr;gap:10px;padding:8px 0 8px 14px;position:relative}
+.timeline-item:before{content:'';position:absolute;left:-6px;top:14px;width:10px;height:10px;border-radius:50%;background:#9fb1a7;border:2px solid #fff}
+.timeline-item.tone-alert:before{background:#c2410c}.timeline-item.tone-warn:before{background:#d9a400}.timeline-item.tone-ok:before{background:#0b6b33}
+.timeline-item time{color:#6c7d8e;font-variant-numeric:tabular-nums;padding-top:1px}.timeline-item p{margin:0;line-height:1.4}.timeline-item small{color:#6c7d8e}

@@ -54,7 +54,7 @@ def _staff_groups(user, global_access):
         ]),
         ("clientes", "Clientes e infraestructura", [
             _item("Clientes y sedes", "client_list", ["client_new", "client_detail", "client_edit",
-                  "client_trends", "weekly_report", "monthly_summary", "customer_publish",
+                  "client_trends", "client_timeline", "weekly_report", "monthly_summary", "customer_publish",
                   "manage_report_link", "site_new", "site_detail", "site_edit", "site_delete",
                   "device_new", "device_detail", "device_edit", "device_history", "device_onboarding",
                   "onboarding_add_device", "onboarding_status", "export_destination", "unifi_cloud",

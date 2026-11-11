@@ -23,6 +23,7 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
 6. Comprobar evento real recibido e interpretado. La validación de amenaza es un paso aparte; dejarlo pendiente si no se puede generar/observar una muestra real segura.
 7. Consultar Salud del SOC y bandeja de trabajo. Investigar detecciones, activos, acciones, exposición y cobertura; asignar tareas/runbook y publicar solo la comunicación apropiada.
    - El menú lateral muestra junto a «Solicitudes de clientes», «Vulnerabilidades» y «Políticas propuestas» cuántas esperan al SOC, en rojo si hay algo urgente.
+   - «Línea de tiempo», en la ficha de cada cliente, reúne por día todo lo ocurrido con él (incidencias, avisos, solicitudes, vulnerabilidades, cambios, informes y caídas de Internet), con filtros por tipo y periodo.
    - El buscador del menú (tecla `/`) encuentra clientes, sedes, firewalls, incidencias, solicitudes (`SOL-`), políticas (`POL-`), CVE e IPs.
 8. Atender los plazos de cada caso (si están activados en «Plazos de atención»): asumirlo es el acuse; la primera nota, acción, tarea para el cliente o comprobación de la guía es el diagnóstico. La cola «Plazo vencido o próximo» de la bandeja ordena lo urgente.
 9. Con Q-Feeds configurado, revisar en «Inteligencia Q-Feeds» las conexiones salientes permitidas hacia indicadores de malware o C2: cada una es un motivo para investigar el equipo interno, no una infección confirmada.

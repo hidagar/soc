@@ -28,6 +28,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_chat_alerts.py](../../core/test_chat_alerts.py) | 20 |
 | [core/test_client_services.py](../../core/test_client_services.py) | 6 |
+| [core/test_client_timeline.py](../../core/test_client_timeline.py) | 3 |
 | [core/test_connection_guide.py](../../core/test_connection_guide.py) | 6 |
 | [core/test_connectivity.py](../../core/test_connectivity.py) | 5 |
 | [core/test_continuity.py](../../core/test_continuity.py) | 22 |

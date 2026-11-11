@@ -10,8 +10,7 @@ Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendie
 
 | Pendiente | Origen | Notas |
 |---|---|---|
-| Desplegar el mapa mejorado | 13/11 | Sin migraciones. Opcional: `SOC_PORTAL_MAP_HOME`. |
-| Decidir si se publica la línea de tiempo por cliente | 13/11 | Hecha y probada en la rama local `interfaz/linea-tiempo`; se interrumpió antes de abrir su PR. |
+| Desplegar la línea de tiempo por cliente | 12/11 | Sin migraciones. |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -88,7 +87,7 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 **Usabilidad del SOC**
 - Hecho el 12/11: contadores en el menú lateral y buscador global.
 - Buscador: añadir usuarios del portal y texto de las conversaciones si se echa en falta.
-- Línea de tiempo por cliente en su ficha: incidencias, solicitudes, avisos, vulnerabilidades y cambios en un solo sitio.
+- Hecho el 12/11: línea de tiempo por cliente. Posible ampliación: versión resumida para el portal del cliente, solo con lo publicado.
 - El menú ya supera las 30 entradas: agrupar «CrowdSec», «Listas de bloqueo», «Q-Feeds» y «Reputación propia» en una sola página de inteligencia con pestañas.
 
 **Valor para el cliente**

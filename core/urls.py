@@ -9,6 +9,7 @@ from . import vulnerabilities
 from . import customer_requests
 from . import policy_views
 from . import global_search
+from . import client_timeline
 from . import monthly_report
 from . import threat_intel
 from . import soc_reputation
@@ -82,6 +83,7 @@ urlpatterns = [
     path('operations/requests/',customer_requests.soc_list,name='requests'),
     path('operations/policies/',policy_views.overview,name='policies'),
     path('search/',global_search.results,name='search'),
+    path('clients/<int:pk>/actividad/',client_timeline.timeline,name='client_timeline'),
     path('cliente/cambios/',policy_views.customer_list,name='customer_policies'),
     path('cliente/cambios/<int:pk>/',policy_views.customer_decision,name='customer_policy_decision'),
     path('operations/requests/<int:pk>/',customer_requests.soc_detail,name='request_detail'),
