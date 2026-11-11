@@ -82,6 +82,23 @@ def _staff_groups(user, global_access):
     ]
 
 
+def badges():
+    """Trabajo pendiente por entrada del menú: {url_name: (número, urgente)}. Con el ámbito del usuario.
+
+    Son pocas consultas de recuento por página; si algo falla, el menú se muestra sin contadores.
+    """
+    from .models import CustomerRequest, DeviceExposure, PolicyProposal
+    requests = CustomerRequest.objects.filter(status__in=("new", "in_progress"))
+    exposures = DeviceExposure.objects.filter(resolved_at__isnull=True, dismissed_at__isnull=True, advisory__isnull=True,
+                                              device__active=True)
+    policies = PolicyProposal.objects.filter(status__in=("proposed", "approved", "not_effective"))
+    return {
+        "requests": (requests.count(), requests.filter(urgent=True).exists()),
+        "vulnerabilities": (exposures.values("device").distinct().count(), exposures.filter(record__kev_added__isnull=False).exists()),
+        "policies": (policies.count(), policies.filter(status="approved").exists()),
+    }
+
+
 def _customer_groups():
     return [("inicio", "", [
         _item("Mi empresa", "customer_home", ["customer_weekly", "customer_map", "customer_task_reply"]),
@@ -95,12 +112,26 @@ def build_navigation(request, global_access):
     current = match.url_name if match else ""
     access = getattr(user, "soc_access", None)
     is_customer = getattr(access, "role", "") == "customer"
+    counts = {}
+    if not is_customer:
+        try:
+            counts = badges()
+        except Exception:  # el menú no puede romper una página
+            import logging
+            logging.getLogger(__name__).exception("No se pudieron calcular los contadores del menú")
     groups = []
     for key, title, items in (_customer_groups() if is_customer else _staff_groups(user, global_access)):
-        entries = [{"label": item["label"], "href": item["href"] or reverse(item["url_name"]),
-                    "external": item["external"], "current": bool(current) and current in item["active"]}
-                   for item in items if item["visible"]]
+        entries = []
+        for item in items:
+            if not item["visible"]:
+                continue
+            count, urgent = counts.get(item["url_name"], (0, False))
+            entries.append({"label": item["label"], "href": item["href"] or reverse(item["url_name"]),
+                            "external": item["external"], "current": bool(current) and current in item["active"],
+                            "count": count, "urgent": urgent})
         if entries:
             groups.append({"key": key, "title": title, "items": entries,
-                           "current": any(entry["current"] for entry in entries)})
+                           "current": any(entry["current"] for entry in entries),
+                           "count": sum(entry["count"] for entry in entries),
+                           "urgent": any(entry["urgent"] for entry in entries)})
     return groups

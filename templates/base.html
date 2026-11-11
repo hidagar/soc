@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Centro SOC{% endblock %} · ib-red empresas</title>
-  <link rel="stylesheet" href="{% static 'css/portal.css' %}?v=20261111-politicas"><link rel="stylesheet" href="{% static 'css/ui.css' %}?v=20261027">
+  <link rel="stylesheet" href="{% static 'css/portal.css' %}?v=20261112-menu"><link rel="stylesheet" href="{% static 'css/ui.css' %}?v=20261027">
 </head>
 <body>
 {% if user.is_authenticated %}
@@ -12,11 +12,12 @@
   <aside class="sidebar">
     <a class="brand" href="{% url 'dashboard' %}"><img class="brand-logo" src="{% static 'brand/ibred-empresas-white.png' %}" alt="ib-red empresas"><span class="brand-caption">Centro SOC</span></a>
     <button type="button" class="nav-toggle" aria-controls="main-nav" aria-expanded="false">Menú</button>
+    {% if nav_search %}<form class="nav-search" method="get" action="{% url 'search' %}" role="search"><input type="search" name="q" maxlength="80" placeholder="Buscar…  ( / )" aria-label="Buscar en el SOC" autocomplete="off"></form>{% endif %}
     <nav id="main-nav" aria-label="Principal">
       {% for group in nav_groups %}
       {% if group.title %}
       <details class="nav-group" data-nav-group="{{ group.key }}"{% if group.current %} open{% endif %}>
-        <summary>{{ group.title }}</summary>
+        <summary>{% if group.count %}<span>{{ group.title }} <span class="nav-badge{% if group.urgent %} urgent{% endif %}" aria-hidden="true">{{ group.count }}</span></span>{% else %}{{ group.title }}{% endif %}</summary>
         {% include "partials/nav_links.html" with items=group.items %}
       </details>
       {% else %}
@@ -35,6 +36,6 @@
   </main>
 </div>
 {% else %}{% block guest %}{% endblock %}{% endif %}
-{% if user.is_authenticated %}<script src="{% static 'js/sidebar.js' %}?v=20261020" defer></script>{% endif %}
+{% if user.is_authenticated %}<script src="{% static 'js/sidebar.js' %}?v=20261112" defer></script>{% endif %}
 </body>
 </html>

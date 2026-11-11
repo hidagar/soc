@@ -7,4 +7,5 @@ def connection_permissions(request):
         getattr(getattr(user,'soc_access',None),'all_clients',False)))
     return {"can_manage_connections": user.is_authenticated and user.has_perm("core.manage_connections"),
             "soc_global_access":global_access,
+            "nav_search": user.is_authenticated and getattr(getattr(user, 'soc_access', None), 'role', '') != 'customer',
             "nav_groups": build_navigation(request, global_access) if user.is_authenticated else []}

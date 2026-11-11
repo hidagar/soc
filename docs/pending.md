@@ -1,6 +1,6 @@
 # Trabajo pendiente
 
-Lista única de lo que falta, actualizada el **11/11/2026**. Reúne los «Pendiente» de la [hoja de ruta](roadmap.md), del [traspaso](handoff.md) y de cada entrega del [registro de cambios](changelog.md).
+Lista única de lo que falta, actualizada el **12/11/2026**. Reúne los «Pendiente» de la [hoja de ruta](roadmap.md), del [traspaso](handoff.md) y de cada entrega del [registro de cambios](changelog.md).
 
 **Cómo se mantiene:** cada entrega quita aquí lo que cierra y añade lo que deja pendiente, en el mismo pull request (AGENTS.md, «Antes de terminar»). Cada punto indica quién puede hacerlo:
 - **Usuario:** requiere producción, credenciales, equipos de clientes o una decisión de negocio. No se hace desde el código.
@@ -10,7 +10,8 @@ Lista única de lo que falta, actualizada el **11/11/2026**. Reúne los «Pendie
 
 | Pendiente | Origen | Notas |
 |---|---|---|
-| Confirmar el despliegue de #60 y #61 (en `main` desde el 11/11) y desplegar la auditoría de noviembre | 11/11 | Migraciones 0073 y 0074. «Correo de operaciones» activo en «Copias y recuperación» para recibir solicitudes y decisiones. |
+| Desplegar los contadores del menú y el buscador global | 12/11 | Sin migraciones. |
+| «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
 | `X-Forwarded-For` en el Nginx público y `deploy/configurar_ip_real.sh` | Continuidad 29/10 | Sin esto, el límite de login por IP ve la IP del proxy. |
@@ -84,8 +85,8 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 - Tras confirmar el doble factor, volver a la página donde estaba el usuario (hoy tiene que repetir la operación a mano).
 
 **Usabilidad del SOC**
-- Contadores en el menú lateral (solicitudes, cambios aprobados, vulnerabilidades) para no depender de entrar al resumen.
-- Buscador global por cliente, firewall, IP o referencia (`SOL-`, `POL-`, CVE).
+- Hecho el 12/11: contadores en el menú lateral y buscador global.
+- Buscador: añadir usuarios del portal y texto de las conversaciones si se echa en falta.
 - Línea de tiempo por cliente en su ficha: incidencias, solicitudes, avisos, vulnerabilidades y cambios en un solo sitio.
 - El menú ya supera las 30 entradas: agrupar «CrowdSec», «Listas de bloqueo», «Q-Feeds» y «Reputación propia» en una sola página de inteligencia con pestañas.
 

@@ -50,6 +50,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `cliente/solicitudes/<int:pk>/` | `customer_request_detail` | `customer_requests.customer_detail` |
 | `operations/requests/` | `requests` | `customer_requests.soc_list` |
 | `operations/policies/` | `policies` | `policy_views.overview` |
+| `search/` | `search` | `global_search.results` |
 | `cliente/cambios/` | `customer_policies` | `policy_views.customer_list` |
 | `cliente/cambios/<int:pk>/` | `customer_policy_decision` | `policy_views.customer_decision` |
 | `operations/requests/<int:pk>/` | `request_detail` | `customer_requests.soc_detail` |

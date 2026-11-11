@@ -12,6 +12,15 @@
       try { localStorage.setItem(KEY, JSON.stringify(open)); } catch (e) { /* sin almacenamiento */ }
     });
   });
+  // «/» lleva al buscador, salvo si ya se está escribiendo en un campo.
+  var search = document.querySelector('.nav-search input');
+  if (search) document.addEventListener('keydown', function (event) {
+    var tag = (event.target.tagName || '').toLowerCase();
+    if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || event.target.isContentEditable) return;
+    event.preventDefault();
+    search.focus();
+  });
   var sidebar = document.querySelector('.sidebar');
   var toggle = document.querySelector('.nav-toggle');
   if (!sidebar || !toggle) return;

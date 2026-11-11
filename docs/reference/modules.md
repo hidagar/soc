@@ -54,6 +54,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/forms.py](../../core/forms.py) | `ScopedModelForm`, `StyledModelForm`, `ClientForm`, `NewClientForm`, `MailSettingsForm`, `SiteForm`, `SiteEditForm`, `DeviceForm`, `SiteDeviceForm`, `IncidentForm` |
 | [core/gdms_api.py](../../core/gdms_api.py) | GDMS Networking OAuth probe. Fixed vendor hosts, no configuration writes. — `GdmsError`, `NoRedirect`, `encrypt`, `decrypt`, `credential`, `access_token`, `check_connection`, `read_inventory`, `discover_device` |
 | [core/gdms_views.py](../../core/gdms_views.py) | `ConnectionForm`, `gdms_cloud` |
+| [core/global_search.py](../../core/global_search.py) | Buscador global del SOC: clientes, sedes, firewalls, incidencias, solicitudes, políticas, CVE e IPs. — `search`, `results` |
 | [core/hillstone_api.py](../../core/hillstone_api.py) | StoneOS REST login and bounded inventory discovery; no configuration writes. — `HillstoneApiError`, `NoRedirect`, `validate_url`, `validate_ca`, `encrypt`, `decrypt`, `username`, `inventory`, `check_connection` |
 | [core/hillstone_events.py](../../core/hillstone_events.py) | Threat@FLOW layout contrasted with actual StoneOS logs (19 October 2026). — `action`, `flow`, `legacy_action_regexp` |
 | [core/hillstone_views.py](../../core/hillstone_views.py) | `ConnectionForm`, `hillstone_api` |
@@ -75,7 +76,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/monthly_models.py](../../core/monthly_models.py) | Informe mensual para dirección (bloque 6): publicación con versiones inmutables y envío opcional. — `MonthlyReport`, `MonthlyReportVersion`, `MonthlyReportShare` |
 | [core/monthly_pdf.py](../../core/monthly_pdf.py) | PDF del informe mensual para dirección, con el mismo contexto (y la misma marca) que la página. — `render_monthly_pdf` |
 | [core/monthly_report.py](../../core/monthly_report.py) | Informe mensual para dirección (bloque 6): resumen del mes publicado al cliente con versión inmutable. — `month_label`, `bounds`, `mondays`, `available_from`, `parse_month`, `customer_context`, `release_problem`, `render_snapshot`, `freeze`, `recipient`, `queue_send`, `staff_context`, `preview`, `publish`, … (ver archivo) |
-| [core/navigation.py](../../core/navigation.py) | Menú lateral del portal agrupado por áreas de trabajo. — `build_navigation` |
+| [core/navigation.py](../../core/navigation.py) | Menú lateral del portal agrupado por áreas de trabajo. — `badges`, `build_navigation` |
 | [core/network_coverage.py](../../core/network_coverage.py) | Bounded readonly discovery and network-specific proof, without inferring blanket protection. — `literal`, `cidrs`, `opnsense_networks`, `unifi_networks`, `save_discovery`, `discover_networks`, `current`, `fingerprint`, `matches_ip`, `uniquely_contains`, `snapshot` |
 | [core/network_models.py](../../core/network_models.py) | `NetworkCheck`, `NetworkCoverage` |
 | [core/network_views.py](../../core/network_views.py) | `NetworkForm`, `coverage`, `requirements` |

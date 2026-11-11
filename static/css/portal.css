@@ -47,3 +47,8 @@ label.check { display:flex; gap:8px; align-items:center; font-weight:400; margin
 .policy-item:first-of-type { border-top:0; }
 .policy-item h3 { margin:0; font-size:1.02rem; }
 .policy-item h3 { text-transform:none; letter-spacing:0; color:#163728; font-weight:700; }
+/* Buscador y contadores del menú */
+.nav-search{margin:-8px 0 -8px}.nav-search input{width:100%;border:1px solid #1d5240;background:#0a4735;color:#fff;border-radius:8px;padding:8px 11px;font-size:13px;outline:none}.nav-search input::placeholder{color:#8fb8a5}.nav-search input:focus{border-color:#00A82D;background:#0f5640}
+.nav-badge{display:inline-block;min-width:19px;padding:1px 6px;margin-left:5px;border-radius:99px;background:#d7ead9;color:#063B2B;font-size:11px;font-weight:800;letter-spacing:0;text-align:center;line-height:1.5}.nav-badge.urgent{background:#ffb9b0;color:#7a1410}
+.nav-group[open]>summary .nav-badge{display:none}
+@media(max-width:700px){.nav-search{margin:0}.sidebar.nav-collapsible:not(.nav-open) .nav-search{display:none}}

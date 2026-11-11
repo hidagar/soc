@@ -1,0 +1,8 @@
+{% extends 'base.html' %}{% block title %}Buscar{% endblock %}{% block content %}
+<header class="page-head"><div><p class="eyebrow">Centro SOC</p><h1>Buscar</h1><p class="muted">Clientes, sedes, firewalls (nombre, modelo, serie, MAC o IP de gestión), incidencias, solicitudes (<code>SOL-</code>), políticas (<code>POL-</code>), CVE e IPs.</p></div></header>
+<form class="searchbar" method="get" role="search"><input class="input" type="search" name="q" value="{{ query }}" maxlength="80" placeholder="Nombre, IP, CVE, SOL-00012…" aria-label="Buscar" autofocus><button class="button primary">Buscar</button></form>
+{% if ip %}<section class="card"><p><strong>{{ ip }}</strong> es una dirección IP. <a href="{% url 'ip_investigation' %}?ip={{ ip|urlencode }}">Investigar sus detecciones →</a></p></section>{% endif %}
+{% if short %}<section class="card"><p class="empty">Escribe al menos dos caracteres.</p></section>
+{% elif query and not groups and not ip %}<section class="card"><p class="empty">Sin resultados para «{{ query }}» entre tus clientes.</p></section>{% endif %}
+{% for group in groups %}<section class="card"><h2>{{ group.title }}</h2>{% for row in group.rows %}<a class="line-item" href="{{ row.url }}"><span><strong>{{ row.label }}</strong>{% if row.detail %}<small>{{ row.detail }}</small>{% endif %}</span><span aria-hidden="true">→</span></a>{% endfor %}{% if group.more %}<p class="muted">Hay más resultados: afina la búsqueda.</p>{% endif %}</section>{% endfor %}
+{% endblock %}
