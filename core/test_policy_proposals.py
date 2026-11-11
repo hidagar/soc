@@ -217,3 +217,33 @@ class PolicyProposalTests(TestCase):
         page = self.client.get(reverse('customer_preview_policies', args=[self.company.pk]))
         self.assertContains(page, 'Limitar el acceso remoto')
         self.assertNotContains(page, 'Aprobar el cambio')
+
+    def test_not_effective_stays_with_the_soc_until_rechecked_or_closed(self):
+        self.attack(25)
+        engine.generate(self.now)
+        proposal = PolicyProposal.objects.get(kind='restrict_service')
+        PolicyProposal.objects.filter(pk=proposal.pk).update(status='not_effective', applied_at=self.now - timedelta(days=9))
+        self.login(self.operator)
+        self.assertContains(self.client.get(reverse('policies')), 'Requiere revisión')
+        self.assertContains(self.client.get(reverse('dashboard')), 'Políticas propuestas por revisar')
+        self.client.post(reverse('policies'), {'action': 'recheck', 'proposal': proposal.pk})
+        proposal.refresh_from_db()
+        self.assertEqual(proposal.status, 'applied')
+        self.assertGreater(proposal.applied_at, self.now - timedelta(minutes=5))
+        PolicyProposal.objects.filter(pk=proposal.pk).update(status='not_effective')
+        self.client.post(reverse('policies'), {'action': 'close', 'proposal': proposal.pk})
+        self.assertEqual(PolicyProposal.objects.get(pk=proposal.pk).status, 'not_effective')  # falta el motivo
+        self.client.post(reverse('policies'), {'action': 'close', 'proposal': proposal.pk, 'reason': 'El cliente lo mantiene abierto'})
+        self.assertEqual(PolicyProposal.objects.get(pk=proposal.pk).status, 'dismissed')
+
+    def test_customer_sees_the_confirmation_after_deciding(self):
+        self.attack(25)
+        engine.generate(self.now)
+        PolicyProposal.objects.filter(kind='restrict_service').update(status='offered', offered_at=self.now, planned_for=self.now,
+                                                                     customer_title='Limitar', customer_text='x')
+        proposal = PolicyProposal.objects.get(kind='restrict_service')
+        self.login(self.customer)
+        page = self.client.post(reverse('customer_policy_decision', args=[proposal.pk]), {'decision': 'approved'}, follow=True)
+        self.assertContains(page, 'Hemos registrado vuestra aprobación')
+        self.login(self.operator)
+        self.assertContains(self.client.get(reverse('dashboard')), 'Cambios aprobados por el cliente pendientes de aplicar')

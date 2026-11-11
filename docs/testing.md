@@ -37,6 +37,10 @@ SOC_BROWSER_TESTS=1 SOC_PORTAL_DEBUG=1 SOC_PORTAL_MFA_REQUIRED=0 python manage.p
 
 `SOC_BROWSER_CHROMIUM=/ruta/a/chrome` usa un Chromium ya instalado en lugar de descargarlo. En CI las ejecuta el trabajo «Pruebas de navegador (Playwright)». Al añadir una pantalla importante, sumarla a la lista de la prueba correspondiente.
 
+## Prueba de humo de rutas
+
+`core/test_smoke_routes.py` abre todas las rutas con nombre con un administrador y con una cuenta de cliente, sobre datos mínimos. Falla si alguna página responde 500 o si el cliente obtiene una página fuera de su portal. Detecta plantillas rotas y fugas de navegación; no sustituye a las pruebas de cada área.
+
 ## Selección por cambio
 
 | Área | Grupos que localizar |

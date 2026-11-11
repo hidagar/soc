@@ -147,3 +147,15 @@ class CustomerRequestTests(TestCase):
         page = self.client.get(reverse('customer_preview_requests', args=[self.company.pk]))
         self.assertContains(page, 'No abre la web')
         self.assertNotContains(page, 'Enviar al SOC')
+
+    def test_dashboard_row_and_fallback_recipient(self):
+        self.company.contact_email = 'it@a.test'
+        self.company.save()
+        self.customer.email = ''
+        self.customer.save()
+        self.create(urgent='on')
+        self.assertEqual(CustomerRequest.objects.get().contact_email, 'it@a.test')
+        self.client.force_login(self.operator)
+        page = self.client.get(reverse('dashboard'))
+        self.assertContains(page, 'Solicitudes de clientes por atender')
+        self.assertContains(page, 'Urgente: No abre la web')

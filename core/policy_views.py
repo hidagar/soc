@@ -21,6 +21,10 @@ CUSTOMER_LABELS = {'offered': 'Pendiente de vuestra decisión', 'approved': 'Apr
                    'verified': 'Aplicada y comprobada', 'not_effective': 'Aplicada · el SOC está revisando el resultado'}
 
 
+# Lo que el SOC tiene entre manos. «Sin efecto comprobado» sigue aquí hasta que alguien lo revisa.
+OPEN_SOC = ('proposed', 'offered', 'approved', 'applied', 'not_effective')
+
+
 # --- Lo que se le enseña al cliente ----------------------------------------------------------
 
 def customer_summary(proposal):
@@ -188,10 +192,10 @@ def notify_soc(now=None):
 def _groups(state):
     rows = PolicyProposal.objects.select_related('client', 'device', 'exposure', 'decided_by', 'change_plan')
     if state == 'open':
-        rows = rows.filter(status__in=('proposed', 'offered', 'approved', 'applied'))
+        rows = rows.filter(status__in=OPEN_SOC)
     elif state == 'closed':
-        rows = rows.exclude(status__in=('proposed', 'offered', 'approved', 'applied'))
-    order = {'approved': 0, 'proposed': 1, 'offered': 2, 'applied': 3}
+        rows = rows.exclude(status__in=OPEN_SOC)
+    order = {'approved': 0, 'not_effective': 1, 'proposed': 2, 'offered': 3, 'applied': 4}
     result = {}
     for p in sorted(rows, key=lambda p: (order.get(p.status, 9), {'high': 0, 'medium': 1, 'low': 2}[p.confidence], p.pk)):
         group = result.setdefault(p.client_id, {'client': p.client, 'rows': [], 'todo': 0})
@@ -199,7 +203,7 @@ def _groups(state):
             p.suggested_text = default_text(p)
         p.plans = list(ChangePlan.objects.filter(device__site__client=p.client).order_by('-created_at')[:10]) if p.status == 'approved' else []
         group['rows'].append(p)
-        group['todo'] += p.status in ('proposed', 'approved')
+        group['todo'] += p.status in ('proposed', 'approved', 'not_effective')
     return sorted(result.values(), key=lambda g: (-g['todo'], g['client'].name))
 
 
@@ -224,7 +228,7 @@ def _act(request):
         return redirect('policies')
     pk = request.POST.get('proposal', '')
     proposal = get_object_or_404(PolicyProposal, pk=int(pk) if pk.isdigit() else 0)
-    needs = 'core.change_device' if action == 'applied' else 'core.change_incident'
+    needs = 'core.change_device' if action in ('applied', 'recheck') else 'core.change_incident'
     if not request.user.has_perm(needs):
         return HttpResponseForbidden('Tu cuenta no tiene permiso para esta acción.')
     manager = PolicyProposal.objects.filter(pk=proposal.pk)
@@ -260,6 +264,20 @@ def _act(request):
         manager.update(status='dismissed', dismissed_reason=reason, updated_at=now)
         audit('policy.dismiss', proposal, {'reason': reason})
         messages.success(request, 'Propuesta descartada. Volverá a evaluarse dentro de 90 días si sigue aplicando.')
+    elif action == 'recheck' and proposal.status == 'not_effective':
+        # Se corrigió lo que faltaba: vuelve a verificación con la fecha de hoy.
+        manager.filter(status='not_effective').update(status='applied', applied_at=now, verified_at=None, updated_at=now,
+                                                       verification={'text': 'Corregida por el SOC; pendiente de volver a comprobar.'})
+        audit('policy.recheck', proposal, {'status': proposal.kind})
+        messages.success(request, 'Vuelve a verificación: se comprobará de nuevo a partir de 7 días.')
+    elif action == 'close' and proposal.status == 'not_effective':
+        reason = request.POST.get('reason', '').strip()[:240]
+        if not reason:
+            messages.error(request, 'Indica por qué se cierra (uso interno).')
+            return redirect('policies')
+        manager.filter(status='not_effective').update(status='dismissed', dismissed_reason=reason, decided_at=now, updated_at=now)
+        audit('policy.dismiss', proposal, {'reason': reason})
+        messages.success(request, 'Propuesta cerrada.')
     elif action == 'applied' and proposal.status == 'approved':
         note = request.POST.get('note', '').strip()[:500]
         plan_id = request.POST.get('change_plan', '')

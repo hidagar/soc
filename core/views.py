@@ -80,12 +80,33 @@ def dashboard(request):
     first_reply = replies.first()
     # Fallos sin equipo (copias, disco, servicios, recepción global): con el ámbito de cliente solo los ve el
     # personal con acceso global, igual que en «Salud del SOC». Los avisos urgentes ya tienen su propia fila.
+    # «Vulnerabilidades sin revisar» es trabajo del SOC con su propia fila, no un fallo de la plataforma.
     platform = list(OperationalIssue.objects.filter(active=True, device__isnull=True).exclude(
-        key__startswith="urgent-ack:").exclude(key__startswith="sla:").order_by("severity", "opened_at").values_list(
+        key__startswith="urgent-ack:").exclude(key__startswith="sla:").exclude(key="vulnerabilities:review").order_by("severity", "opened_at").values_list(
         "title", "severity")[:50])
     from .sla import attention as sla_attention
     late = [i for i in sla_attention(open_incidents.select_related("client"), now) if i.sla_next["state"] == "breached"]
+    from .models import CustomerRequest, DeviceExposure, PolicyProposal
+    requests_open = CustomerRequest.objects.filter(status__in=("new", "in_progress"))
+    urgent_requests = requests_open.filter(urgent=True).count()
+    first_request = requests_open.select_related("client").order_by("-urgent", "updated_at").first()
+    exposures = DeviceExposure.objects.filter(resolved_at__isnull=True, dismissed_at__isnull=True, advisory__isnull=True,
+                                              device__active=True)
+    exploited = exposures.filter(record__kev_added__isnull=False).exists()
+    approved = PolicyProposal.objects.filter(status="approved").count()
+    to_review = PolicyProposal.objects.filter(status__in=("proposed", "not_effective")).count()
     attention = [
+        {"tone": "alert" if urgent_requests else "warn", "count": requests_open.count(), "title": "Solicitudes de clientes por atender",
+         "hint": first_request and (("Urgente: " if first_request.urgent else "") + f"{first_request.subject} ({first_request.client.name})") or "",
+         "url": reverse("requests")},
+        {"tone": "alert", "count": approved, "title": "Cambios aprobados por el cliente pendientes de aplicar",
+         "hint": "Aplicarlos en la ventana acordada y marcarlos como aplicados.", "url": reverse("policies")},
+        {"tone": "alert" if exploited else "warn", "count": exposures.values("device").distinct().count(),
+         "title": "Firewalls con vulnerabilidades sin revisar",
+         "hint": "Alguna se está explotando activamente (CISA)." if exploited else "Publicar al cliente o descartar.",
+         "url": reverse("vulnerabilities")},
+        {"tone": "", "count": to_review, "title": "Políticas propuestas por revisar",
+         "hint": "Ofrecerlas al cliente o descartarlas.", "url": reverse("policies")},
         {"tone": "alert", "count": len(late), "title": "Incidencias con plazo de atención vencido",
          "hint": late and f"{late[0].sla_next['label']}: {late[0].title}" or "",
          "url": reverse("work_queue") + "?queue=sla"},

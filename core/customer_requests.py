@@ -53,6 +53,12 @@ class NewRequestForm(forms.Form):
         self.fields['site'].queryset = Site.objects.filter(client=client, active=True).order_by('name')
 
 
+def _fallback_email(client):
+    """Cuenta del portal sin correo: los avisos van al contacto del cliente."""
+    from .customer_notices import recipient
+    return recipient(client)
+
+
 # --- Avisos ----------------------------------------------------------------------------------
 
 def _queue_notice(entry, request_obj):
@@ -162,7 +168,7 @@ def customer_list(request):
             data = form.cleaned_data
             with transaction.atomic():
                 req = CustomerRequest.objects.create(
-                    client=client, site=data['site'], created_by=request.user, contact_email=request.user.email or '',
+                    client=client, site=data['site'], created_by=request.user, contact_email=request.user.email or _fallback_email(client),
                     kind=data['kind'], subject=data['subject'].strip(), urgent=data['urgent'], created_at=now, updated_at=now)
                 CustomerRequestEntry.objects.create(request=req, kind='customer', author=request.user, text=data['text'].strip(),
                                                     status='new', created_at=now)

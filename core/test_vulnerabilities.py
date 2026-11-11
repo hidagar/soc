@@ -132,6 +132,8 @@ class ExposureTests(TestCase):
         exposure = DeviceExposure.objects.get(device=self.fw)
         self.assertEqual((exposure.client, exposure.version), (self.company, '26.1.7'))
         self.assertTrue(OperationalIssue.objects.filter(key=vuln.ISSUE_REVIEW, active=True).exists())
+        self.client.force_login(self.staff)
+        self.assertContains(self.client.get(reverse('dashboard')), 'Firewalls con vulnerabilidades sin revisar')
         self.fw.software_version = '26.1.9'
         self.fw.save()
         vuln.evaluate(self.now + timedelta(hours=1))

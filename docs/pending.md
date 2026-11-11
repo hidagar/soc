@@ -10,7 +10,8 @@ Lista única de lo que falta, actualizada el **11/11/2026**. Reúne los «Pendie
 
 | Pendiente | Origen | Notas |
 |---|---|---|
-| Desplegar #60 (solicitudes) y la rama de políticas propuestas | 06/11 y 11/11 | Migraciones 0073 y 0074. Después, «Correo de operaciones» activo en «Copias y recuperación» para recibir solicitudes y decisiones. |
+| Confirmar el despliegue de #60 y #61 (en `main` desde el 11/11) y desplegar la auditoría de noviembre | 11/11 | Migraciones 0073 y 0074. «Correo de operaciones» activo en «Copias y recuperación» para recibir solicitudes y decisiones. |
+| Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
 | `X-Forwarded-For` en el Nginx público y `deploy/configurar_ip_real.sh` | Continuidad 29/10 | Sin esto, el límite de login por IP ve la IP del proxy. |
 | Configurar `SOC_PORTAL_HEARTBEAT_URL` (monitor exterior) | Bloque 8 | Implementado, falta la URL del servicio de monitorización. |
@@ -72,6 +73,26 @@ Lista única de lo que falta, actualizada el **11/11/2026**. Reúne los «Pendie
 ### Conectores y cobertura (bloque 7)
 - Matriz fabricante/versión/capacidades con una muestra real por motor y red (GCC, ClamAV).
 - Hillstone en el recorrido API opcional; lectura de Zenarmor cuando exista contrato contrastado.
+
+### Propuestas de la auditoría de noviembre
+
+Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), recorrido de todas las rutas con administrador y cliente, y revisión manual del código nuevo desde el 30/10. Lo corregido está en el [registro de cambios](changelog.md). Queda propuesto:
+
+**Seguridad y mantenimiento**
+- Subir `paramiko` de 4.0.0 a 5.x: corrige el uso de SHA-1 en firmas RSA (PYSEC-2026-2858). La batería completa pasa con 5.1.0, pero un firewall antiguo que solo acepte `ssh-rsa` dejaría de conectar: comprobarlo antes (ver acciones del usuario).
+- Conservación de las tablas nuevas: `ChatNotice`, `ConnectivityEvent`, `CustomerRequestEntry` y las propuestas «Ya no aplica» crecen sin límite. Añadirlas al trabajo `housekeeping` con un plazo acordado.
+- Tras confirmar el doble factor, volver a la página donde estaba el usuario (hoy tiene que repetir la operación a mano).
+
+**Usabilidad del SOC**
+- Contadores en el menú lateral (solicitudes, cambios aprobados, vulnerabilidades) para no depender de entrar al resumen.
+- Buscador global por cliente, firewall, IP o referencia (`SOL-`, `POL-`, CVE).
+- Línea de tiempo por cliente en su ficha: incidencias, solicitudes, avisos, vulnerabilidades y cambios en un solo sitio.
+- El menú ya supera las 30 entradas: agrupar «CrowdSec», «Listas de bloqueo», «Q-Feeds» y «Reputación propia» en una sola página de inteligencia con pestañas.
+
+**Valor para el cliente**
+- Informe mensual con las vulnerabilidades avisadas, las solicitudes atendidas y los cambios aplicados y verificados.
+- Recordatorio si una propuesta de cambio lleva más de 14 días sin decisión.
+- Plazos de respuesta visibles en las solicitudes.
 
 ### Ideas propuestas sin empezar
 - Evidencias para NIS2/ENS.

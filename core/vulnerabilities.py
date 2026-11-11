@@ -261,6 +261,7 @@ def sync(now=None, budget=BUDGET_SECONDS):
     synced = dict((state.details or {}).get('products') or {})
     pause = 0.8 if _api_key() else 6.5  # límites públicos de NVD: 50 o 5 peticiones cada 30 s
     started, done, errors = time.monotonic(), 0, []
+    synced = {p: stamp for p, stamp in synced.items() if isinstance(stamp, str) and parse_datetime(stamp)}
     pending = [p for p in watched_products() if not synced.get(p) or now - parse_datetime(synced[p]) > REFRESH]
     pending.sort(key=lambda p: synced.get(p, ''))
     for product in pending:

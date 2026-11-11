@@ -35,7 +35,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_customer_notices.py](../../core/test_customer_notices.py) | 12 |
 | [core/test_customer_portal.py](../../core/test_customer_portal.py) | 8 |
 | [core/test_customer_preview.py](../../core/test_customer_preview.py) | 5 |
-| [core/test_customer_requests.py](../../core/test_customer_requests.py) | 8 |
+| [core/test_customer_requests.py](../../core/test_customer_requests.py) | 9 |
 | [core/test_customer_task_history.py](../../core/test_customer_task_history.py) | 7 |
 | [core/test_dashboard_sources.py](../../core/test_dashboard_sources.py) | 1 |
 | [core/test_database_concurrency.py](../../core/test_database_concurrency.py) | 3 |
@@ -72,7 +72,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_network_coverage.py](../../core/test_network_coverage.py) | 20 |
 | [core/test_onboarding.py](../../core/test_onboarding.py) | 16 |
 | [core/test_operations.py](../../core/test_operations.py) | 32 |
-| [core/test_policy_proposals.py](../../core/test_policy_proposals.py) | 8 |
+| [core/test_policy_proposals.py](../../core/test_policy_proposals.py) | 10 |
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
@@ -93,6 +93,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
 | [core/test_sla.py](../../core/test_sla.py) | 17 |
+| [core/test_smoke_routes.py](../../core/test_smoke_routes.py) | 2 |
 | [core/test_soc_reputation.py](../../core/test_soc_reputation.py) | 6 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
 | [core/test_text_encoding.py](../../core/test_text_encoding.py) | 1 |
