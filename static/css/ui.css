@@ -171,3 +171,4 @@ details.form-section>summary{margin-bottom:10px}
 td .sla-state+small{display:block;color:#83919e}
 .sla-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .sla-list li small{display:block;color:#7c8c98;margin-top:2px}
+.sla-paused{color:#6e7e89}

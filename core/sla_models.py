@@ -28,6 +28,8 @@ class SlaSettings(models.Model):
     business_holidays = models.JSONField(default=list, blank=True)  # fechas ISO
     business_urgent_requests = models.BooleanField(default=False)  # también las solicitudes urgentes
     business_minor_incidents = models.BooleanField(default=False)  # incidencias de gravedad media y baja
+    # Pausar la resolución de una incidencia mientras el cliente tiene una actuación pendiente de su parte.
+    pause_incidents_waiting = models.BooleanField(default=False)
 
 
 class SlaPolicy(models.Model):

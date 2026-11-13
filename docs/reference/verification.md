@@ -98,6 +98,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_site_client_context.py](../../core/test_site_client_context.py) | 4 |
 | [core/test_site_delete.py](../../core/test_site_delete.py) | 8 |
 | [core/test_sla.py](../../core/test_sla.py) | 17 |
+| [core/test_sla_pause.py](../../core/test_sla_pause.py) | 4 |
 | [core/test_smoke_routes.py](../../core/test_smoke_routes.py) | 2 |
 | [core/test_soc_reputation.py](../../core/test_soc_reputation.py) | 6 |
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
@@ -198,3 +199,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0074_politicas_propuestas.py](../../core/migrations/0074_politicas_propuestas.py)
 - [core/migrations/0075_plazos_solicitudes.py](../../core/migrations/0075_plazos_solicitudes.py)
 - [core/migrations/0076_horario_laboral.py](../../core/migrations/0076_horario_laboral.py)
+- [core/migrations/0077_pausa_incidencias.py](../../core/migrations/0077_pausa_incidencias.py)

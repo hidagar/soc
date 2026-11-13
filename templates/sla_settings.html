@@ -7,6 +7,7 @@
 <form method="post">{% csrf_token %}<input type="hidden" name="action" value="global">
 {% include 'partials/sla_table.html' with rows=global_rows %}
 <div class="field check"><label><input type="checkbox" name="enabled"{% if config.enabled %} checked{% endif %}> Plazos activados</label>
+<label><input type="checkbox" name="pause_incidents_waiting"{% if config.pause_incidents_waiting %} checked{% endif %}> Pausar la resolución mientras el cliente tenga una actuación pendiente de su parte</label>
 <p class="muted">{% if config.enabled %}Activos desde el {{ config.enabled_at|date:'d/m/Y H:i' }}: cuentan los casos que han entrado desde entonces.{% else %}Al activarlos solo cuentan los casos que entren desde ese momento: los abiertos antes no se marcan como vencidos.{% endif %}</p></div>
 <p><button class="button primary">Guardar plazos globales</button></p></form></section>
 <section class="card" id="solicitudes"><h2>Plazos de las solicitudes de clientes</h2>

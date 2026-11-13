@@ -79,6 +79,7 @@ def settings_view(request):
                     if enabled and not config.enabled:
                         config.enabled_at = timezone.now()  # solo cuentan los casos nuevos
                     config.enabled = enabled
+                    config.pause_incidents_waiting = request.POST.get('pause_incidents_waiting') == 'on'
                     config.save()
                     audit('sla.settings', config, {'status': 'enabled' if enabled else 'disabled'})
                     messages.success(request, 'Plazos guardados.' + (' Cuentan para los casos que entren desde ahora.'

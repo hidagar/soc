@@ -13,6 +13,7 @@ historial del caso y en la auditoría y se abre un aviso en «Salud del SOC»; c
 es crítico y llega también por correo de operaciones.
 """
 import re
+from datetime import timedelta
 
 from django.utils import timezone
 
@@ -26,7 +27,8 @@ DEFAULTS = {'critical': (15, 60, 24 * 60), 'high': (30, 4 * 60, 3 * 24 * 60),
 DUE_SOON = 0.25  # queda menos de una cuarta parte del plazo
 MAX_MINUTES = 90 * 24 * 60
 STATE_LABELS = {'met': 'Cumplido', 'late': 'Cumplido fuera de plazo', 'breached': 'Vencido',
-                'due_soon': 'Vence pronto', 'pending': 'En plazo'}
+                'due_soon': 'Vence pronto', 'pending': 'En plazo', 'paused': 'En pausa: esperando al cliente'}
+WAITING_TASK_STATUSES = ('pending', 'rework')  # la actuación está en manos del cliente
 
 
 def config():
@@ -88,12 +90,26 @@ def evaluate(incident, now=None, table=None, settings_row=None):
     rows = []
     for (key, label, field), minutes in zip(MILESTONES, targets(incident, table)):
         start = incident.created_at
-        deadline = business_hours.deadline(calendar, start, minutes)
+        paused = False
+        if key == 'resolve' and settings_row.pause_incidents_waiting:
+            # La espera del cliente alarga el plazo de resolución; acuse y diagnóstico son solo del SOC.
+            waiting = incident.sla_waiting_since
+            if calendar:
+                extra = incident.sla_waited_work_minutes + (calendar.between(waiting, now) if waiting else 0)
+                deadline = calendar.add(start, minutes + extra)
+            else:
+                extra = timedelta(seconds=incident.sla_waited_seconds) + (max(timedelta(0), now - waiting) if waiting else timedelta(0))
+                deadline = start + timedelta(minutes=minutes) + extra
+            paused = waiting is not None
+        else:
+            deadline = business_hours.deadline(calendar, start, minutes)
         resolved = incident.resolved_at if incident.status == 'resolved' else None
         # Un caso resuelto ha pasado por el acuse y el diagnóstico aunque nadie los registrara antes.
         done = resolved if key == 'resolve' else getattr(incident, field) or resolved
         if done:
             state = 'met' if done <= deadline else 'late'
+        elif paused:
+            state = 'paused'
         elif now > deadline:
             state = 'breached'
         elif business_hours.remaining_minutes(calendar, now, deadline) <= minutes * DUE_SOON:
@@ -138,12 +154,48 @@ def record(incident, *milestones, now=None):
                 setattr(incident, fields[key], now)
 
 
+def sync_waiting(now=None, settings_row=None):
+    """Anota cuándo empieza y termina la espera del cliente en cada incidencia abierta. Devuelve los cambios.
+
+    Una incidencia espera al cliente mientras tenga una actuación publicada en su portal pendiente de
+    su respuesta. Lo ejecuta el trabajo de avisos cada minuto, así que la precisión es de un minuto.
+    """
+    from . import business_hours
+    from .models import CustomerTask
+    now = now or timezone.now()
+    settings_row = settings_row if settings_row is not None else config()
+    if not (settings_row and settings_row.enabled and settings_row.enabled_at and settings_row.pause_incidents_waiting):
+        return 0
+    calendar = business_hours.calendar_for(settings_row)
+    open_cases = Incident._base_manager.exclude(status='resolved').filter(created_at__gte=settings_row.enabled_at)
+    waiting = set(CustomerTask._base_manager.filter(incident__in=open_cases, visible=True, status__in=WAITING_TASK_STATUSES)
+                  .values_list('incident_id', flat=True))
+    changed = 0
+    for incident in open_cases.filter(sla_waiting_since__isnull=True, pk__in=waiting):
+        changed += Incident._base_manager.filter(pk=incident.pk, sla_waiting_since__isnull=True).update(sla_waiting_since=now)
+    for incident in open_cases.filter(sla_waiting_since__isnull=False).exclude(pk__in=waiting):
+        changed += _end_waiting(incident, now, calendar)
+    # Al resolverse el caso, la espera en curso termina.
+    for incident in Incident._base_manager.filter(status='resolved', sla_waiting_since__isnull=False):
+        changed += _end_waiting(incident, incident.resolved_at or now, calendar)
+    return changed
+
+
+def _end_waiting(incident, end, calendar):
+    start = incident.sla_waiting_since
+    return Incident._base_manager.filter(pk=incident.pk, sla_waiting_since=start).update(
+        sla_waiting_since=None,
+        sla_waited_seconds=incident.sla_waited_seconds + max(0, int((end - start).total_seconds())),
+        sla_waited_work_minutes=incident.sla_waited_work_minutes + (calendar.between(start, end) if calendar else 0))
+
+
 def check(now=None):
     """Escalado: registra cada plazo que vence una sola vez y mantiene sus avisos al día."""
     from .operations import set_issue
     from .security import audit
     now = now or timezone.now()
     settings_row = config()
+    sync_waiting(now, settings_row)
     active = set(OperationalIssue._base_manager.filter(active=True, key__startswith='sla:').values_list('key', flat=True))
     breached = set()
     if settings_row and settings_row.enabled and settings_row.enabled_at:

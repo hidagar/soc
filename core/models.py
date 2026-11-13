@@ -429,6 +429,10 @@ class Incident(models.Model):
     acknowledged_at = models.DateTimeField("Acusada", null=True, blank=True, editable=False)
     investigated_at = models.DateTimeField("Primer diagnóstico", null=True, blank=True, editable=False)
     sla_breaches = models.JSONField(default=dict, blank=True, editable=False)
+    # Espera del cliente (actuación publicada pendiente de su respuesta): no cuenta para la resolución.
+    sla_waiting_since = models.DateTimeField(null=True, blank=True, editable=False)
+    sla_waited_seconds = models.PositiveIntegerField(default=0, editable=False)
+    sla_waited_work_minutes = models.PositiveIntegerField(default=0, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

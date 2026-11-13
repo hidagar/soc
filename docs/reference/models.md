@@ -770,6 +770,9 @@ Fuente: [core/models.py](../../core/models.py).
 | `acknowledged_at` | DateTimeField | null=True; blank=True |
 | `investigated_at` | DateTimeField | null=True; blank=True |
 | `sla_breaches` | JSONField | blank=True |
+| `sla_waiting_since` | DateTimeField | null=True; blank=True |
+| `sla_waited_seconds` | PositiveIntegerField |  |
+| `sla_waited_work_minutes` | PositiveIntegerField |  |
 | `created_at` | DateTimeField |  |
 | `updated_at` | DateTimeField |  |
 ## MonthlyReport
@@ -1393,6 +1396,7 @@ Fuente: [core/sla_models.py](../../core/sla_models.py).
 | `business_holidays` | JSONField | blank=True |
 | `business_urgent_requests` | BooleanField |  |
 | `business_minor_incidents` | BooleanField |  |
+| `pause_incidents_waiting` | BooleanField |  |
 ## SlaPolicy
 
 Fuente: [core/sla_models.py](../../core/sla_models.py).
