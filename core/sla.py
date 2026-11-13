@@ -13,7 +13,6 @@ historial del caso y en la auditoría y se abre un aviso en «Salud del SOC»; c
 es crítico y llega también por correo de operaciones.
 """
 import re
-from datetime import timedelta
 
 from django.utils import timezone
 
@@ -82,10 +81,14 @@ def evaluate(incident, now=None, table=None, settings_row=None):
     if not applies(incident, settings_row):
         return []
     table = table or policies()
+    from . import business_hours
+    # Las incidencias altas y críticas cuentan siempre las 24 horas.
+    calendar = (business_hours.calendar_for(settings_row)
+                if settings_row.business_minor_incidents and incident.severity in ('medium', 'low') else None)
     rows = []
     for (key, label, field), minutes in zip(MILESTONES, targets(incident, table)):
         start = incident.created_at
-        deadline = start + timedelta(minutes=minutes)
+        deadline = business_hours.deadline(calendar, start, minutes)
         resolved = incident.resolved_at if incident.status == 'resolved' else None
         # Un caso resuelto ha pasado por el acuse y el diagnóstico aunque nadie los registrara antes.
         done = resolved if key == 'resolve' else getattr(incident, field) or resolved
@@ -93,12 +96,13 @@ def evaluate(incident, now=None, table=None, settings_row=None):
             state = 'met' if done <= deadline else 'late'
         elif now > deadline:
             state = 'breached'
-        elif deadline - now <= timedelta(minutes=minutes) * DUE_SOON:
+        elif business_hours.remaining_minutes(calendar, now, deadline) <= minutes * DUE_SOON:
             state = 'due_soon'
         else:
             state = 'pending'
         rows.append({'key': key, 'label': label, 'target': minutes, 'target_label': duration(minutes),
-                     'deadline': deadline, 'done_at': done, 'state': state, 'state_label': STATE_LABELS[state]})
+                     'deadline': deadline, 'done_at': done, 'state': state, 'state_label': STATE_LABELS[state],
+                     'business': calendar is not None})
     return rows
 
 

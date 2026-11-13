@@ -11,7 +11,8 @@ Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendie
 | Pendiente | Origen | Notas |
 |---|---|---|
 | **Probar la fase 2 de las políticas en un firewall propio** antes de usarla con clientes | 13/11 | Desplegada, pero sin validar en un OPNsense real: preparar un plan en un equipo de ib-red, revisar el alias y la regla desactivada en su consola, activarlo y comprobar el acceso desde un origen autorizado y desde otro. |
-| Desplegar los plazos de las solicitudes y activarlos | 13/11 | Migración 0075. Se activan en «Plazos de atención»; revisar antes los valores por defecto (8 h y 5 días; urgentes, 1 h y 1 día). |
+| Activar los plazos de las solicitudes | 13/11 | Desplegados. Se activan en «Plazos de atención»; revisar antes los valores (8 h y 5 días; urgentes, 1 h y 1 día). |
+| Desplegar el horario laboral y configurarlo | 13/11 | Migración 0076. Indicar jornada, días y festivos de Baleares del año, y decidir si se aplica a urgentes y a incidencias medias y bajas. |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -44,7 +45,7 @@ Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendie
 - Recordatorio al cliente si una propuesta lleva más de 14 días sin decisión.
 
 ### Solicitudes de clientes
-- Hecho el 13/11: plazos de primera respuesta y resolución. Falta el horario laboral (igual que en las incidencias) y plazos propios por cliente.
+- Hecho el 13/11: plazos de primera respuesta y resolución, con horario laboral. Faltan plazos propios por cliente.
 - Adjuntos.
 
 ### Vulnerabilidades
@@ -56,7 +57,7 @@ Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendie
 - Mostrar al cliente el cumplimiento de los plazos de atención (decidir qué se publica de los casos internos).
 
 ### Plazos de atención (SLA)
-- Horario laboral y pausa mientras se espera al cliente.
+- Hecho el 13/11: horario laboral (un único horario para todos). Faltan la pausa de las incidencias mientras se espera al cliente, jornadas partidas y guardias.
 
 ### Conexión a Internet
 - Duración de las caídas con el estado de las consolas en la nube de UniFi (requiere comprobarlo en campo).

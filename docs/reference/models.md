@@ -1336,6 +1336,7 @@ Fuente: [core/request_models.py](../../core/request_models.py).
 | `soc_notified_at` | DateTimeField | null=True; blank=True |
 | `waiting_since` | DateTimeField | null=True; blank=True |
 | `waited_seconds` | PositiveIntegerField |  |
+| `waited_work_minutes` | PositiveIntegerField |  |
 | `sla_breaches` | JSONField | blank=True |
 ## CustomerRequestEntry
 
@@ -1385,6 +1386,13 @@ Fuente: [core/sla_models.py](../../core/sla_models.py).
 | `request_resolve_minutes` | PositiveIntegerField |  |
 | `request_urgent_response_minutes` | PositiveIntegerField |  |
 | `request_urgent_resolve_minutes` | PositiveIntegerField |  |
+| `business_hours_enabled` | BooleanField |  |
+| `business_days` | CharField | max_length=20 |
+| `business_start` | TimeField |  |
+| `business_end` | TimeField |  |
+| `business_holidays` | JSONField | blank=True |
+| `business_urgent_requests` | BooleanField |  |
+| `business_minor_incidents` | BooleanField |  |
 ## SlaPolicy
 
 Fuente: [core/sla_models.py](../../core/sla_models.py).

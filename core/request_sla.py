@@ -5,7 +5,8 @@ Se configuran en «Plazos de atención» y se activan aparte de los de las incid
 
 - Solo cuentan las solicitudes abiertas desde la activación: activar no convierte en vencidas las anteriores.
 - El tiempo en «Esperando vuestra respuesta» no cuenta para la resolución (`waiting_since`/`waited_seconds`).
-- Tiempo natural: no hay horario laboral (igual que en las incidencias).
+- Con el horario laboral activado (`business_hours`), las solicitudes normales solo cuentan dentro de la
+  jornada; las urgentes siguen en tiempo natural salvo que se marque lo contrario.
 - Un plazo vencido se registra una sola vez: nota interna en la solicitud, auditoría y aviso operativo
   (`request-sla:<id>:<plazo>`), crítico si la solicitud es urgente. El aviso se retira al cumplirse.
 """
@@ -35,11 +36,28 @@ def targets(request_obj, settings_row):
     return {'response': settings_row.request_response_minutes, 'resolve': settings_row.request_resolve_minutes}
 
 
+def calendar_for_request(request_obj, settings_row):
+    """Calendario laboral que aplica a la solicitud, o None si su plazo corre en tiempo natural."""
+    from .business_hours import calendar_for
+    urgent = request_obj.urgent or request_obj.kind == 'incident'
+    if urgent and not (settings_row and settings_row.business_urgent_requests):
+        return None
+    return calendar_for(settings_row)
+
+
 def waited(request_obj, now):
     """Tiempo total esperando al cliente, incluida la espera en curso."""
     total = timedelta(seconds=request_obj.waited_seconds)
     if request_obj.waiting_since:
         total += max(timedelta(0), now - request_obj.waiting_since)
+    return total
+
+
+def waited_work(request_obj, now, calendar):
+    """La misma espera en minutos de jornada (para los plazos con horario laboral)."""
+    total = request_obj.waited_work_minutes
+    if request_obj.waiting_since:
+        total += calendar.between(request_obj.waiting_since, now)
     return total
 
 
@@ -50,6 +68,11 @@ def transition_fields(request_obj, new_status, now):
         fields['waiting_since'] = now
     elif new_status != 'waiting' and request_obj.waiting_since:
         fields['waited_seconds'] = request_obj.waited_seconds + max(0, int((now - request_obj.waiting_since).total_seconds()))
+        # Se guarda también en minutos de jornada, con el calendario vigente al terminar la espera.
+        from .business_hours import calendar_for
+        calendar = calendar_for(config())
+        if calendar:
+            fields['waited_work_minutes'] = request_obj.waited_work_minutes + calendar.between(request_obj.waiting_since, now)
         fields['waiting_since'] = None
     return fields
 
@@ -61,15 +84,20 @@ def evaluate(request_obj, now=None, settings_row=None):
     if not applies(request_obj, settings_row):
         return []
     goal = targets(request_obj, settings_row)
+    from . import business_hours
+    calendar = calendar_for_request(request_obj, settings_row)
     rows = []
     for key, label in MILESTONES:
         minutes = goal[key]
         paused = False
         if key == 'response':
-            done, deadline = request_obj.first_response_at, request_obj.created_at + timedelta(minutes=minutes)
+            done, deadline = request_obj.first_response_at, business_hours.deadline(calendar, request_obj.created_at, minutes)
         else:
             done = request_obj.resolved_at if request_obj.status == 'resolved' else None
-            deadline = request_obj.created_at + timedelta(minutes=minutes) + waited(request_obj, now)
+            if calendar:
+                deadline = calendar.add(request_obj.created_at, minutes + waited_work(request_obj, now, calendar))
+            else:
+                deadline = request_obj.created_at + timedelta(minutes=minutes) + waited(request_obj, now)
             paused = request_obj.status == 'waiting'
         if done:
             state = 'met' if done <= deadline else 'late'
@@ -77,7 +105,7 @@ def evaluate(request_obj, now=None, settings_row=None):
             state = 'paused'
         elif now > deadline:
             state = 'breached'
-        elif deadline - now <= timedelta(minutes=minutes) * DUE_SOON:
+        elif business_hours.remaining_minutes(calendar, now, deadline) <= minutes * DUE_SOON:
             state = 'soon'
         else:
             state = 'running'
@@ -107,7 +135,8 @@ def customer_commitment(request_obj, settings_row=None):
     settings_row = settings_row or config()
     if not (settings_row and settings_row.requests_visible and applies(request_obj, settings_row)) or request_obj.first_response_at:
         return None
-    return request_obj.created_at + timedelta(minutes=targets(request_obj, settings_row)['response'])
+    from .business_hours import deadline
+    return deadline(calendar_for_request(request_obj, settings_row), request_obj.created_at, targets(request_obj, settings_row)['response'])
 
 
 def check(now=None):

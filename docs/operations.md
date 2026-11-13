@@ -49,6 +49,19 @@ Administración → «Plazos de atención» (acceso global y permiso de operacio
 
 El mantenimiento de un equipo exige motivo y dura como máximo 30 días; el motivo aparece en «Salud del SOC».
 
+### Horario laboral
+
+`core/business_hours.py`. Se configura en «Plazos de atención › Horario laboral»: días de la semana, inicio y fin de la jornada (hora local del portal) y festivos.
+
+- Con él activado, un plazo de «8 h» son ocho horas de jornada. Ejemplo: enviado un viernes a las 17:00, con jornada de 8:00 a 18:00, vence el lunes a las 15:00.
+- **Se aplica siempre** a las solicitudes normales de clientes.
+- **Opcional:** a las solicitudes urgentes y sospechas de incidente, y a las incidencias de gravedad media y baja.
+- **Nunca** a las incidencias de gravedad alta y crítica: cuentan las 24 horas.
+- La espera del cliente se descuenta en minutos de jornada (`waited_work_minutes`).
+- «Vence pronto» se calcula con el tiempo de jornada que queda.
+- Cambiar el horario recalcula los plazos abiertos. Los vencimientos ya registrados no se borran, pero su aviso se retira si con el horario nuevo el plazo ya no está vencido.
+- Límite: un solo horario para todos los clientes; no hay guardias ni jornadas partidas.
+
 ## Conservación de datos
 
 El trabajo horario `housekeeping` borra, por bloques y con un minuto como máximo por ejecución, las detecciones sin incidencia y los contadores por hora más antiguos que «Retención de evidencias» (Copias y recuperación, 90 días por defecto) y los intentos de acceso de más de un día (`core/retention.py`; último resultado en `WorkerState` «retention»). Antes solo se hacía al final de una copia correcta: con copias fallidas la base crecía sin límite, y un borrado de golpe retenía el escritor de SQLite.
@@ -191,7 +204,7 @@ Los firewalls que no informan de caídas aparecen como «No informa», nunca com
   - Un plazo vencido se registra una sola vez: nota interna en la solicitud, auditoría y aviso operativo (`request-sla:…`), crítico si la solicitud es urgente. El aviso se retira al cumplirse.
   - Se ven en la lista, en la ficha de la solicitud, en la bandeja y en el resumen.
   - Opcional: mostrar al cliente en su portal hasta cuándo recibirá la primera respuesta. Es un compromiso; activarlo solo si es el plazo acordado.
-  - Límite: tiempo natural, sin horario laboral.
+  - Con el horario laboral activado, las solicitudes normales solo cuentan dentro de la jornada (ver «Horario laboral» en los plazos de atención).
 - **Pendiente:** adjuntos.
 
 ## Políticas de firewall propuestas

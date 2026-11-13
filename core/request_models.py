@@ -29,6 +29,7 @@ class CustomerRequest(models.Model):
     # Plazos: el tiempo esperando al cliente no cuenta para la resolución.
     waiting_since = models.DateTimeField(null=True, blank=True)
     waited_seconds = models.PositiveIntegerField(default=0)
+    waited_work_minutes = models.PositiveIntegerField(default=0)  # la misma espera, contada en minutos de jornada
     sla_breaches = models.JSONField(default=dict, blank=True, editable=False)
     objects = ScopedManager()
     customer_lookup = 'client_id'

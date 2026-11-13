@@ -24,6 +24,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_blocklist_phase2.py](../../core/test_blocklist_phase2.py) | 7 |
 | [core/test_blocklist_repeat.py](../../core/test_blocklist_repeat.py) | 2 |
 | [core/test_browser.py](../../core/test_browser.py) | 5 |
+| [core/test_business_hours.py](../../core/test_business_hours.py) | 7 |
 | [core/test_campaigns.py](../../core/test_campaigns.py) | 6 |
 | [core/test_change_control_lifecycle.py](../../core/test_change_control_lifecycle.py) | 11 |
 | [core/test_chat_alerts.py](../../core/test_chat_alerts.py) | 20 |
@@ -196,3 +197,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0073_solicitudes_cliente.py](../../core/migrations/0073_solicitudes_cliente.py)
 - [core/migrations/0074_politicas_propuestas.py](../../core/migrations/0074_politicas_propuestas.py)
 - [core/migrations/0075_plazos_solicitudes.py](../../core/migrations/0075_plazos_solicitudes.py)
+- [core/migrations/0076_horario_laboral.py](../../core/migrations/0076_horario_laboral.py)

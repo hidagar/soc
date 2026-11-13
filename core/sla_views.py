@@ -99,6 +99,24 @@ def settings_view(request):
                     audit('sla.requests', config, {'status': 'enabled' if enabled else 'disabled'})
                     messages.success(request, 'Plazos de las solicitudes guardados.' + (' Cuentan para las que entren desde ahora.'
                                                                                       if enabled else ' Están desactivados.'))
+                elif action == 'hours':
+                    from . import business_hours
+                    enabled = request.POST.get('business_hours_enabled') == 'on'
+                    days = business_hours.parse_days(request.POST.getlist('business_days'))
+                    start = business_hours.parse_time(request.POST.get('business_start'), 'Inicio de la jornada')
+                    end = business_hours.parse_time(request.POST.get('business_end'), 'Fin de la jornada')
+                    if start >= end:
+                        raise ValueError('El fin de la jornada debe ser posterior al inicio.')
+                    holidays = business_hours.parse_holidays(request.POST.get('business_holidays', ''))
+                    config.business_hours_enabled = enabled
+                    config.business_days = ','.join(str(d) for d in sorted(days))
+                    config.business_start, config.business_end = start, end
+                    config.business_holidays = [d.isoformat() for d in holidays]
+                    config.business_urgent_requests = request.POST.get('business_urgent_requests') == 'on'
+                    config.business_minor_incidents = request.POST.get('business_minor_incidents') == 'on'
+                    config.save()
+                    audit('sla.hours', config, {'status': 'enabled' if enabled else 'disabled', 'count': len(holidays)})
+                    messages.success(request, 'Horario laboral guardado.' + (' Los plazos abiertos se recalculan con él.' if enabled else ' Desactivado: los plazos corren en tiempo natural.'))
                 elif action == 'client' and client:
                     values = read_table(request.POST, allow_blank=True)
                     for severity, triple in values.items():
@@ -124,6 +142,9 @@ def settings_view(request):
     with_overrides = Client.objects.filter(sla_policies__isnull=False).distinct().order_by('name')
     return render(request, 'sla_settings.html', {
         'config': config, 'global_rows': rows_for(table), 'client': client, 'error': error,
+        'weekdays': [(n, label, str(n) in str(config.business_days).split(',')) for n, label in
+                     enumerate(('Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'))],
+        'holidays_text': '\n'.join(f'{d[8:10]}/{d[5:7]}/{d[:4]}' for d in config.business_holidays),
         'request_rows': [{'label': label, 'fields': [{'name': prefix + key, 'label': text,
                                                       'value': request.POST.get(prefix + key) if error and request.POST.get('action') == 'requests'
                                                       else sla.duration(getattr(config, prefix + key))}
