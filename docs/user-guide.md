@@ -35,6 +35,8 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
     - **Asignársela.**
     - **Abrir una incidencia enlazada:** se usa cuando hay que investigar.
 
+    Si los plazos de solicitudes están activados («Plazos de atención»), cada una muestra hasta cuándo hay que dar la primera respuesta y resolverla; las vencidas salen en el resumen.
+
     Las nuevas, y las que tienen un mensaje nuevo del cliente, llegan por correo al «Correo de operaciones» (Copias y recuperación). Si el cliente marca «afecta al trabajo ahora», el aviso lleva «URGENTE».
 12. Revisar las **políticas propuestas** («Cobertura y salud › Políticas propuestas»):
     - Descartar las que no proceden.

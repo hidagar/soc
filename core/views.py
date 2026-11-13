@@ -82,13 +82,15 @@ def dashboard(request):
     # personal con acceso global, igual que en «Salud del SOC». Los avisos urgentes ya tienen su propia fila.
     # «Vulnerabilidades sin revisar» es trabajo del SOC con su propia fila, no un fallo de la plataforma.
     platform = list(OperationalIssue.objects.filter(active=True, device__isnull=True).exclude(
-        key__startswith="urgent-ack:").exclude(key__startswith="sla:").exclude(key="vulnerabilities:review").order_by("severity", "opened_at").values_list(
+        key__startswith="urgent-ack:").exclude(key__startswith="sla:").exclude(key__startswith="request-sla:").exclude(
+        key="vulnerabilities:review").order_by("severity", "opened_at").values_list(
         "title", "severity")[:50])
     from .sla import attention as sla_attention
     late = [i for i in sla_attention(open_incidents.select_related("client"), now) if i.sla_next["state"] == "breached"]
     from .models import CustomerRequest, DeviceExposure, PolicyProposal
     requests_open = CustomerRequest.objects.filter(status__in=("new", "in_progress"))
-    urgent_requests = requests_open.filter(urgent=True).count()
+    late_requests = OperationalIssue.objects.filter(active=True, key__startswith="request-sla:").count()
+    urgent_requests = requests_open.filter(urgent=True).count() or late_requests
     first_request = requests_open.select_related("client").order_by("-urgent", "updated_at").first()
     exposures = DeviceExposure.objects.filter(resolved_at__isnull=True, dismissed_at__isnull=True, advisory__isnull=True,
                                               device__active=True)
@@ -97,7 +99,8 @@ def dashboard(request):
     to_review = PolicyProposal.objects.filter(status__in=("proposed", "not_effective")).count()
     attention = [
         {"tone": "alert" if urgent_requests else "warn", "count": requests_open.count(), "title": "Solicitudes de clientes por atender",
-         "hint": first_request and (("Urgente: " if first_request.urgent else "") + f"{first_request.subject} ({first_request.client.name})") or "",
+         "hint": (f"{late_requests} plazo{'s' if late_requests != 1 else ''} vencido{'s' if late_requests != 1 else ''}. " if late_requests else "")
+                 + (first_request and (("Urgente: " if first_request.urgent else "") + f"{first_request.subject} ({first_request.client.name})") or ""),
          "url": reverse("requests")},
         {"tone": "alert", "count": approved, "title": "Cambios aprobados por el cliente pendientes de aplicar",
          "hint": "Aplicarlos en la ventana acordada y marcarlos como aplicados.", "url": reverse("policies")},

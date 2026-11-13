@@ -1334,6 +1334,9 @@ Fuente: [core/request_models.py](../../core/request_models.py).
 | `first_response_at` | DateTimeField | null=True; blank=True |
 | `resolved_at` | DateTimeField | null=True; blank=True |
 | `soc_notified_at` | DateTimeField | null=True; blank=True |
+| `waiting_since` | DateTimeField | null=True; blank=True |
+| `waited_seconds` | PositiveIntegerField |  |
+| `sla_breaches` | JSONField | blank=True |
 ## CustomerRequestEntry
 
 Fuente: [core/request_models.py](../../core/request_models.py).
@@ -1375,6 +1378,13 @@ Fuente: [core/sla_models.py](../../core/sla_models.py).
 |---|---|---|
 | `enabled` | BooleanField |  |
 | `enabled_at` | DateTimeField | null=True; blank=True |
+| `requests_enabled` | BooleanField |  |
+| `requests_enabled_at` | DateTimeField | null=True; blank=True |
+| `requests_visible` | BooleanField |  |
+| `request_response_minutes` | PositiveIntegerField |  |
+| `request_resolve_minutes` | PositiveIntegerField |  |
+| `request_urgent_response_minutes` | PositiveIntegerField |  |
+| `request_urgent_resolve_minutes` | PositiveIntegerField |  |
 ## SlaPolicy
 
 Fuente: [core/sla_models.py](../../core/sla_models.py).

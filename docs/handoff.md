@@ -2,7 +2,7 @@
 
 **Fecha del registro: 20/10/2026.** Revalidar antes de operar producción.
 
-> **Estado actual (11/11/2026):** lo entregado desde entonces, con su PR, migración y estado de despliegue, está en el [registro de cambios](changelog.md). Todo lo que falta, separado entre acciones del usuario y desarrollo, está en [trabajo pendiente](pending.md). Producción: `main` en `73b573b` (#66, confirmado el 13/11). Este archivo conserva el contexto histórico del 20/10.
+> **Estado actual (11/11/2026):** lo entregado desde entonces, con su PR, migración y estado de despliegue, está en el [registro de cambios](changelog.md). Todo lo que falta, separado entre acciones del usuario y desarrollo, está en [trabajo pendiente](pending.md). Producción: `main` en `e7ae4bd` (#67, confirmado el 13/11). Este archivo conserva el contexto histórico del 20/10.
 
 ## Qué hay construido
 

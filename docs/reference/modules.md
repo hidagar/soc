@@ -106,6 +106,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/reputation.py](../../core/reputation.py) | Reputación de IPs con CrowdSec (hoja de ruta 4A/C1): contexto, nunca detección. — `QuotaExceeded`, `KeyRejected`, `EngineUnavailable`, `daily_limit`, `monthly_limit`, `lapi_url`, `mode`, `protected_addresses`, `ProtectedSet`, `eligible`, `candidates`, `fetch_lapi`, `count_decisions`, `summarize_lists`, … (ver archivo) |
 | [core/reputation_views.py](../../core/reputation_views.py) | Página «Reputación CrowdSec»: estado del motor y orígenes en lista dentro del ámbito del usuario. — `engine_status`, `overview` |
 | [core/request_models.py](../../core/request_models.py) | Solicitudes del cliente al SOC desde el portal: consultas, cambios, desbloqueos y sospechas. — `CustomerRequest`, `CustomerRequestEntry` |
+| [core/request_sla.py](../../core/request_sla.py) | Plazos de respuesta de las solicitudes de clientes. — `config`, `applies`, `targets`, `waited`, `transition_fields`, `evaluate`, `next_due`, `annotate`, `customer_commitment`, `check` |
 | [core/retention.py](../../core/retention.py) | Conservación de datos operativos: borra por bloques lo que ha superado su plazo. — `prune` |
 | [core/roles.py](../../core/roles.py) | `synchronize_roles` |
 | [core/scope.py](../../core/scope.py) | Customer scope is request-local. Root/background jobs explicitly have no scope. — `ScopedManager` |

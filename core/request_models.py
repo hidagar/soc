@@ -26,6 +26,10 @@ class CustomerRequest(models.Model):
     first_response_at = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     soc_notified_at = models.DateTimeField(null=True, blank=True)  # aviso interno al equipo SOC (como mucho una vez)
+    # Plazos: el tiempo esperando al cliente no cuenta para la resolución.
+    waiting_since = models.DateTimeField(null=True, blank=True)
+    waited_seconds = models.PositiveIntegerField(default=0)
+    sla_breaches = models.JSONField(default=dict, blank=True, editable=False)
     objects = ScopedManager()
     customer_lookup = 'client_id'
 

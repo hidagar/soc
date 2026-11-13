@@ -17,6 +17,10 @@ FIELDS = (('acknowledge', 'acknowledge_minutes', 'Acuse'), ('investigate', 'inve
           ('resolve', 'resolve_minutes', 'Resolución'))
 
 
+REQUEST_FIELDS = ('request_response_minutes', 'request_resolve_minutes', 'request_urgent_response_minutes',
+                  'request_urgent_resolve_minutes')
+
+
 def global_access(user):
     access = getattr(user, 'soc_access', None)
     return user.is_superuser or bool(access and access.all_clients and access.role != 'customer')
@@ -79,6 +83,22 @@ def settings_view(request):
                     audit('sla.settings', config, {'status': 'enabled' if enabled else 'disabled'})
                     messages.success(request, 'Plazos guardados.' + (' Cuentan para los casos que entren desde ahora.'
                                                                      if enabled else ' Los plazos están desactivados.'))
+                elif action == 'requests':
+                    values = {name: sla.parse_duration(request.POST.get(name, '')) for name in REQUEST_FIELDS}
+                    for prefix in ('request_', 'request_urgent_'):
+                        if values[prefix + 'response_minutes'] > values[prefix + 'resolve_minutes']:
+                            raise ValueError('La primera respuesta no puede tener más plazo que la resolución.')
+                    for name, minutes in values.items():
+                        setattr(config, name, minutes)
+                    enabled = request.POST.get('requests_enabled') == 'on'
+                    if enabled and not config.requests_enabled:
+                        config.requests_enabled_at = timezone.now()  # solo cuentan las solicitudes nuevas
+                    config.requests_enabled = enabled
+                    config.requests_visible = enabled and request.POST.get('requests_visible') == 'on'
+                    config.save()
+                    audit('sla.requests', config, {'status': 'enabled' if enabled else 'disabled'})
+                    messages.success(request, 'Plazos de las solicitudes guardados.' + (' Cuentan para las que entren desde ahora.'
+                                                                                      if enabled else ' Están desactivados.'))
                 elif action == 'client' and client:
                     values = read_table(request.POST, allow_blank=True)
                     for severity, triple in values.items():
@@ -104,5 +124,10 @@ def settings_view(request):
     with_overrides = Client.objects.filter(sla_policies__isnull=False).distinct().order_by('name')
     return render(request, 'sla_settings.html', {
         'config': config, 'global_rows': rows_for(table), 'client': client, 'error': error,
+        'request_rows': [{'label': label, 'fields': [{'name': prefix + key, 'label': text,
+                                                      'value': request.POST.get(prefix + key) if error and request.POST.get('action') == 'requests'
+                                                      else sla.duration(getattr(config, prefix + key))}
+                                                     for key, text in (('response_minutes', 'Primera respuesta'), ('resolve_minutes', 'Resolución'))]}
+                         for prefix, label in (('request_', 'Normales'), ('request_urgent_', 'Urgentes o sospecha de incidente'))],
         'client_rows': rows_for(table, client, overrides) if client else None,
         'clients': Client.objects.filter(active=True).order_by('name'), 'with_overrides': with_overrides})

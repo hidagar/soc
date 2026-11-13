@@ -128,6 +128,8 @@ def execute(name):
         from .customer_requests import notify_soc as notify_requests, send_pending as send_request_notices
         escalate_unacknowledged();check_sla();send_customer_notices();send_monthly();check_monthly();send_vulnerability_notices()
         notify_requests();send_request_notices()
+        from .request_sla import check as check_request_sla
+        check_request_sla()
         from .policy_views import notify_soc as notify_policy_decisions, send_pending as send_policy_notices
         notify_policy_decisions();send_policy_notices()
         return op.notify_issues()

@@ -25,6 +25,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from .models import Client, CustomerRequest, CustomerRequestEntry, Incident, IncidentUpdate, Site
+from .request_sla import annotate, customer_commitment, transition_fields
 from .security import audit
 
 MAX_OPEN = 20
@@ -189,7 +190,8 @@ def customer_detail(request, pk):
         now = timezone.now()
         if action == 'close' and req.open:
             with transaction.atomic():
-                CustomerRequest.objects.filter(pk=req.pk).update(status='resolved', resolved_at=now, updated_at=now)
+                CustomerRequest.objects.filter(pk=req.pk).update(status='resolved', resolved_at=now, updated_at=now,
+                                                                 **transition_fields(req, 'resolved', now))
                 CustomerRequestEntry.objects.create(request=req, kind='customer', author=request.user, created_at=now,
                                                     text='Damos la solicitud por resuelta.', status='resolved')
                 audit('customer.request', req, {'status': 'resolved'})
@@ -203,13 +205,15 @@ def customer_detail(request, pk):
             status = 'in_progress' if req.status in ('waiting', 'resolved') else req.status
             with transaction.atomic():
                 CustomerRequest.objects.filter(pk=req.pk).update(status=status, updated_at=now,
-                                                                 resolved_at=None if status != 'resolved' else req.resolved_at)
+                                                                 resolved_at=None if status != 'resolved' else req.resolved_at,
+                                                                 **transition_fields(req, status, now))
                 CustomerRequestEntry.objects.create(request=req, kind='customer', author=request.user, text=text, status=status, created_at=now)
                 CustomerRequest.objects.filter(pk=req.pk).update(soc_notified_at=None)  # novedad para el equipo SOC
                 audit('customer.request', req, {'status': status})
             return redirect(reverse('customer_request_detail', args=[req.pk]) + '?enviada=1')
     entries = req.entries.exclude(kind='internal')
     return render(request, 'customer_request_detail.html', {**_portal_base(client, False, 'requests'), 'req': req,
+                  'commitment': customer_commitment(req),
                   'entries': entries, 'error': error, 'sent': request.GET.get('enviada') == '1',
                   'can_reply': req.open or (req.resolved_at and timezone.now() - req.resolved_at <= timedelta(days=REOPEN_DAYS))})
 
@@ -239,7 +243,7 @@ def soc_list(request):
     client_id = request.GET.get('client', '')
     if client_id.isdigit():
         rows = rows.filter(client_id=int(client_id))
-    return render(request, 'requests.html', {'rows': rows[:200], 'state': state, 'clients': Client.objects.all(),
+    return render(request, 'requests.html', {'rows': annotate(list(rows[:200])), 'state': state, 'clients': Client.objects.all(),
                                              'selected_client': client_id, 'statuses': CustomerRequest.STATUSES})
 
 
@@ -269,7 +273,8 @@ def soc_detail(request, pk):
                 messages.error(request, 'Escribe la respuesta para el cliente.')
                 return redirect('request_detail', pk=req.pk)
             with transaction.atomic():
-                fields = {'status': status, 'updated_at': now, 'resolved_at': now if status == 'resolved' else None}
+                fields = {'status': status, 'updated_at': now, 'resolved_at': now if status == 'resolved' else None,
+                          **transition_fields(req, status, now)}
                 if not req.first_response_at:
                     fields['first_response_at'] = now
                 if not req.owner_id:
@@ -299,6 +304,7 @@ def soc_detail(request, pk):
         else:
             return HttpResponseForbidden('Acción no válida.')
         return redirect('request_detail', pk=req.pk)
+    annotate([req])
     return render(request, 'request_detail.html', {'req': req, 'entries': req.entries.select_related('author'),
                                                    'hints': HINTS})
 

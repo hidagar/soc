@@ -86,6 +86,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_report_versions.py](../../core/test_report_versions.py) | 8 |
 | [core/test_reputation.py](../../core/test_reputation.py) | 39 |
+| [core/test_request_sla.py](../../core/test_request_sla.py) | 6 |
 | [core/test_retention.py](../../core/test_retention.py) | 5 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
 | [core/test_roadmap_first.py](../../core/test_roadmap_first.py) | 20 |
@@ -194,3 +195,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0072_avisos_vulnerabilidad.py](../../core/migrations/0072_avisos_vulnerabilidad.py)
 - [core/migrations/0073_solicitudes_cliente.py](../../core/migrations/0073_solicitudes_cliente.py)
 - [core/migrations/0074_politicas_propuestas.py](../../core/migrations/0074_politicas_propuestas.py)
+- [core/migrations/0075_plazos_solicitudes.py](../../core/migrations/0075_plazos_solicitudes.py)

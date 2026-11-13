@@ -83,7 +83,8 @@ def _requests(selected):
     rows = CustomerRequest.objects.filter(status__in=('new', 'in_progress')).select_related('client', 'owner')
     if selected.isdigit():
         rows = rows.filter(client_id=int(selected))
-    return list(rows.order_by('-urgent', 'updated_at')[:30])
+    from .request_sla import annotate
+    return annotate(list(rows.order_by('-urgent', 'updated_at')[:30]))
 
 
 @login_required

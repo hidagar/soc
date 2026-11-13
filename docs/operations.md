@@ -184,7 +184,15 @@ Los firewalls que no informan de caídas aparecen como «No informa», nunca com
   - `notify_soc` envía un correo interno al «Correo de operaciones» con las solicitudes nuevas o con un mensaje nuevo del cliente. Las marca antes de enviar: como mucho un correo por novedad.
   - `send_pending` envía al cliente un aviso de cada respuesta del SOC (`MailDispatch` de tipo `request`). Agrupa por solicitud, no incluye el texto y, si el envío es dudoso, no lo repite.
 - **Lo que ve el cliente:** sus solicitudes y los mensajes del SOC dirigidos a él. Nunca ve las notas internas ni la incidencia enlazada (invariante 3).
-- **Pendiente:** plazos de respuesta para las solicitudes (hoy solo se mide la primera respuesta) y adjuntos.
+- **Plazos** (`core/request_sla.py`, se configuran en «Plazos de atención»):
+  - Dos objetivos por solicitud: primera respuesta y resolución. Valores por defecto: 8 h y 5 días; para las urgentes o las sospechas de incidente, 1 h y 1 día.
+  - Se activan aparte de los plazos de las incidencias, y solo cuentan las solicitudes enviadas desde la activación.
+  - El tiempo en «Esperando vuestra respuesta» no cuenta para la resolución.
+  - Un plazo vencido se registra una sola vez: nota interna en la solicitud, auditoría y aviso operativo (`request-sla:…`), crítico si la solicitud es urgente. El aviso se retira al cumplirse.
+  - Se ven en la lista, en la ficha de la solicitud, en la bandeja y en el resumen.
+  - Opcional: mostrar al cliente en su portal hasta cuándo recibirá la primera respuesta. Es un compromiso; activarlo solo si es el plazo acordado.
+  - Límite: tiempo natural, sin horario laboral.
+- **Pendiente:** adjuntos.
 
 ## Políticas de firewall propuestas
 
