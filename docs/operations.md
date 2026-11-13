@@ -49,6 +49,16 @@ Administración → «Plazos de atención» (acceso global y permiso de operacio
 
 El mantenimiento de un equipo exige motivo y dura como máximo 30 días; el motivo aparece en «Salud del SOC».
 
+### Pausa por espera del cliente (incidencias)
+
+Opcional, en «Plazos de atención» («Pausar la resolución mientras el cliente tenga una actuación pendiente de su parte»).
+
+- Una incidencia **espera al cliente** mientras tiene una actuación publicada en su portal en estado «Pendiente» o «Requiere más información». Las actuaciones sin publicar no cuentan.
+- Mientras espera, el plazo de **resolución** se detiene y se muestra «En pausa: esperando al cliente». El acuse y el diagnóstico no se pausan: son solo del SOC.
+- Al responder el cliente (o resolverse el caso), la espera se suma y el plazo se alarga ese tiempo, en minutos de jornada si hay horario laboral.
+- Lo anota `sla.sync_waiting`, que el trabajo de avisos ejecuta cada minuto: la precisión es de un minuto.
+- Si un plazo de resolución ya estaba vencido, el aviso se retira mientras dura la pausa; el vencimiento registrado en el caso no se borra.
+
 ### Horario laboral
 
 `core/business_hours.py`. Se configura en «Plazos de atención › Horario laboral»: días de la semana, inicio y fin de la jornada (hora local del portal) y festivos.
@@ -61,6 +71,7 @@ El mantenimiento de un equipo exige motivo y dura como máximo 30 días; el moti
 - «Vence pronto» se calcula con el tiempo de jornada que queda.
 - Cambiar el horario recalcula los plazos abiertos. Los vencimientos ya registrados no se borran, pero su aviso se retira si con el horario nuevo el plazo ya no está vencido.
 - Límite: un solo horario para todos los clientes; no hay guardias ni jornadas partidas.
+- La pausa de las incidencias descuenta la espera con el horario vigente cuando termina.
 
 ## Conservación de datos
 
