@@ -74,6 +74,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_network_coverage.py](../../core/test_network_coverage.py) | 20 |
 | [core/test_onboarding.py](../../core/test_onboarding.py) | 16 |
 | [core/test_operations.py](../../core/test_operations.py) | 32 |
+| [core/test_policy_changes.py](../../core/test_policy_changes.py) | 6 |
 | [core/test_policy_proposals.py](../../core/test_policy_proposals.py) | 10 |
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |

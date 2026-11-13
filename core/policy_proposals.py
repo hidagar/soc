@@ -138,8 +138,10 @@ def _proposals(client, now):
     devices = list(Device._base_manager.filter(site__client=client, active=True, site__active=True).select_related('site'))
     by_id = {d.pk: d for d in devices}
     from .exposure import any_network
+    from .policy_changes import active_findings
+    restricted = active_findings(client)  # ya tienen una regla del SOC que limita el origen
     for finding in ExposureFinding._base_manager.filter(device_id__in=by_id, present=True, kind__in=EXPOSURE_KINDS):
-        if finding.exception_active or not any_network(finding.evidence.get('source', '')):
+        if finding.exception_active or finding.pk in restricted or not any_network(finding.evidence.get('source', '')):
             continue
         device = by_id[finding.device_id]
         ports = _ports(finding.evidence)
@@ -275,6 +277,18 @@ def _check(proposal, now):
         finding = proposal.exposure
         if finding is not None:
             finding.refresh_from_db()
+        from .policy_changes import TEMPLATE as RESTRICT
+        plan = proposal.change_plan
+        if kind == 'restrict_service' and plan is not None and plan.template == RESTRICT:
+            # Aplicada con una regla propia: la publicación sigue igual, así que se comprueba la regla y los ataques.
+            plan.refresh_from_db()
+            if plan.status != 'active':
+                return False, f'La regla del SOC ya no está activa ({plan.status_label.lower()}).'
+            ports = set(proposal.evidence.get('ports') or [])
+            stats = attacks(proposal.client, proposal.device, proposal.applied_at, ports or None, now) if ports else None
+            if stats and stats['allowed']:
+                return False, f'La regla está activa, pero después han entrado {stats["allowed"]} ataques permitidos a ese servicio: revisar el orden de reglas.'
+            return True, 'La regla del SOC que limita el origen sigue activa' + (' y no han entrado ataques permitidos.' if stats is not None else '.')
         if finding is not None and finding.present and any_network(finding.evidence.get('source', '')) and kind == 'restrict_service':
             return False, 'El control de exposición sigue viendo el servicio publicado a cualquier origen.'
         ports = set(proposal.evidence.get('ports') or [])
@@ -312,6 +326,8 @@ def _check(proposal, now):
 
 def run(now=None):
     now = now or timezone.now()
+    from .policy_changes import sync_applied
+    sync_applied(now)
     created = generate(now)
     verify(now)
     return created

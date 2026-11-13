@@ -39,7 +39,7 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
 12. Revisar las **políticas propuestas** («Cobertura y salud › Políticas propuestas»):
     - Descartar las que no proceden.
     - Ofrecer las demás al cliente, con una explicación y una ventana.
-    - Cuando el cliente apruebe, aplicar en la ventana y marcarlas como aplicadas. El SOC comprueba el efecto a partir de los 7 días.
+    - Cuando el cliente apruebe, aplicar en la ventana y marcarlas como aplicadas. Para «restringir un servicio» en un OPNsense con API, «Preparar con el control de cambios» crea el plan con los orígenes autorizados; al confirmarlo activo, la propuesta se marca sola. El SOC comprueba el efecto a partir de los 7 días.
 13. Revisar informe y acciones propuestas antes de activar envío semanal/avisos. Publicación y dirección de contacto no equivalen a preferencias de correo activadas.
 
 ## Cliente

@@ -218,12 +218,22 @@ Una propuesta que nadie ha ofrecido y deja de cumplirse pasa a «Ya no aplica».
    - Una propuesta ya decidida no cambia.
 3. **Aplicación** (`change_device`): el SOC aplica en la ventana y marca la propuesta como aplicada, con lo que cambió o el plan del control de cambios.
    - Las listas del SOC usan el control de cambios que ya existe.
-   - Restringir un servicio, el filtro por país y el modo del IPS se aplican a mano con los pasos de la propuesta. La plantilla automática es la fase 2.
+   - **Restringir un servicio en OPNsense con API (fase 2, `core/policy_changes.py`):** «Preparar con el control de cambios» pide los orígenes autorizados y crea un borrador. Ver el apartado siguiente.
+   - El filtro por país, el modo del IPS y cualquier cambio en UniFi se aplican a mano con los pasos de la propuesta.
 4. **Verificación** (a partir de 7 días):
    - Servicio restringido: el control de exposición ya no lo ve abierto a cualquier origen y no entran ataques permitidos a ese puerto.
    - IPS: está en modo bloqueo.
    - Listas: están publicadas y hay una regla activa que las usa.
    - Si no se puede comprobar en 30 días, queda «Sin efecto comprobado» con el motivo.
+
+**Restringir un servicio con el control de cambios** (plantilla `policy_restrict`):
+- **Qué crea:** un alias `SOC_POL_<plan>` con las IPs o redes autorizadas (IPv4, de /16 o más pequeñas, 20 como mucho) y una regla de bloqueo en la interfaz externa para el destino y el puerto del servicio cuando el origen **no** está en el alias. Nace desactivada.
+- **Qué no toca:** la publicación (NAT) ni ninguna regla del cliente. Retirar la regla devuelve el acceso como estaba.
+- **Ciclo:** el de `change_control`: borrador, preparación, activación con `apply_changes` y MFA, punto de recuperación, comprobación del acceso de gestión y reversión automática si no se confirma en el plazo.
+- **Protección ante una tabla vacía:** un alias vacío bloquearía a todo el mundo. Se exige al menos un origen y, antes de dar el borrador por preparado, se comprueba que la tabla cargada en el firewall tiene todas las entradas; si no, se retira lo creado.
+- **Cuándo no se ofrece** (se indica el motivo y se aplica a mano): la publicación usa varias interfaces o un grupo, el destino no es una IP fija, el puerto es un alias, el protocolo no es TCP ni UDP, o el equipo no es un OPNsense con API.
+- **Después:** cuando el plan queda activo y confirmado, la propuesta pasa sola a «Aplicada». La verificación comprueba que la regla sigue activa y que no entran ataques permitidos a ese puerto; si alguien la revierte, queda «Sin efecto comprobado». El motor no vuelve a proponer ese hallazgo mientras la regla esté activa.
+- **Límites:** el control de exposición sigue mostrando la publicación abierta a cualquier origen, porque la regla NAT no cambia; conviene documentar la excepción ahí. Si un permiso anterior acepta antes el tráfico, la regla no tendría efecto: lo detecta la verificación. **No está validado en un OPNsense real**: las pruebas usan un firewall simulado.
 
 **Avisos** (trabajo `notifications`):
 - **Al cliente:** un correo por cliente con las propuestas ofrecidas, sin detalles y con enlace al portal (`MailDispatch` de tipo `policy`). Usa la opción y el destinatario de «Avisos de actuaciones».

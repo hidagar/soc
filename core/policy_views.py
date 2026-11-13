@@ -202,6 +202,10 @@ def _groups(state):
         if p.status == 'proposed':
             p.suggested_text = default_text(p)
         p.plans = list(ChangePlan.objects.filter(device__site__client=p.client).order_by('-created_at')[:10]) if p.status == 'approved' else []
+        if p.status == 'approved' and p.kind == 'restrict_service':
+            from .policy_changes import automatable
+            p.manual_reason = automatable(p)
+            p.can_automate = not p.manual_reason
         group['rows'].append(p)
         group['todo'] += p.status in ('proposed', 'approved', 'not_effective')
     return sorted(result.values(), key=lambda g: (-g['todo'], g['client'].name))
@@ -228,7 +232,7 @@ def _act(request):
         return redirect('policies')
     pk = request.POST.get('proposal', '')
     proposal = get_object_or_404(PolicyProposal, pk=int(pk) if pk.isdigit() else 0)
-    needs = 'core.change_device' if action in ('applied', 'recheck') else 'core.change_incident'
+    needs = 'core.change_device' if action in ('applied', 'recheck', 'plan') else 'core.change_incident'
     if not request.user.has_perm(needs):
         return HttpResponseForbidden('Tu cuenta no tiene permiso para esta acción.')
     manager = PolicyProposal.objects.filter(pk=proposal.pk)
@@ -278,6 +282,19 @@ def _act(request):
         manager.filter(status='not_effective').update(status='dismissed', dismissed_reason=reason, decided_at=now, updated_at=now)
         audit('policy.dismiss', proposal, {'reason': reason})
         messages.success(request, 'Propuesta cerrada.')
+    elif action == 'plan' and proposal.status == 'approved':
+        from . import policy_changes
+        if not request.user.has_perm('core.manage_connections'):
+            return HttpResponseForbidden('Preparar un cambio en el firewall requiere el permiso de conexiones.')
+        try:
+            origins = policy_changes.parse_origins(request.POST.get('origins', ''))
+            plan = policy_changes.create_plan(proposal, origins, request.user)
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return redirect('policies')
+        audit('change.draft', plan, {'template': plan.template})
+        messages.success(request, 'Borrador creado: todavía no se ha escrito nada en el firewall. Revísalo y sigue los pasos del control de cambios.')
+        return redirect('change_detail', pk=plan.pk)
     elif action == 'applied' and proposal.status == 'approved':
         note = request.POST.get('note', '').strip()[:500]
         plan_id = request.POST.get('change_plan', '')

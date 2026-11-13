@@ -10,7 +10,7 @@ Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendie
 
 | Pendiente | Origen | Notas |
 |---|---|---|
-| Desplegar el informe mensual ampliado y las pestañas de inteligencia | 13/11 | Sin migraciones. Los informes ya publicados no cambian: la sección nueva aparece en los que se publiquen desde ahora. |
+| Desplegar la fase 2 de las políticas y **probarla primero en un firewall propio** | 13/11 | Sin migraciones. No está validada en un OPNsense real: preparar un plan en un equipo de ib-red, revisar el alias y la regla desactivada en su consola, activarlo y comprobar el acceso desde un origen autorizado y desde otro. Solo después, usarla con clientes. |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -34,7 +34,10 @@ Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendie
 ## Desarrollo pendiente por área
 
 ### Políticas de firewall propuestas (fase 1 entregada el 11/11)
-- **Fase 2 · aplicar en OPNsense con el control de cambios:** plantillas para limitar el origen de una publicación NAT y para el alias GeoIP, con copia y marcha atrás. Hoy se aplican a mano con los pasos de la propuesta; solo las listas del SOC usan ya el control de cambios.
+- Hecho el 13/11: restringir un servicio en OPNsense con el control de cambios (alias de autorizados y regla propia). Pendiente de validar en un equipo real.
+- **Fase 2 · filtro por país en OPNsense:** alias GeoIP con la misma plantilla. Exige comprobar antes que la base GeoIP del firewall carga la tabla; vacía, bloquearía a todo el mundo.
+- **Fase 2 · IPv6 y destinos que no son una IP fija** (alias, el propio firewall, varias interfaces): hoy se aplican a mano.
+- El control de exposición debería reconocer la regla del SOC y dejar de mostrar el servicio como abierto a cualquier origen.
 - **Fase 2 · UniFi por API:** reenvíos de puertos y restricción por región. Hoy es una actuación guiada.
 - **Fase 3 · mínimo privilegio:** conocer el tráfico legítimo con resúmenes de Zenarmor por API (aplicaciones y categorías), sin recibir cada conexión. Antes, confirmar qué ofrece su API.
 - Recordatorio al cliente si una propuesta lleva más de 14 días sin decisión.

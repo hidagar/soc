@@ -151,13 +151,19 @@ def stage(plan):
     plan.status='staging'; plan.save()
     try:
         from .blocklist import TEMPLATE_OUT,TEMPLATES,alias_name
+        from . import policy_changes
         crowdsec=plan.template in TEMPLATES
+        restrict=plan.template==policy_changes.TEMPLATE
         if crowdsec: stage_blocklist_alias(plan,c)
+        origins_alias=policy_changes.stage_alias(plan,api,c,completed) if restrict else ''
         for index,desired in enumerate(plan.preview['rules']):
             rule={**desired,'description':f'SOC PLAN {plan.pk} v{plan.template_version} {index+1}'}
             if crowdsec:
                 # Entrada: bloquea orígenes de la lista; salida (C2): bloquea destinos de la lista.
                 rule['destination_net' if plan.template==TEMPLATE_OUT else 'source_net']=alias_name(plan)
+            if restrict:
+                # Bloquea el servicio a todo origen que NO esté en el alias de autorizados.
+                rule['source_net']=origins_alias;rule['source_not']='1'
             # The description is an idempotency key, including recovery after a process interruption.
             rows=snapshot(c).get('rows',[])
             found=next((r for r in rows if r.get('description')==rule['description']),None)
@@ -172,7 +178,7 @@ def stage(plan):
             observed=api(c,'/api/firewall/filter/get_rule/'+uid).get('rule',{})
             if str(observed.get('enabled'))!='0' or observed.get('description')!=rule['description']:
                 raise ValueError('La regla no está desactivada o su identidad difiere.')
-        if not crowdsec:
+        if not crowdsec and not restrict:
             stage_ids(plan,c)
             if plan.device.zenarmor_enabled: stage_zenarmor(plan,c)
         plan.status='staged'; plan.result='Borradores desactivados verificados. La activación desde este panel corresponde a las reglas de firewall; revisa las políticas de inspección en la consola antes de activarlas.'
