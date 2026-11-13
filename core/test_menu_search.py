@@ -72,3 +72,17 @@ class MenuSearchTests(TestCase):
         self.client.force_login(customer)
         self.assertEqual(self.get('talleres').status_code, 403)
         self.assertNotContains(self.client.get(reverse('customer_home')), 'nav-search')
+
+    def test_intelligence_pages_share_one_menu_entry_and_tabs(self):
+        from django.contrib.auth.models import Permission
+        page = self.client.get(reverse('crowdsec_overview')).content.decode()
+        self.assertIn('Inteligencia y bloqueo</a>', page)
+        self.assertNotIn('>Listas de CrowdSec</a>', page)  # sin permiso de operaciones: solo su pestaña
+        self.assertIn('aria-label="Inteligencia y bloqueo"', page)
+        self.user.user_permissions.add(Permission.objects.get(codename='manage_operations'))
+        page = self.client.get(reverse('blocklists')).content.decode()
+        for label in ('Reputación CrowdSec', 'Listas de CrowdSec', 'Listas de bloqueo', 'Q-Feeds', 'Reputación propia'):
+            self.assertIn(f'>{label}</a>', page)
+        self.assertIn(f'<a href="{reverse("blocklists")}" aria-current="page">Listas de bloqueo</a>', page)
+        self.assertIn(f'<a href="{reverse("crowdsec_overview")}" aria-current="page">Inteligencia y bloqueo', page)
+        self.assertNotIn('page-tabs', self.client.get(reverse('dashboard')).content.decode())

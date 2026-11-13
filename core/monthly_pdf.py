@@ -75,6 +75,25 @@ def render_monthly_pdf(context):
                 (f"{row['outages']} caída{'s' if row['outages'] != 1 else ''}" + (f", la última el {row['last']:%d/%m %H:%M}" if row['last'] else ''))
                 if row['reports'] else 'no informa de caídas') + '.'))
         story.append(p('El fabricante no informa de cuándo vuelve la conexión, así que no se indica la duración.', 'SOCSmall'))
+    service = context.get('service') or {}
+    if service.get('any'):
+        story.append(p('Trabajo del SOC con vuestra empresa', 'SOCHeading'))
+        v, r, c = service['vulnerabilities'], service['requests'], service['policies']
+        if v['advised'] or v['fixed'] or v['pending']:
+            story.append(p(f"Vulnerabilidades de los firewalls: {v['advised']} avisadas en el mes, {v['fixed']} corregidas y "
+                           f"{v['pending']} pendientes de actualizar al publicar"
+                           + (f" ({', '.join(v['pending_firewalls'])})" if v['pending_firewalls'] else '') + '.'
+                           + (' Alguna de las pendientes se está explotando activamente: conviene actualizar cuanto antes.' if v['exploited'] else '')))
+        if r['opened'] or r['resolved'] or r['open']:
+            story.append(p(f"Solicitudes al SOC: {r['opened']} recibidas en el mes, {r['resolved']} resueltas y {r['open']} abiertas al publicar."
+                           + (f" Tiempo habitual hasta la primera respuesta: {r['median_response_hours']} h." if r['median_response_hours'] is not None else '')))
+        if c['offered'] or c['applied'] or c['verified'] or c['awaiting']:
+            story.append(p(f"Cambios de seguridad propuestos: {c['offered']} propuestos en el mes, {len(c['applied'])} aplicados y "
+                           f"{len(c['verified'])} comprobados."))
+            for title in c['applied']:
+                story.append(p(f'· Aplicado: {title}'))
+            for title in c['awaiting']:
+                story.append(p(f'· Pendiente de vuestra decisión: {title}'))
     story.append(p('Evolución por semanas', 'SOCHeading'))
     rows = [[p(label, 'SOCSmall') for label in ('Semana', 'Detecciones', 'Bloqueadas', 'Permitidas', 'Sin confirmar', 'Firewalls con datos')]]
     for week in context['weeks']:

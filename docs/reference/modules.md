@@ -77,7 +77,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/monthly_models.py](../../core/monthly_models.py) | Informe mensual para dirección (bloque 6): publicación con versiones inmutables y envío opcional. — `MonthlyReport`, `MonthlyReportVersion`, `MonthlyReportShare` |
 | [core/monthly_pdf.py](../../core/monthly_pdf.py) | PDF del informe mensual para dirección, con el mismo contexto (y la misma marca) que la página. — `render_monthly_pdf` |
 | [core/monthly_report.py](../../core/monthly_report.py) | Informe mensual para dirección (bloque 6): resumen del mes publicado al cliente con versión inmutable. — `month_label`, `bounds`, `mondays`, `available_from`, `parse_month`, `customer_context`, `release_problem`, `render_snapshot`, `freeze`, `recipient`, `queue_send`, `staff_context`, `preview`, `publish`, … (ver archivo) |
-| [core/navigation.py](../../core/navigation.py) | Menú lateral del portal agrupado por áreas de trabajo. — `badges`, `build_navigation` |
+| [core/navigation.py](../../core/navigation.py) | Menú lateral del portal agrupado por áreas de trabajo. — `intel_tabs`, `badges`, `build_navigation` |
 | [core/network_coverage.py](../../core/network_coverage.py) | Bounded readonly discovery and network-specific proof, without inferring blanket protection. — `literal`, `cidrs`, `opnsense_networks`, `unifi_networks`, `save_discovery`, `discover_networks`, `current`, `fingerprint`, `matches_ip`, `uniquely_contains`, `snapshot` |
 | [core/network_models.py](../../core/network_models.py) | `NetworkCheck`, `NetworkCoverage` |
 | [core/network_views.py](../../core/network_views.py) | `NetworkForm`, `coverage`, `requirements` |

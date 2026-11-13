@@ -223,3 +223,37 @@ class MonthlyReportTests(TestCase):
         WeeklyReport.objects.filter(client=self.company, week_start=SEP_WEEKS[0]).delete()
         self.assertIsNone(monthly_report.customer_context(self.company, OCTOBER)['previous'])
         self.assertEqual(timedelta(days=0), monthly_report.available_from(OCTOBER) - date(2026, 11, 2))
+
+    def test_soc_work_section_counts_only_what_the_customer_already_sees(self):
+        from django.template.loader import render_to_string
+        from .models import (CustomerRequest, Device, DeviceExposure, PolicyProposal, Site, VulnerabilityAdvisory,
+                             VulnerabilityRecord)
+        from .monthly_pdf import render_monthly_pdf
+        self.assertFalse(monthly_report.customer_context(self.company, OCTOBER)['service']['any'])
+        site = Site.objects.create(client=self.company, name='Palma', code='palma')
+        fw = Device.objects.create(site=site, name='FW-Palma', vendor='opnsense')
+        advisory = VulnerabilityAdvisory.objects.create(client=self.company, cve_id='CVE-2026-44194', published_at=aware(2026, 10, 6, 9))
+        critical = VulnerabilityRecord.objects.create(cve_id='CVE-2026-44194', product='a:opnsense:opnsense', severity='CRITICAL',
+                                                      kev_added=date(2026, 10, 1))
+        hidden = VulnerabilityRecord.objects.create(cve_id='CVE-2026-0009', product='a:opnsense:opnsense', severity='HIGH')
+        DeviceExposure.objects.create(client=self.company, device=fw, record=critical, version='25.1', advisory=advisory)
+        DeviceExposure.objects.create(client=self.company, device=fw, record=hidden, version='25.1')  # sin publicar: no cuenta
+        CustomerRequest.objects.create(client=self.company, kind='question', subject='Duda', created_at=aware(2026, 10, 7, 9),
+                                       first_response_at=aware(2026, 10, 7, 11), resolved_at=aware(2026, 10, 8, 9), status='resolved')
+        CustomerRequest.objects.create(client=self.company, kind='question', subject='Otra', created_at=aware(2026, 10, 20, 9))
+        CustomerRequest.objects.create(client=self.other, kind='question', subject='Ajena', created_at=aware(2026, 10, 20, 9))
+        PolicyProposal.objects.create(client=self.company, kind='ips_block', key='a', title='Título interno', customer_title='Bloquear lo detectado',
+                                      change='c', risk='r', status='applied', offered_at=aware(2026, 10, 9, 9), applied_at=aware(2026, 10, 14, 22))
+        PolicyProposal.objects.create(client=self.company, kind='geo_filter', key='b', title='Sin ofrecer', change='c', risk='r')
+        context = monthly_report.customer_context(self.company, OCTOBER)
+        service = context['service']
+        self.assertEqual((service['vulnerabilities']['advised'], service['vulnerabilities']['pending'],
+                          service['vulnerabilities']['pending_firewalls'], service['vulnerabilities']['exploited']), (1, 1, ['FW-Palma'], True))
+        self.assertEqual(service['requests'], {'opened': 2, 'resolved': 1, 'open': 1, 'median_response_hours': 2.0})
+        self.assertEqual((service['policies']['offered'], service['policies']['applied']), (1, ['Bloquear lo detectado']))
+        html = render_to_string('monthly_report.html', {**context, 'report_base': 'customer_report_base.html'})
+        self.assertIn('Trabajo del SOC con vuestra empresa', html)
+        self.assertIn('Bloquear lo detectado', html)
+        for internal in ('Título interno', 'Sin ofrecer', 'CVE-2026-0009', 'Ajena'):
+            self.assertNotIn(internal, html)
+        self.assertTrue(render_monthly_pdf(context).startswith(b'%PDF'))

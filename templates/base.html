@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Centro SOC{% endblock %} · ib-red empresas</title>
-  <link rel="stylesheet" href="{% static 'css/portal.css' %}?v=20261113-tiempo"><link rel="stylesheet" href="{% static 'css/ui.css' %}?v=20261027">
+  <link rel="stylesheet" href="{% static 'css/portal.css' %}?v=20261114-pestanas"><link rel="stylesheet" href="{% static 'css/ui.css' %}?v=20261027">
 </head>
 <body>
 {% if user.is_authenticated %}
@@ -32,6 +32,7 @@
   </aside>
   <main class="main">
     {% if messages %}<div class="messages">{% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}</div>{% endif %}
+    {% if intel_tabs %}<nav class="page-tabs no-print" aria-label="Inteligencia y bloqueo">{% for tab in intel_tabs %}<a href="{{ tab.href }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>{% endfor %}</nav>{% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>

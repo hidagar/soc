@@ -59,3 +59,7 @@ label.check { display:flex; gap:8px; align-items:center; font-weight:400; margin
 .timeline-item:before{content:'';position:absolute;left:-6px;top:14px;width:10px;height:10px;border-radius:50%;background:#9fb1a7;border:2px solid #fff}
 .timeline-item.tone-alert:before{background:#c2410c}.timeline-item.tone-warn:before{background:#d9a400}.timeline-item.tone-ok:before{background:#0b6b33}
 .timeline-item time{color:#6c7d8e;font-variant-numeric:tabular-nums;padding-top:1px}.timeline-item p{margin:0;line-height:1.4}.timeline-item small{color:#6c7d8e}
+/* Pestañas de página (Inteligencia y bloqueo) */
+.page-tabs{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 22px;border-bottom:1px solid #dce5e9}
+.page-tabs a{padding:9px 14px;border-radius:9px 9px 0 0;color:#4a6272;font-weight:650;border-bottom:3px solid transparent;margin-bottom:-1px}
+.page-tabs a:hover{background:#eff6f6;text-decoration:none}.page-tabs a[aria-current=page]{color:#0B612D;border-bottom-color:#0B612D}

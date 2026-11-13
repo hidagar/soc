@@ -10,7 +10,7 @@ Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendie
 
 | Pendiente | Origen | Notas |
 |---|---|---|
-| Desplegar la línea de tiempo por cliente | 12/11 | Sin migraciones. |
+| Desplegar el informe mensual ampliado y las pestañas de inteligencia | 13/11 | Sin migraciones. Los informes ya publicados no cambian: la sección nueva aparece en los que se publiquen desde ahora. |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -37,16 +37,13 @@ Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendie
 - **Fase 2 · aplicar en OPNsense con el control de cambios:** plantillas para limitar el origen de una publicación NAT y para el alias GeoIP, con copia y marcha atrás. Hoy se aplican a mano con los pasos de la propuesta; solo las listas del SOC usan ya el control de cambios.
 - **Fase 2 · UniFi por API:** reenvíos de puertos y restricción por región. Hoy es una actuación guiada.
 - **Fase 3 · mínimo privilegio:** conocer el tráfico legítimo con resúmenes de Zenarmor por API (aplicaciones y categorías), sin recibir cada conexión. Antes, confirmar qué ofrece su API.
-- Llevar las políticas propuestas, aprobadas y verificadas al informe mensual.
 - Recordatorio al cliente si una propuesta lleva más de 14 días sin decisión.
 
 ### Solicitudes de clientes
 - Plazos de respuesta propios (hoy solo se registra la primera respuesta).
 - Adjuntos.
-- Solicitudes atendidas en el informe mensual.
 
 ### Vulnerabilidades
-- Vulnerabilidades avisadas en el informe mensual.
 - UniFi Network Application, si se obtiene su versión.
 - Productos de Hillstone y Grandstream con datos reales de NVD.
 
@@ -88,10 +85,10 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 - Hecho el 12/11: contadores en el menú lateral y buscador global.
 - Buscador: añadir usuarios del portal y texto de las conversaciones si se echa en falta.
 - Hecho el 12/11: línea de tiempo por cliente. Posible ampliación: versión resumida para el portal del cliente, solo con lo publicado.
-- El menú ya supera las 30 entradas: agrupar «CrowdSec», «Listas de bloqueo», «Q-Feeds» y «Reputación propia» en una sola página de inteligencia con pestañas.
+- Hecho el 13/11: las cinco páginas de inteligencia y bloqueo comparten una entrada del menú, con pestañas.
 
 **Valor para el cliente**
-- Informe mensual con las vulnerabilidades avisadas, las solicitudes atendidas y los cambios aplicados y verificados.
+- Hecho el 13/11: el informe mensual incluye vulnerabilidades, solicitudes y cambios.
 - Recordatorio si una propuesta de cambio lleva más de 14 días sin decisión.
 - Plazos de respuesta visibles en las solicitudes.
 

@@ -7,6 +7,26 @@ vista sigue autorizando por su cuenta.
 from django.urls import reverse
 
 
+# Pestañas de «Inteligencia y bloqueo»: (ruta, etiqueta, permiso o '', rutas de detalle que la marcan activa).
+INTEL_TABS = [
+    ("crowdsec_overview", "Reputación CrowdSec", "", ()),
+    ("crowdsec_lists", "Listas de CrowdSec", "core.manage_operations", ("crowdsec_list_action",)),
+    ("blocklists", "Listas de bloqueo", "core.manage_operations", ("blocklist_detail",)),
+    ("threat_intel", "Q-Feeds", "core.manage_operations", ()),
+    ("soc_reputation", "Reputación propia", "core.manage_operations", ()),
+]
+
+
+def intel_tabs(request):
+    """Pestañas visibles para el usuario si la página actual es una de ellas; si no, lista vacía."""
+    match = getattr(request, "resolver_match", None)
+    current = match.url_name if match else ""
+    if not any(current == name or current in extra for name, _, _, extra in INTEL_TABS):
+        return []
+    return [{"label": label, "href": reverse(name), "current": current == name or current in extra}
+            for name, label, permission, extra in INTEL_TABS if not permission or request.user.has_perm(permission)]
+
+
 def _item(label, url_name, active=(), *, href=None, external=False, visible=True):
     return {"label": label, "url_name": url_name, "href": href, "external": external,
             "active": {url_name, *active}, "visible": visible}
@@ -34,11 +54,8 @@ def _staff_groups(user, global_access):
             _item("Investigar IP y eventos", "security_explore", ["ip_investigation"]),
             _item("Ataques a varios clientes", "campaign_list"),
             _item("Mapa de detecciones", "threat_map"),
-            _item("Reputación CrowdSec", "crowdsec_overview"),
-            _item("Listas de CrowdSec", "crowdsec_lists", ["crowdsec_list_action"], visible=perm("core.manage_operations")),
-            _item("Listas de bloqueo", "blocklists", ["blocklist_detail"], visible=perm("core.manage_operations")),
-            _item("Inteligencia Q-Feeds", "threat_intel", visible=perm("core.manage_operations")),
-            _item("Reputación propia", "soc_reputation", visible=perm("core.manage_operations")),
+            # Cinco páginas en una entrada: se cambia entre ellas con las pestañas de `intel_tabs`.
+            _item("Inteligencia y bloqueo", "crowdsec_overview", [name for name, _, _, extra in INTEL_TABS for name in (name, *extra)]),
             _item("Seguridad VPN", "vpn_security"),
             _item("SOC general en Wazuh", "wazuh_sso_enter", external=True, visible=wazuh_general),
         ]),

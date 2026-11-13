@@ -179,7 +179,51 @@ def customer_context(client, month, report=None):
         'soc_summary': report.soc_summary if report else '', 'customer_view': True,
         **_index(client, first, following),
         'connectivity': _connectivity(client, first, following),
+        'service': _service(client, start, end),
     }
+
+
+def _service(client, start, end):
+    """Lo que el SOC ha hecho con el cliente en el mes: vulnerabilidades avisadas, solicitudes y cambios.
+
+    Solo lo que el cliente ya ve en su portal (invariante 3): avisos publicados, sus propias solicitudes y
+    los cambios que se le ofrecieron, con el título que se le mostró.
+    """
+    from .models import CustomerRequest, DeviceExposure, PolicyProposal
+    published = DeviceExposure.objects.filter(client=client, advisory__client=client, dismissed_at__isnull=True)
+    advised = published.filter(advisory__published_at__gte=start, advisory__published_at__lt=end)
+    fixed = published.filter(resolved_at__gte=start, resolved_at__lt=end)
+    pending = published.filter(resolved_at__isnull=True)
+    vulnerabilities = {
+        'advised': advised.values('record__cve_id').distinct().count(), 'advised_firewalls': advised.values('device').distinct().count(),
+        'fixed': fixed.values('record__cve_id').distinct().count(), 'pending': pending.values('record__cve_id').distinct().count(),
+        'pending_firewalls': sorted(set(pending.values_list('device__name', flat=True))),
+        'exploited': pending.filter(record__kev_added__isnull=False).exists(),
+    }
+    requests = CustomerRequest.objects.filter(client=client)
+    opened = requests.filter(created_at__gte=start, created_at__lt=end)
+    answered = [r for r in opened if r.first_response_at]
+    hours = sorted((r.first_response_at - r.created_at).total_seconds() / 3600 for r in answered)
+    request_data = {
+        'opened': opened.count(), 'resolved': requests.filter(resolved_at__gte=start, resolved_at__lt=end).count(),
+        'open': requests.exclude(status='resolved').count(),
+        'median_response_hours': round(hours[len(hours) // 2], 1) if hours else None,
+    }
+    policies = PolicyProposal.objects.filter(client=client, offered_at__isnull=False).exclude(status__in=('proposed', 'obsolete', 'dismissed'))
+
+    def titles(queryset):
+        return [p.customer_title or p.title for p in queryset.order_by('offered_at')]
+    policy_data = {
+        'offered': policies.filter(offered_at__gte=start, offered_at__lt=end).count(),
+        'applied': titles(policies.filter(applied_at__gte=start, applied_at__lt=end)),
+        'verified': titles(policies.filter(status='verified', verified_at__gte=start, verified_at__lt=end)),
+        'awaiting': titles(policies.filter(status='offered')),
+    }
+    data = {'vulnerabilities': vulnerabilities, 'requests': request_data, 'policies': policy_data}
+    data['any'] = bool(vulnerabilities['advised'] or vulnerabilities['fixed'] or vulnerabilities['pending'] or request_data['opened']
+                       or request_data['resolved'] or request_data['open'] or policy_data['offered'] or policy_data['applied']
+                       or policy_data['verified'] or policy_data['awaiting'])
+    return data
 
 
 def _connectivity(client, first, following):

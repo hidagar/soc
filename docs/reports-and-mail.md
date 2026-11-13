@@ -32,6 +32,15 @@ La activación del webhook quedó pendiente por decisión del usuario. Hasta obs
 
 Invitación de un solo uso y 48 h: usuario establece contraseña sin que el administrador la elija. GET de escáner no consume el enlace. Avisos urgentes usan interpretación común, agrupación/estado y acuse; no convertir toda alerta menor o fallo del colector en ataque al cliente.
 
+### Trabajo del SOC en el informe mensual
+
+Desde el 13/11/2026 el informe mensual añade la sección «Trabajo del SOC con vuestra empresa» (`monthly_report._service`), en el portal, el enlace y el PDF:
+- **Vulnerabilidades:** avisadas en el mes, corregidas y pendientes de actualizar al publicar, con los firewalls afectados y un aviso si alguna pendiente se está explotando.
+- **Solicitudes:** recibidas, resueltas y abiertas al publicar, con el tiempo habitual (mediana) hasta la primera respuesta.
+- **Cambios propuestos:** propuestos, aplicados y comprobados en el mes, y los que esperan la decisión del cliente, con el título que se le mostró.
+
+Solo cuenta lo que el cliente ya ve en su portal (invariante 3): avisos publicados, sus propias solicitudes y los cambios ofrecidos. La sección se congela con la versión publicada; los informes anteriores no cambian.
+
 ### Avisos urgentes por Teams y Telegram
 
 Los avisos urgentes pueden llegar también a un canal de Microsoft Teams o a un grupo de Telegram del cliente (`core/chat_alerts.py`). El correo sigue saliendo igual; el chat es una copia con el mismo contenido (`urgent_alerts.content`): qué ha pasado, equipo, origen, acción del firewall y qué hacer. Las URL del registro se desactivan (`hxxp://`) y los corchetes se cambian para que no haya enlaces pulsables.
