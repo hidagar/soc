@@ -59,3 +59,8 @@
 @media(prefers-reduced-motion:reduce){.map-arc.is-recent{animation:none}}
 @media print{.map-zoom{display:none!important}.map-arc.is-recent{animation:none}}
 .legend-home{display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px #fff5;margin-right:7px}
+
+/* Legibilidad: mínimo de 10,5 px y enlaces con contraste sobre el fondo oscuro */
+.threat-console small,.threat-console .legend-caption,.threat-console .map-attribution,.threat-console .insight-hint,.threat-console .map-footer,.threat-console label,.threat-console .noc-event-label,.threat-console #map-updated,.threat-console .map-kicker,.threat-console .map-window,.threat-console #geo-summary,.threat-console .geo-note p{font-size:max(10.5px,1em)}
+.threat-console small{font-size:10.5px}
+.map-footer a,.geo-note a{color:#7fe3d2}

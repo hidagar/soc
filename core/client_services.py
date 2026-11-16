@@ -36,6 +36,9 @@ class ClientServicesForm(forms.ModelForm):
             field.widget.attrs['class'] = 'input' if not isinstance(field.widget, forms.CheckboxInput) else ''
             if isinstance(field, forms.EmailField):
                 field.widget.attrs['placeholder'] = 'correo@cliente.es'
+        # La tabla no usa <label>: cada control lleva su nombre para lectores de pantalla.
+        for field in self.fields.values():
+            field.widget.attrs['aria-label'] = str(field.label)
 
     def clean(self):
         values = super().clean()

@@ -16,7 +16,7 @@
   border:0;background:none;font:inherit;cursor:pointer;white-space:nowrap}
 .more-menu a:hover,.more-menu button:hover{background:#eff6f6;text-decoration:none}
 .more-menu hr{border:0;border-top:1px solid #eaf0f3;margin:5px 4px}
-.more-menu small{display:block;padding:8px 12px 2px;color:#83919e;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.more-menu small{display:block;padding:8px 12px 2px;color:#5b6c7d;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
 
 /* Indicadores: cifra grande, etiqueta y tono. Un indicador puede ser un enlace. */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:0 0 22px}
@@ -24,11 +24,11 @@
 a.kpi:hover{border-color:#0B612D55;text-decoration:none}
 .kpi strong{display:block;font-size:30px;line-height:1.1;letter-spacing:-.04em;color:#172a3c}
 .kpi span{display:block;color:#5d6f80;font-weight:600;margin-top:4px}
-.kpi small{display:block;color:#83919e;margin-top:4px}
+.kpi small{display:block;color:#5b6c7d;margin-top:4px}
 .kpi.tone-alert{border-top:3px solid #c0392b}.kpi.tone-alert strong{color:#b03540}
 .kpi.tone-warn{border-top:3px solid #e3a650}
 .kpi.tone-ok{border-top:3px solid #2e9e6b}
-.kpi.tone-muted strong{color:#8794a1}
+.kpi.tone-muted strong{color:#5b6c7d}
 
 /* Lista de «requiere atención»: cada fila dice qué pasa y lleva a resolverlo. */
 .attention{display:grid;gap:8px;margin:0;padding:0;list-style:none}
@@ -36,9 +36,9 @@ a.kpi:hover{border-color:#0B612D55;text-decoration:none}
 .attention li a:hover{border-color:#0B612D55;background:#f8fbfa;text-decoration:none}
 .attention .count{min-width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:800;background:#edf2f4;color:#587082}
 .attention .alert .count{background:#ffe7e8;color:#b33642}
-.attention .warn .count{background:#fff0df;color:#a26016}
-.attention .ok .count{background:#e4f6ef;color:#258061}
-.attention b{display:block}.attention small{display:block;color:#7c8c98;margin-top:2px}
+.attention .warn .count{background:#fff0df;color:#8a4b08}
+.attention .ok .count{background:#e4f6ef;color:#176647}
+.attention b{display:block}.attention small{display:block;color:#5b6c7d;margin-top:2px}
 .attention .go{margin-left:auto;color:#0B612D;font-weight:700;white-space:nowrap}
 .all-clear{display:flex;align-items:center;gap:10px;padding:14px;border-radius:11px;background:#e4f6ef;color:#256945;font-weight:600}
 
@@ -60,17 +60,17 @@ a.kpi:hover{border-color:#0B612D55;text-decoration:none}
 .section-nav a:hover{border-color:#0B612D;text-decoration:none}
 
 /* Datos clave/valor: la nota de origen va debajo del valor, nunca pegada a él. */
-.facts dd small,.facts dd .muted{display:block;color:#83919e;font-size:12px;margin-top:3px}
+.facts dd small,.facts dd .muted{display:block;color:#5b6c7d;font-size:12px;margin-top:3px}
 .card-head{flex-wrap:wrap}
 .card-head h2{margin-bottom:12px}
 .card>.card-head+p{margin-top:0}
 
 /* Estados de la acción del firewall, en español y con color. */
-.action-blocked{color:#258061;font-weight:700}.action-allowed{color:#b03540;font-weight:700}.action-unknown{color:#6e7e89;font-weight:700}
+.action-blocked{color:#176647;font-weight:700}.action-allowed{color:#b03540;font-weight:700}.action-unknown{color:#4f5e6a;font-weight:700}
 
 /* Paginación común. */
 .pager{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
-.pager span{color:#6c7d8e}
+.pager span{color:#566779}
 
 /* Tablas: nunca empujan la página fuera de la pantalla; el desplazamiento queda dentro de la tarjeta. */
 .card{min-width:0}
@@ -86,13 +86,13 @@ td .button{white-space:nowrap}
 .portal-grid .card{margin:0}
 .fw-list{display:grid;gap:10px}
 .fw-item{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border:1px solid #eaf0f3;border-radius:11px}
-.fw-item b{display:block}.fw-item small{display:block;color:#7c8c98}
+.fw-item b{display:block}.fw-item small{display:block;color:#5b6c7d}
 .news{display:grid;gap:0}
 .news article{padding:12px 0;border-top:1px solid #ecf0f3}
 .news article:first-child{border-top:0;padding-top:0}
 .news h3{margin:0 0 4px;font-size:15px;text-transform:none;letter-spacing:0;color:#172a3c}
 .news p{margin:0;color:#3d5262}
-.news time{display:block;color:#83919e;font-size:12px;margin-top:4px}
+.news time{display:block;color:#5b6c7d;font-size:12px;margin-top:4px}
 
 @media(max-width:900px){
   .portal-grid{grid-template-columns:1fr}
@@ -130,12 +130,12 @@ a.kpi[aria-current=true]{border-color:#0B612D;box-shadow:0 0 0 2px #0B612D33}
 .timeline li{padding:12px 0 12px 16px;border-left:2px solid #dce5e9;position:relative}
 .timeline li:before{content:'';position:absolute;left:-6px;top:17px;width:10px;height:10px;border-radius:50%;background:#0B612D}
 .timeline li.muted:before{background:#c5d1d8}
-.timeline time{color:#83919e;font-size:12px;margin-left:6px}
+.timeline time{color:#5b6c7d;font-size:12px;margin-left:6px}
 .timeline p{margin:4px 0 0}
 .note-form textarea{min-height:70px}
 .side-item{padding:12px 0;border-top:1px solid #ecf0f3}
 .side-item:first-of-type{border-top:0;padding-top:0}
-.side-item b{display:block}.side-item small{display:block;color:#7c8c98;margin-top:3px}
+.side-item b{display:block}.side-item small{display:block;color:#5b6c7d;margin-top:3px}
 .side-item p{margin:6px 0}
 .runbook-step{border-top:1px solid #ecf0f3;padding:10px 0}
 .runbook-step>summary{cursor:pointer;font-weight:650}
@@ -143,13 +143,13 @@ a.kpi[aria-current=true]{border-color:#0B612D;box-shadow:0 0 0 2px #0B612D33}
 details.collapsible>summary{cursor:pointer;list-style:none}
 details.collapsible>summary::-webkit-details-marker{display:none}
 details.collapsible>summary h2{display:inline-block;margin:0}
-details.collapsible>summary:after{content:' ▾';color:#83919e}
+details.collapsible>summary:after{content:' ▾';color:#5b6c7d}
 details.collapsible[open]>summary{margin-bottom:12px}
 .task-item{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:16px 0;border-top:1px solid #ecf0f3}
 .task-item:first-of-type{border-top:0;padding-top:4px}
 .task-item h3{margin:0 0 6px;font-size:16px;text-transform:none;letter-spacing:0;color:#172a3c}
 .task-item p{margin:6px 0 0}.task-item.rework h3 a{color:#b03540}
-.task-meta{color:#7c8c98;font-size:13px}
+.task-meta{color:#5b6c7d;font-size:13px}
 @media(max-width:700px){.task-item{flex-direction:column;align-items:flex-start}}
 
 /* Formularios por secciones. */
@@ -167,8 +167,50 @@ details.form-section>summary{margin-bottom:10px}
 
 /* Plazos de atención: estado de cada hito (bandeja y ficha de incidencia). */
 .sla-state{font-weight:700;color:#5d6f80}
-.sla-breached{color:#b03540}.sla-due_soon,.sla-late{color:#a26016}.sla-met{color:#258061}
-td .sla-state+small{display:block;color:#83919e}
+.sla-breached{color:#b03540}.sla-due_soon,.sla-late{color:#8a4b08}.sla-met{color:#176647}
+td .sla-state+small{display:block;color:#5b6c7d}
 .sla-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.sla-list li small{display:block;color:#7c8c98;margin-top:2px}
-.sla-paused{color:#6e7e89}
+.sla-list li small{display:block;color:#5b6c7d;margin-top:2px}
+.sla-paused{color:#4f5e6a}
+
+/* === Revisión de experiencia de usuario (16/11/2026) =====================================
+   Contraste AA del texto secundario, tamaños táctiles en móvil, mensajes por tipo, foco visible. */
+.muted,p.muted,span.muted,small.muted,.source-note,.customer-report-footer,.breadcrumbs,.breadcrumbs span{color:#566779}
+td small,.client-rows small,.line-item small,.field small,small,dt,.facts dt,td.empty,.empty,.timeline-item time,.timeline-item small,.sla-running{color:#5b6c7d}
+th,.card h3,.timeline-day{color:#51647a}
+.pill.open,.pill.high{color:#8a4b08}.pill.resolved,.pill.connected,.pill.low,.pill.action-blocked,.action-blocked{color:#176647}
+.pill.paused,.pill.status-paused,.status-paused{color:#4f5e6a}.pill.investigating,.pill.medium,.pill.pending{color:#2f5f9a}.pill.critical{color:#a52c38}
+.sidebar-user small{color:#c3ddd0}
+code{color:inherit}
+/* Mensajes: el color indica el tipo */
+.message{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
+.message.error{background:#fde8ea;border-color:#f3bcc2;color:#8a1f2b}.message.warning{background:#fff4e0;border-color:#f0d49a;color:#7a4b00}
+.message.info{background:#e8f1fb;border-color:#bcd4ef;color:#2a5488}
+.message:before{content:'✓';font-weight:800}.message.error:before{content:'!'}.message.warning:before{content:'!'}.message.info:before{content:'i'}
+/* Foco visible con teclado y enlace para saltar el menú */
+a:focus-visible,button:focus-visible,summary:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #0B612D;outline-offset:2px}
+.skip-link{position:absolute;left:-9999px;top:8px;z-index:50;background:#fff;color:#0B612D;font-weight:700;padding:10px 14px;border-radius:8px;border:2px solid #0B612D}
+.skip-link:focus{left:8px}
+/* Envío en curso: evita el doble clic */
+button[aria-busy=true],.button[aria-busy=true]{opacity:.65;cursor:progress;pointer-events:none}
+/* Casillas y radios: toda la etiqueta es zona de toque */
+label:has(>input[type=checkbox]),label:has(>input[type=radio]){display:inline-flex;align-items:center;gap:8px;min-height:32px;cursor:pointer}
+input[type=checkbox],input[type=radio]{width:18px;height:18px;accent-color:#0B612D;flex-shrink:0}
+/* Tablas apiladas: una celda vacía no deja una etiqueta suelta */
+.stacked td:empty{display:none}
+/* Textos mínimos legibles */
+.steps li,.steps span,.wizard-steps li,.wizard-steps span,ol.progress li,ol.progress span{font-size:11.5px}
+@media(max-width:700px){
+ .button,button.button,.toolbar button,form button[type=submit],form button:not([type]),.map-zoom button{min-height:42px}
+ select.input,.input,select{min-height:42px}
+ td .button,td button{min-height:38px}
+ label:has(>input[type=checkbox]),label:has(>input[type=radio]){min-height:40px}
+ .stacked td[data-label] input[type=checkbox]{width:24px;height:24px}
+ .table-wrap{-webkit-overflow-scrolling:touch}
+ pre,code{white-space:pre-wrap;overflow-wrap:anywhere}
+}
+@media print{.skip-link{display:none}}
+/* Red de seguridad: una tabla suelta dentro de una tarjeta no ensancha la página en móvil */
+@media(max-width:700px){.card>table{display:block;overflow-x:auto;max-width:100%}}
+.helptext{color:#566779}
+@media(max-width:700px){input[type=checkbox],input[type=radio]{width:24px;height:24px}}

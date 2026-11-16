@@ -35,6 +35,22 @@ Mejoras del 13/11/2026 (`static/js/threat-map.js`, sin dependencias externas):
 
 El portal del cliente usa la misma página con sus datos agregados; las líneas no añaden ningún dato nuevo (país, volumen y acción ya se mostraban).
 
+## Reglas de experiencia de usuario
+
+Revisión del 16/11/2026 sobre las 204 páginas (SOC y portal del cliente, a 1366 y 390 px), con un recorrido automático en Chromium que medía desbordes horizontales, campos sin nombre accesible, contraste, texto diminuto y controles táctiles pequeños. Resultado: desbordes 1 → 0; campos sin nombre 17 → 0; combinaciones de color con contraste insuficiente 49 → 1 (un botón del mapa, en el límite de 4,5:1); controles táctiles pequeños: de 31 tipos a solo las casillas de la tabla de servicios (22 px), ampliadas después a 24 px sin repetir la medición. El recorrido fue una herramienta temporal y no está en el repositorio; `core/test_ux.py` conserva las reglas comprobables sin navegador.
+
+Reglas que deben mantenerse al añadir páginas:
+
+- **Contraste:** el texto secundario usa los grises oscurecidos de `ui.css` (mínimo 4,5:1 sobre blanco). No introducir grises más claros para texto.
+- **Mensajes:** `class="message {{ message.tags }}"`. Error, aviso e información tienen color e icono distintos; nunca mostrar un error con el aspecto de una confirmación.
+- **Teclado:** foco visible (`:focus-visible`) y enlace «Saltar al contenido» hacia `<main id="contenido">` en las dos bases (`base.html` y `customer_report_base.html`).
+- **Campos:** todo campo tiene `<label>` o `aria-label`, también los de tablas y filtros.
+- **Móvil:** botones y campos de 42 px de alto como mínimo, casillas de 24 px; toda tabla ancha dentro de `.table-wrap` o con la clase `stacked`.
+- **Formularios:** `static/js/forms.js` marca el botón como ocupado al enviar para evitar el doble envío; se libera a los 8 s y al volver atrás. No sustituye la idempotencia del servidor.
+- Al cambiar CSS o JS, actualizar el sufijo `?v=` en las plantillas.
+
+Límites: no se ha probado con un lector de pantalla real ni con usuarios; el JavaScript no tiene pruebas unitarias; los textos de 10,5 px del mapa son intencionados (vista de presentación).
+
 ## Revisión visual
 
 Login/MFA, lista/detalle, wizard, mapa normal/presentación/sin datos/atrasado, móvil, impresión/PDF y correo según alcance. Documentar qué se comprobó realmente; esta documentación no acredita una nueva revisión visual completa.

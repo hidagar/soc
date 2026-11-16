@@ -4,10 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Centro SOC{% endblock %} · ib-red empresas</title>
-  <link rel="stylesheet" href="{% static 'css/portal.css' %}?v=20261115-plazos"><link rel="stylesheet" href="{% static 'css/ui.css' %}?v=20261116">
+  <link rel="stylesheet" href="{% static 'css/portal.css' %}?v=20261115-plazos"><link rel="stylesheet" href="{% static 'css/ui.css' %}?v=20261116-ux">
 </head>
 <body>
 {% if user.is_authenticated %}
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
 <div class="layout">
   <aside class="sidebar">
     <a class="brand" href="{% url 'dashboard' %}"><img class="brand-logo" src="{% static 'brand/ibred-empresas-white.png' %}" alt="ib-red empresas"><span class="brand-caption">Centro SOC</span></a>
@@ -30,13 +31,14 @@
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Salir</button></form>
     </div>
   </aside>
-  <main class="main">
-    {% if messages %}<div class="messages">{% for message in messages %}<div class="message">{{ message }}</div>{% endfor %}</div>{% endif %}
+  <main class="main" id="contenido" tabindex="-1">
+    {% if messages %}<div class="messages" role="status" aria-live="polite">{% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}</div>{% endif %}
     {% if intel_tabs %}<nav class="page-tabs no-print" aria-label="Inteligencia y bloqueo">{% for tab in intel_tabs %}<a href="{{ tab.href }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>{% endfor %}</nav>{% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>
 {% else %}{% block guest %}{% endblock %}{% endif %}
-{% if user.is_authenticated %}<script src="{% static 'js/sidebar.js' %}?v=20261112" defer></script>{% endif %}
+<script src="{% static 'js/forms.js' %}?v=20261116-ux" defer></script>
+{% if user.is_authenticated %}<script src="{% static 'js/sidebar.js' %}?v=20261116-ux" defer></script>{% endif %}
 </body>
 </html>

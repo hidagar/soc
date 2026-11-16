@@ -1,6 +1,6 @@
 # Trabajo pendiente
 
-Lista única de lo que falta, actualizada el **13/11/2026**. Reúne los «Pendiente» de la [hoja de ruta](roadmap.md), del [traspaso](handoff.md) y de cada entrega del [registro de cambios](changelog.md).
+Lista única de lo que falta, actualizada el **16/11/2026**. Reúne los «Pendiente» de la [hoja de ruta](roadmap.md), del [traspaso](handoff.md) y de cada entrega del [registro de cambios](changelog.md).
 
 **Cómo se mantiene:** cada entrega quita aquí lo que cierra y añade lo que deja pendiente, en el mismo pull request (AGENTS.md, «Antes de terminar»). Cada punto indica quién puede hacerlo:
 - **Usuario:** requiere producción, credenciales, equipos de clientes o una decisión de negocio. No se hace desde el código.
@@ -92,6 +92,8 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 - Buscador: añadir usuarios del portal y texto de las conversaciones si se echa en falta.
 - Hecho el 12/11: línea de tiempo por cliente. Posible ampliación: versión resumida para el portal del cliente, solo con lo publicado.
 - Hecho el 13/11: las cinco páginas de inteligencia y bloqueo comparten una entrada del menú, con pestañas.
+
+- Hecho el 16/11: revisión de la experiencia de usuario de todas las páginas (contraste, mensajes, teclado, móvil). Queda: revisión con un lector de pantalla real y con usuarios; pruebas automáticas del JavaScript; tema oscuro, si se pide; el texto del mapa (10,5 px) se mantiene pequeño a propósito en la vista de presentación.
 
 **Valor para el cliente**
 - Hecho el 13/11: el informe mensual incluye vulnerabilidades, solicitudes y cambios.
