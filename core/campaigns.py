@@ -22,6 +22,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from .models import Client, ManualBlock, SecurityEvidence
+from .security import mfa_redirect
 
 MIN_CLIENTS = 3
 WINDOWS = {'24': timedelta(hours=24), '72': timedelta(hours=72), '168': timedelta(days=7)}
@@ -94,7 +95,7 @@ def campaign_list(request):
         if not can_block:
             return HttpResponseForbidden('Bloquear para todos los clientes requiere acceso global y permiso de operaciones.')
         if not mfa_fresh(request):
-            return redirect('mfa_challenge')
+            return mfa_redirect(request)
         return _block(request, audit)
     key = request.GET.get('ventana', '24')
     key = key if key in WINDOWS else '24'

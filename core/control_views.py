@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 from .models import BackupRun,ChangePlan,Device,RecoverySettings,Site,VpnPeer
 from .security import audit,encrypt,mfa_fresh
 from .change_control import PROFILES,VERSION,preview
+from .security import mfa_redirect
 
 def global_permission(request,codename):
     access=getattr(request.user,'soc_access',None)
@@ -48,7 +49,7 @@ def change_detail(request,pk):
     plan=get_object_or_404(ChangePlan.objects.select_related('device__site__client'),pk=pk)
     if request.method=='POST':
         if not request.user.has_perm('core.apply_changes'): return HttpResponseForbidden('Permiso de aprobación requerido.')
-        if not mfa_fresh(request): return redirect('mfa_challenge')
+        if not mfa_fresh(request): return mfa_redirect(request)
         if request.POST.get('device_name')!=plan.device.name or request.POST.get('reviewed')!='yes':
             messages.error(request,'Confirma la revisión y escribe el nombre exacto del equipo.')
         else:
@@ -74,7 +75,7 @@ def change_detail(request,pk):
 def vpn_sites(request,pk=None):
     if not request.user.has_perm('core.manage_connections'): return HttpResponseForbidden('Permiso de conexiones requerido.')
     if request.method=='POST':
-        if not mfa_fresh(request): return redirect('mfa_challenge')
+        if not mfa_fresh(request): return mfa_redirect(request)
         site_pk=request.POST.get('site','')
         if not site_pk.isdigit(): raise Http404
         site=get_object_or_404(Site,pk=int(site_pk))
@@ -94,7 +95,7 @@ def vpn_sites(request,pk=None):
 @login_required
 def vpn_download(request,pk):
     if not request.user.has_perm('core.manage_connections'): return HttpResponseForbidden('Permiso de conexiones requerido.')
-    if not mfa_fresh(request): return redirect('mfa_challenge')
+    if not mfa_fresh(request): return mfa_redirect(request)
     peer=get_object_or_404(VpnPeer,pk=pk)
     from .vpn import client_config
     try: content=client_config(peer)
@@ -167,7 +168,7 @@ def recovery(request):
     form=RecoveryForm(request.POST or None,initial=initial)
     observed=None
     if request.method=='POST':
-        if not mfa_fresh(request): return redirect('mfa_challenge')
+        if not mfa_fresh(request): return mfa_redirect(request)
         action=request.POST.get('action')
         if action=='backup':
             if not BackupRun.objects.filter(status__in=['queued','running']).exists():

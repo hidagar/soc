@@ -121,6 +121,22 @@ def customer_decision(request, pk):
 
 # --- Avisos ----------------------------------------------------------------------------------
 
+REMIND_AFTER = timedelta(days=14)
+
+
+def queue_reminders(now=None):
+    """Un recordatorio por propuesta ofrecida sin decisión en 14 días, si el primer aviso salió (aceptado por SendGrid).
+
+    Reutiliza la cola del aviso: el correo no lleva detalles y enlaza al portal. `reminded_at` se marca al
+    encolar y en la misma actualización, así que repetir o reintentar no duplica el recordatorio.
+    """
+    now = now or timezone.now()
+    return PolicyProposal._base_manager.filter(
+        status='offered', offered_at__lte=now - REMIND_AFTER, reminded_at__isnull=True, notice_status='accepted',
+        client__active=True, client__task_notices_enabled=True).update(
+        reminded_at=now, notice_status='queued', notice_error='', notice_attempted_at=None)
+
+
 def send_pending(limit=5, now=None):
     """Un correo por cliente con las propuestas ofrecidas en cola, sin detalles: enlaza al portal."""
     from .invitations import origin
@@ -142,10 +158,13 @@ def send_pending(limit=5, now=None):
         if manager.filter(pk__in=ids, notice_status='queued').update(notice_status='sending', notice_attempted_at=now) != len(ids):
             manager.filter(pk__in=ids, notice_status='sending', notice_attempted_at=now).update(notice_status='queued')
             continue
-        context = {'client': client, 'count': len(ready), 'url': origin() + reverse('customer_policies'),
+        reminder = all(p.reminded_at for p in ready)
+        context = {'client': client, 'count': len(ready), 'url': origin() + reverse('customer_policies'), 'reminder': reminder,
                    'logo_url': origin() + '/static/brand/ibred-empresas-color.png'}
+        subject = ('Recordatorio: cambios de seguridad pendientes de vuestra decisión · ib-red empresas' if reminder
+                   else 'Cambios de seguridad propuestos · ib-red empresas')
         try:
-            provider = send_customer_email(ready[0].notice_recipient, 'Cambios de seguridad propuestos · ib-red empresas',
+            provider = send_customer_email(ready[0].notice_recipient, subject,
                                            render_to_string('policy_notice_email.txt', context),
                                            render_to_string('policy_notice_email.html', context),
                                            delivery_context={'client': client, 'kind': 'policy'})

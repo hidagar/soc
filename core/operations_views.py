@@ -15,6 +15,7 @@ from .models import (Asset,AuditEvent,Client,Device,DeviceHealth,Incident,Incide
 from .release import deployed_release
 from .security import audit,audit_status,mfa_fresh
 from .forms import ScopedModelForm
+from .security import mfa_redirect
 
 def permitted(request,permission):
     return request.user.has_perm('core.'+permission)
@@ -208,7 +209,7 @@ def staff(request,pk=None):
         return HttpResponseForbidden('Una cuenta SOC no puede modificar a un superusuario.')
     form=StaffForm(request.POST or None,instance=member)
     if request.method=='POST':
-        if not mfa_fresh(request): return redirect('mfa_challenge')
+        if not mfa_fresh(request): return mfa_redirect(request)
         if request.POST.get('action')=='invite' and member:
             from .invitations import queue
             if member.has_usable_password():messages.error(request,'Esta cuenta ya ha establecido su contraseña.')

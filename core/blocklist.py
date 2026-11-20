@@ -48,7 +48,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from .models import BlocklistFeed, ChangePlan, Client, Device, IpReputation, ManualBlock, SecurityEvidence, WorkerState
 from .reputation import TTL, protected_addresses
-from .security import audit, decrypt, encrypt
+from .security import audit, decrypt, encrypt, mfa_redirect
 
 WINDOW = timedelta(days=7)
 LISTS_FRESH = timedelta(hours=24)
@@ -839,7 +839,7 @@ def detail(request, client_pk):
         action = request.POST.get('action', '')
         # Detener o retirar un bloqueo solo deja de bloquear: no exige repetir el MFA para no retrasar una emergencia.
         if action not in ('stop', 'manual_revoke', 'unifi_unbind', 'unifi_policy_disable') and not mfa_fresh(request):
-            return redirect('mfa_challenge')
+            return mfa_redirect(request)
         if action == 'settings':
             try:
                 parse_allowlist(request.POST.get('allowlist', ''))

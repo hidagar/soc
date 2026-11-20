@@ -12,6 +12,7 @@ from .zenarmor_scope import digest,device_snapshot
 from .advanced_coverage import snapshot
 from .zenarmor_bypass import snapshot as bypass_snapshot
 from .forms import ScopedModelForm
+from .security import mfa_redirect
 
 def revision(device):
     health=getattr(device,'health',None)
@@ -39,7 +40,7 @@ def advanced(request,pk):
     form=ReviewForm(request.POST or None)
     if request.method=='POST':
         if not request.user.has_perm('core.manage_operations'):return HttpResponseForbidden()
-        if not mfa_fresh(request):return redirect('mfa_challenge')
+        if not mfa_fresh(request):return mfa_redirect(request)
         if device.vendor!='opnsense' or not device.zenarmor_enabled:return HttpResponseForbidden()
         if request.POST.get('revision')!=revision(device):
             messages.error(request,'La configuración observada cambió. Revisa la página antes de guardar.');return redirect('advanced_coverage',pk=pk)

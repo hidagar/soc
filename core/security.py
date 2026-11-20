@@ -9,7 +9,7 @@ import secrets
 import struct
 import time
 from datetime import timedelta
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from cryptography.fernet import Fernet
 from django.conf import settings
 from django.contrib import messages
@@ -19,6 +19,7 @@ from django.db import transaction
 from django.http import HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from .models import AuditEvent, AuthAttempt, MfaProfile, StaffAccess, WorkerState
@@ -222,6 +223,45 @@ FRESH_MFA_VIEWS = {'mail_settings','verify_public_reports','unifi_cloud','opnsen
                    'customer_policy_decision'}  # aprobar un cambio en el firewall: decisión del cliente con MFA reciente
 # Desactivar el envío es una parada segura: no se retrasa con el MFA.
 FRESH_MFA_EXEMPT = {('mail_settings','disable'),('client_chat_channels','disable')}
+MFA_NEXT = 'soc_mfa_next'
+
+
+def mfa_redirect(request):
+    """Manda a confirmar el código MFA recordando a dónde volver después.
+
+    Una consulta (GET) vuelve a la misma página; una acción (POST) vuelve a la página desde la que se envió:
+    la acción no se repite sola, el usuario la vuelve a hacer con el código ya confirmado.
+    """
+    target = ''
+    if request.method in ('GET', 'HEAD'):
+        target = request.get_full_path()
+    else:
+        referer = request.META.get('HTTP_REFERER', '')
+        if referer and url_has_allowed_host_and_scheme(referer, allowed_hosts={request.get_host()},
+                                                       require_https=request.is_secure()):
+            parts = urlsplit(referer)
+            target = parts.path + ('?' + parts.query if parts.query else '')
+    if _safe_next(target):
+        request.session[MFA_NEXT] = target[:500]
+    return redirect('mfa_challenge')
+
+
+def _safe_next(target):
+    return (bool(target) and target.startswith('/') and not target.startswith(('//', '/\\'))
+            and not target.startswith(('/security/mfa/', '/login/', '/logout/', '/admin/logout/')))
+
+
+def mfa_next(request, default):
+    """Dónde seguir tras verificar el código: la página guardada, si es del portal y del ámbito del usuario."""
+    target = request.session.pop(MFA_NEXT, '')
+    if not _safe_next(target) or not url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}):
+        return default
+    access = StaffAccess.objects.filter(user=request.user).first()
+    if access and access.role == 'customer' and not target.startswith('/cliente/'):
+        return default  # un cliente solo vuelve a páginas de su portal
+    return target
+
+
 # Tiempo máximo de una sesión verificada con MFA, aunque se siga usando.
 MFA_SESSION_MAX = 12 * 3600
 
@@ -236,7 +276,7 @@ class SocSecurityMiddleware:
         if (request.method not in ('GET','HEAD','OPTIONS') and name in FRESH_MFA_VIEWS
                 and (name, request.POST.get('action', '')) not in FRESH_MFA_EXEMPT and not mfa_fresh(request)):
             messages.info(request, 'Confirma tu código MFA y repite la operación.')
-            return redirect('mfa_challenge')
+            return mfa_redirect(request)
         if request.user.is_superuser:
             return None
         access = StaffAccess.objects.filter(user=request.user).first()
@@ -292,10 +332,10 @@ class SocSecurityMiddleware:
                 if not profile or not profile.enabled:
                     return redirect('mfa_setup')
                 if request.session.get('soc_mfa_user') != request.user.pk or request.session.get('soc_mfa_version') != profile.version:
-                    return redirect('mfa_challenge')
+                    return mfa_redirect(request)
                 if time.time() - request.session.get('soc_mfa_at', 0) > MFA_SESSION_MAX:
                     request.session.pop('soc_mfa_user', None)
-                    return redirect('mfa_challenge')
+                    return mfa_redirect(request)
             if request.method not in ('GET','HEAD','OPTIONS') and not exempt:
                 role = 'manager' if request.user.is_superuser else access.role if access else 'reader'
                 import re
@@ -404,7 +444,8 @@ def mfa_challenge(request):
             OperationalIssue._base_manager.filter(key=f'security:mfa-failures:{request.user.pk}',active=True).update(
                 active=False,resolved_at=timezone.now())
             access=StaffAccess.objects.filter(user=request.user).first()
-            return redirect('customer_home' if access and access.role=='customer' else 'dashboard')
+            from django.urls import reverse
+            return redirect(mfa_next(request, reverse('customer_home' if access and access.role=='customer' else 'dashboard')))
         failed_attempt(request,'mfa')
         if throttled(request,'mfa'):
             mfa_locked(request.user,profile)
@@ -438,7 +479,7 @@ def mfa_reset(request, pk):
     if not request.user.has_perm('core.manage_security') or not (request.user.is_superuser or access and access.all_clients):
         return HttpResponseForbidden('Administración global requerida.')
     if not mfa_fresh(request):
-        return redirect('mfa_challenge')
+        return mfa_redirect(request)
     user = get_object_or_404(get_user_model(),pk=pk)
     if user.is_superuser and not request.user.is_superuser:
         return HttpResponseForbidden('No puedes restablecer este usuario.')

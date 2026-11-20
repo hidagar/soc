@@ -131,8 +131,8 @@ def execute(name):
         notify_requests();send_request_notices()
         from .request_sla import check as check_request_sla
         check_request_sla()
-        from .policy_views import notify_soc as notify_policy_decisions, send_pending as send_policy_notices
-        notify_policy_decisions();send_policy_notices()
+        from .policy_views import notify_soc as notify_policy_decisions, queue_reminders as remind_policies, send_pending as send_policy_notices
+        notify_policy_decisions();remind_policies();send_policy_notices()
         return op.notify_issues()
     if name=='housekeeping':
         from .vpn_security import VpnAccessEvent

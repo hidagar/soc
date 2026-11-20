@@ -61,6 +61,7 @@ class PolicyProposal(models.Model):
     notice_sent_at = models.DateTimeField(null=True, blank=True)
     provider_id = models.CharField(max_length=180, blank=True)
     soc_notified_at = models.DateTimeField(null=True, blank=True)  # aviso interno de la decisión del cliente
+    reminded_at = models.DateTimeField(null=True, blank=True)  # recordatorio al cliente sin decisión (como mucho uno)
     objects = ScopedManager()
     customer_lookup = 'client_id'
 

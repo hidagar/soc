@@ -77,6 +77,16 @@ Opcional, en «Plazos de atención» («Pausar la resolución mientras el client
 
 El trabajo horario `housekeeping` borra, por bloques y con un minuto como máximo por ejecución, las detecciones sin incidencia y los contadores por hora más antiguos que «Retención de evidencias» (Copias y recuperación, 90 días por defecto) y los intentos de acceso de más de un día (`core/retention.py`; último resultado en `WorkerState` «retention»). Antes solo se hacía al final de una copia correcta: con copias fallidas la base crecía sin límite, y un borrado de golpe retenía el escritor de SQLite.
 
+Además borra los registros operativos que crecían sin límite. Los plazos son constantes en `core/retention.py`; para cambiarlos hay que tocar ese archivo y esta tabla.
+
+| Registro | Se borra | Motivo |
+|---|---|---|
+| Avisos por Teams y Telegram (`ChatNotice`) | terminados, con más de 365 días | Es el registro de envío; el aviso urgente se conserva por su lado. Los pendientes o en envío no se tocan. |
+| Caídas de Internet (`ConnectivityEvent`) | más de 400 días | La línea de tiempo llega a 365 días y el informe mensual mira el mes anterior. |
+| Solicitudes de clientes resueltas, con su conversación | resueltas hace más de 730 días | Las abiertas no se tocan; una incidencia enlazada se conserva. |
+| Propuestas de política «Ya no aplica» | sin cambios en 180 días | Ya no se muestran a nadie. |
+| Consultas de contexto de Q-Feeds (`ThreatIntelLookup`) | más de 90 días, salvo las que están en cola | Son una caché; se pueden repetir. |
+
 ## Versión instalada
 
 «Salud del SOC» muestra a quien tiene acceso global el commit instalado, su fecha y el motor de base. Lo registra `deploy/update.sh` en `/srv/soc-portal/.deployed-commit`; una instalación que no se haya actualizado con el script aparece como «sin registrar».

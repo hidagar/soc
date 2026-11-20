@@ -68,6 +68,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_key_rotation.py](../../core/test_key_rotation.py) | 4 |
 | [core/test_log_redaction.py](../../core/test_log_redaction.py) | 6 |
 | [core/test_login_ip_throttle.py](../../core/test_login_ip_throttle.py) | 5 |
+| [core/test_mantenimiento.py](../../core/test_mantenimiento.py) | 7 |
 | [core/test_menu_search.py](../../core/test_menu_search.py) | 5 |
 | [core/test_monthly_report.py](../../core/test_monthly_report.py) | 15 |
 | [core/test_native_pipeline.py](../../core/test_native_pipeline.py) | 1 |
@@ -207,3 +208,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0078_revision_qfeeds.py](../../core/migrations/0078_revision_qfeeds.py)
 - [core/migrations/0079_qfeeds_planes_b_c.py](../../core/migrations/0079_qfeeds_planes_b_c.py)
 - [core/migrations/0080_qfeeds_como_crowdsec.py](../../core/migrations/0080_qfeeds_como_crowdsec.py)
+- [core/migrations/0081_recordatorio_politicas.py](../../core/migrations/0081_recordatorio_politicas.py)

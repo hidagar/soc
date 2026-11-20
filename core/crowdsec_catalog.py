@@ -29,7 +29,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from .models import CrowdsecBlocklist, IpReputation, SecurityEvidence, WorkerState
 from .reputation import eligible, protected_addresses
-from .security import audit
+from .security import audit, mfa_redirect
 
 API = 'https://admin.api.crowdsec.net/v1'
 STATE = 'crowdsec-catalog'
@@ -362,7 +362,7 @@ def action(request, pk):
     if not request.user.has_perm('core.manage_connections'):
         return HttpResponseForbidden('Permiso de gestión de conexiones requerido.')
     if not mfa_fresh(request):
-        return redirect('mfa_challenge')
+        return mfa_redirect(request)
     row = get_object_or_404(CrowdsecBlocklist, pk=pk)
     wanted = request.POST.get('action')
     if wanted not in ('subscribe', 'unsubscribe', 'cancel'):

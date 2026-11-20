@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST,require_http_methods
 from .models import MailDispatch,MailEvent,DeliverySettings,Client,UrgentAlert,OperationalIssue,WorkerState
 from .security import audit,mfa_fresh
 from .forms import ScopedModelForm
+from .security import mfa_redirect
 
 def verification_key(value):
     value=value.strip()
@@ -95,7 +96,7 @@ def delivery_settings(request):
     config=DeliverySettings.objects.filter(pk=1).first() or DeliverySettings(pk=1)
     form=DeliveryForm(request.POST or None,instance=config)
     if request.method=='POST':
-        if not mfa_fresh(request):return redirect('mfa_challenge')
+        if not mfa_fresh(request):return mfa_redirect(request)
         if request.POST.get('action')=='diagnose':
             from .delivery_provider import diagnose
             diagnose();audit('mail.webhook_checked',config);return redirect('delivery_settings')

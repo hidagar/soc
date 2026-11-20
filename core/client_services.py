@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from .models import Client
-from .security import audit
+from .security import audit, mfa_redirect
 
 COMMUNICATION_FIELDS = ['customer_portal_detail_enabled', 'customer_live_map_enabled', 'weekly_reports_enabled', 'report_email',
                         'monthly_reports_enabled', 'monthly_email', 'urgent_alerts_enabled', 'urgent_email',
@@ -183,7 +183,7 @@ def invite(request, pk):
     if not request.user.has_perm('core.manage_security') or not global_access(request.user):
         return HttpResponseForbidden('Dar acceso al portal requiere administración global de seguridad.')
     if not mfa_fresh(request):
-        return redirect('mfa_challenge')
+        return mfa_redirect(request)
     client = get_object_or_404(Client, pk=pk)
     target = reverse('client_detail', args=[client.pk]) + '#servicios'
     email = request.POST.get('email', '').strip().lower()

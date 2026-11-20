@@ -1316,6 +1316,7 @@ Fuente: [core/policy_models.py](../../core/policy_models.py).
 | `notice_sent_at` | DateTimeField | null=True; blank=True |
 | `provider_id` | CharField | max_length=180; blank=True |
 | `soc_notified_at` | DateTimeField | null=True; blank=True |
+| `reminded_at` | DateTimeField | null=True; blank=True |
 ## CustomerRequest
 
 Fuente: [core/request_models.py](../../core/request_models.py).

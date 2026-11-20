@@ -8,7 +8,7 @@ from django.shortcuts import redirect,render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 from .models import StaffAccess,MfaProfile,Client
-from .security import audit
+from .security import audit, mfa_redirect
 
 def allowed(user):
     if not user.is_authenticated or not user.is_active:return False
@@ -64,7 +64,7 @@ def check(request):
 @require_GET
 def enter(request):
     if not allowed(request.user):return HttpResponseForbidden('Acceso Wazuh no autorizado.')
-    if not verified(request):return redirect('mfa_challenge')
+    if not verified(request):return mfa_redirect(request)
     dashboard='soc-general'
     code=request.GET.get('client','')
     if not global_access(request.user):

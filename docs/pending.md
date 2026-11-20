@@ -16,6 +16,7 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 | Decidir si se activa la pausa de las incidencias | 13/11 | Desplegada (migración 0077). Casilla en «Plazos de atención», desactivada por defecto. |
 | Contratar el plan de pago de Q-Feeds para el SOC (plan A) | Q-Feeds, 20/11 | Q-Feeds confirmó el 20/11 que el uso central cabe en el plan normal. Antes de elegir entre Plus y Premium: mirar «Evolución» unos días y probar Premium 7 días (cambiando `SOC_PORTAL_QFEEDS_KEY`). Tras contratar, añadir a `SOC_PORTAL_QFEEDS_FEEDS` las listas nuevas que muestre «Listas que ofrece tu licencia». |
 | Activar Q-Feeds en la lista de bloqueo de los clientes | Q-Feeds, 20/11 | Las listas que ya existían la tienen desmarcada. Empezar por un cliente piloto (Pollença): marcar «IPs en listas de Q-Feeds», revisar «Q-Feeds en esta lista» y extender al resto. La lista de salida con Q-Feeds es opcional. |
+| Confirmar los plazos de conservación de los registros operativos | Mantenimiento, 20/11 | Propuestos: avisos por chat 1 año, caídas de Internet 400 días, solicitudes resueltas 2 años, propuestas «Ya no aplica» 180 días, consultas de Q-Feeds 90 días. [Operación](operations.md#conservación-de-datos). |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -45,7 +46,6 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 - El control de exposición debería reconocer la regla del SOC y dejar de mostrar el servicio como abierto a cualquier origen.
 - **Fase 2 · UniFi por API:** reenvíos de puertos y restricción por región. Hoy es una actuación guiada.
 - **Fase 3 · mínimo privilegio:** conocer el tráfico legítimo con resúmenes de Zenarmor por API (aplicaciones y categorías), sin recibir cada conexión. Antes, confirmar qué ofrece su API.
-- Recordatorio al cliente si una propuesta lleva más de 14 días sin decisión.
 
 ### Solicitudes de clientes
 - Hecho el 13/11: plazos de primera respuesta y resolución, con horario laboral. Faltan plazos propios por cliente.
@@ -88,8 +88,6 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 
 **Seguridad y mantenimiento**
 - Subir `paramiko` de 4.0.0 a 5.x: corrige el uso de SHA-1 en firmas RSA (PYSEC-2026-2858). La batería completa pasa con 5.1.0, pero un firewall antiguo que solo acepte `ssh-rsa` dejaría de conectar: comprobarlo antes (ver acciones del usuario).
-- Conservación de las tablas nuevas: `ChatNotice`, `ConnectivityEvent`, `CustomerRequestEntry` y las propuestas «Ya no aplica» crecen sin límite. Añadirlas al trabajo `housekeeping` con un plazo acordado.
-- Tras confirmar el doble factor, volver a la página donde estaba el usuario (hoy tiene que repetir la operación a mano).
 
 **Usabilidad del SOC**
 - Hecho el 12/11: contadores en el menú lateral y buscador global.
@@ -101,7 +99,6 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 
 **Valor para el cliente**
 - Hecho el 13/11: el informe mensual incluye vulnerabilidades, solicitudes y cambios.
-- Recordatorio si una propuesta de cambio lleva más de 14 días sin decisión.
 
 ### Ideas propuestas sin empezar
 - Evidencias para NIS2/ENS.

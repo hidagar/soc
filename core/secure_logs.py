@@ -16,6 +16,7 @@ from .models import SecureLogChannel,SecureLogReceipt,Device,WorkerState,ExportC
 from .security import encrypt,decrypt,audit,mfa_fresh
 from .invitations import origin
 from .provisioning import DESTINATION,PORT
+from .security import mfa_redirect
 
 NETWORK=ipaddress.ip_network('127.80.0.0/16')
 MAX_BODY=128*1024
@@ -126,7 +127,7 @@ def setup(request,pk):
     if not request.user.has_perm('core.manage_connections'):return HttpResponseForbidden('Permiso de conexiones requerido.')
     channel=SecureLogChannel.objects.filter(device=device).first()
     if request.method=='POST':
-        if not mfa_fresh(request):return redirect('mfa_challenge')
+        if not mfa_fresh(request):return mfa_redirect(request)
         action=request.POST.get('action')
         if action=='prepare':
             try:channel=prepare(device)
