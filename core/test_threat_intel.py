@@ -120,7 +120,7 @@ class ThreatIntelTests(TestCase):
         self.sync()
         api = self.sync(FakeApi(error=401), now=self.now + timedelta(hours=1))
         values = threat_intel.details()
-        self.assertEqual(values['error'], 'clave rechazada')
+        self.assertIn('Q-Feeds no reconoce la clave', values['error'])
         self.assertIn('paused_until', values)
         self.assertTrue(OperationalIssue.objects.filter(key=threat_intel.ISSUE, active=True).exists())
         self.assertEqual(threat_intel.usable_feeds(values, self.now + timedelta(hours=1)), {'malware_ip', 'malware_domains'})

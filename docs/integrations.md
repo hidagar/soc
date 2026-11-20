@@ -171,7 +171,8 @@ Comprobado contra un motor CrowdSec real: respuestas `null` sin decisiones, deci
 3. **Vigencia:**
    - Una lista se usa mientras se haya comprobado en las últimas 36 horas.
    - Si no, deja de usarse (estado seguro) y se abre `platform:threat-intel` en «Salud del SOC». Ese aviso se abre también, al momento, si Q-Feeds rechaza la clave o la licencia.
-   - Tras un 401, 403 o 429, el trabajo espera una hora antes de reintentar, como el plugin oficial.
+   - Tras un 401, 403 o 429, el trabajo espera una hora antes de reintentar, como el plugin oficial. Si se cambia la clave, se reintenta en la pasada siguiente sin esperar (se compara una huella corta de la clave, que no permite recuperarla).
+   - Un rechazo del índice se explica en la página: 401, clave no reconocida (copiada incompleta, con espacios o comillas, o revocada); 403, clave caducada o que no permite la IP del servidor del SOC (las claves de Q-Feeds pueden limitar las IP y los programas que las usan).
    - A los 7 días sin comprobar, o al retirar la clave, la copia se borra: son datos con licencia.
 4. **Consulta local:** «Investigar IP» y el buscador de la página indican si una IP (o la red que la contiene) o un dominio figura en las listas, con sus categorías. No se envía nada a Q-Feeds; tampoco se usa su portal de consulta, que sí recibiría la IP.
 5. **Coincidencias con los clientes (7 días):** `ThreatIntelMatch` guarda las IPs públicas de las detecciones que figuran en las listas, recalculadas en cada ejecución (hasta 2000). Las ven solo los operadores con ese cliente en su ámbito.

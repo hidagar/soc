@@ -19,6 +19,7 @@ comparar planes (gratuito, prueba Premium) con los mismos clientes. Nada de esto
 el SOC publique de una incidencia.
 """
 import base64
+import hashlib
 import ipaddress
 import json
 import os
@@ -58,6 +59,9 @@ MAX_MATCHES = 2000
 FRESH = timedelta(hours=36)  # el plan gratuito publica cada 24 horas
 PURGE_AFTER = timedelta(days=7)
 PAUSE = timedelta(hours=1)  # tras rechazar la clave o limitar peticiones, como el plugin oficial
+# El índice de la licencia es la primera llamada: su rechazo se explica con lo que indica la API de Q-Feeds.
+INDEX_REJECTED = {401: 'Q-Feeds no reconoce la clave: comprobar que se copió entera, sin espacios ni comillas, y que no se ha revocado',
+                  403: 'Q-Feeds deniega el acceso: la clave ha caducado o no permite la IP de este servidor (IP permitidas de la clave)'}
 WINDOW = timedelta(days=7)
 LISTS_FRESH = timedelta(hours=24)
 MIN_PREFIX = {4: 16, 6: 32}  # una red más amplia en una lista de amenazas no aporta contexto útil
@@ -88,6 +92,11 @@ class _NoRedirect(urlrequest.HTTPRedirectHandler):
 
 def api_key():
     return os.environ.get('SOC_PORTAL_QFEEDS_KEY', '').strip()
+
+
+def key_id(key):
+    """Huella corta de la clave para saber si cambió (no permite recuperarla)."""
+    return hashlib.sha256(key.encode()).hexdigest()[:16] if key else ''
 
 
 def wanted_feeds():
@@ -254,9 +263,16 @@ def sync(now=None):
     values['configured'] = bool(key)
     downloaded = 0
     paused = parse_datetime(values.get('paused_until') or '')
+    if paused and values.get('paused_key') != key_id(key):
+        paused = None  # la pausa era por otra clave: con la nueva se reintenta ya
     if key and not (paused and paused > now):
         try:
-            index = _get('/licenses.php', None, key, MAX_INDEX)
+            try:
+                index = _get('/licenses.php', None, key, MAX_INDEX)
+            except FeedError as exc:
+                if exc.status in INDEX_REJECTED:
+                    raise FeedError(INDEX_REJECTED[exc.status], exc.status) from None
+                raise
             listed = index.get('feeds') if isinstance(index, dict) else None
             if not isinstance(listed, list):
                 raise FeedError('índice no válido')
@@ -309,10 +325,11 @@ def sync(now=None):
                     row.update(ready=False, count=0)
             values.update(error='', error_status=None, last_ok_at=now.isoformat())
             values.pop('paused_until', None)
+            values.pop('paused_key', None)
         except FeedError as exc:
-            values.update(error=str(exc)[:120], error_status=exc.status)
+            values.update(error=str(exc)[:200], error_status=exc.status)
             if exc.status in (401, 403, 429):
-                values['paused_until'] = (now + PAUSE).isoformat()
+                values.update(paused_until=(now + PAUSE).isoformat(), paused_key=key_id(key))
     for name in list(feeds):
         checked = parse_datetime(feeds[name].get('checked_at') or '')
         if (checked and now - checked > PURGE_AFTER) or (not key and not checked):
@@ -617,7 +634,8 @@ def overview(request):
         'offered': values.get('offered') or [], 'history': _history(values),
         'can_open_incident': request.user.has_perm('core.add_incident'), 'license_info': values.get('license') or {},
         'license_expires': license_expiry(values), 'lookup_info': values.get('lookup') or {}, 'can_lookup': lookup_available(values),
-        'context': _context(query, result, now)})
+        'context': _context(query, result, now),
+        'paused_until': (lambda p: p if p and p > now else None)(parse_datetime(values.get('paused_until') or ''))})
 
 
 @login_required

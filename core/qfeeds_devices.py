@@ -34,7 +34,7 @@ SETTINGS = '/api/q_feeds/settings/'
 RENEWAL_NOTICE = timedelta(days=30)
 VENDOR_EVERY = timedelta(hours=24)
 EXPIRY_MISMATCH = timedelta(days=7)
-KEY = re.compile(r'^[A-Za-z0-9._~+/=-]{16,200}$')
+KEY = re.compile(r'^[\x21-\x7e]{8,300}$')  # caracteres imprimibles sin espacios: Q-Feeds no publica el formato
 
 
 class PublicError(ValueError):
@@ -79,7 +79,7 @@ class LicenseForm(forms.ModelForm):
         if not value and not self.instance.pk:
             raise forms.ValidationError('Indica la clave de la licencia.')
         if value and not KEY.match(value):
-            raise forms.ValidationError('La clave no tiene un formato válido.')
+            raise forms.ValidationError('La clave no puede tener espacios ni saltos de línea: cópiala de nuevo, entera.')
         return value
 
     def clean(self):
@@ -205,7 +205,8 @@ def vendor_check(item, now):
     try:
         index = _get('/licenses.php', None, decrypt(item.encrypted_key), MAX_INDEX)
     except FeedError as exc:
-        status = {'ok': False, 'error': {401: 'Q-Feeds rechaza la clave.', 403: 'Q-Feeds rechaza la clave o ha caducado.'}.get(
+        status = {'ok': False, 'error': {401: 'Q-Feeds no reconoce la clave (copiada incompleta o revocada).',
+                                     403: 'Q-Feeds deniega el acceso: la clave ha caducado o no permite la IP del servidor del SOC.'}.get(
             exc.status, 'Sin respuesta de Q-Feeds.'), 'rejected': exc.status in (401, 403)}
     else:
         company = index.get('company_info') if isinstance(index, dict) and isinstance(index.get('company_info'), dict) else {}

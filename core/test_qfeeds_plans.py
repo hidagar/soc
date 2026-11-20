@@ -305,7 +305,7 @@ class FirewallLicenseTests(Base):
         with self.vendor(error=401):
             qfeeds_devices.check(self.now)
         issue = OperationalIssue.objects.get(key=qfeeds_devices.issue_key(self.device))
-        self.assertIn('rechaza la clave', issue.details)
+        self.assertIn('no reconoce la clave', issue.details)
         QFeedsLicense.objects.filter(pk=item.pk).update(vendor_status={}, vendor_checked_at=self.now)
         qfeeds_devices.check(self.now)
         issue.refresh_from_db()
@@ -406,3 +406,40 @@ class LookupTests(Base):
         self.assertContains(page, 'Maliciosa')
         self.assertContains(page, '01/10/2026')
         self.assertNotContains(page, 'gasta 1 consulta')  # consultado hace menos de 7 días
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
+class KeyRejectionTests(Base):
+    """La clave rechazada se explica, y una clave nueva se prueba sin esperar a la pausa de una hora."""
+
+    def test_rejections_explain_the_likely_cause(self):
+        self.sync(FakeApi(error=401))
+        self.assertIn('sin espacios ni comillas', threat_intel.details()['error'])
+        later = self.now + timedelta(hours=2)
+        self.sync(FakeApi(error=403), now=later)
+        self.assertIn('no permite la IP de este servidor', threat_intel.details()['error'])
+        login(self, 'manage_operations')
+        with mock.patch('django.utils.timezone.now', return_value=later):
+            page = self.client.get(reverse('threat_intel'))
+        self.assertContains(page, 'no permite la IP de este servidor')
+        self.assertContains(page, 'Se reintenta a partir de las')
+
+    def test_a_new_key_is_tried_at_once_and_the_same_key_waits(self):
+        self.sync(FakeApi(error=401))
+        api = self.sync(now=self.now + timedelta(minutes=15))
+        self.assertEqual(api.requests, [])  # misma clave: espera la hora de pausa
+        api = self.sync(now=self.now + timedelta(minutes=15), key='otra-clave-nueva-123')
+        self.assertTrue(api.requests)
+        values = threat_intel.details()
+        self.assertEqual(values['error'], '')
+        self.assertNotIn('paused_key', values)
+
+    def test_customer_keys_with_any_printable_character_are_accepted(self):
+        login(self, 'manage_operations', 'manage_connections')
+        for key, valid in (('con espacio dentro', False), ('12|AbCdEfGh:ijkl', True)):
+            response = self.client.post(reverse('qfeeds_licenses'), {
+                'action': 'save', 'device': self.device.pk, 'plan': 'plus', 'users_band': 'lt50', 'key': key,
+                'starts_on': '2026-11-01', 'expires_on': '2027-11-01'})
+            self.assertEqual(QFeedsLicense.objects.exists(), valid, key)
+            if not valid:
+                self.assertContains(response, 'no puede tener espacios')

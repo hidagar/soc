@@ -79,7 +79,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_policy_proposals.py](../../core/test_policy_proposals.py) | 10 |
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
-| [core/test_qfeeds_plans.py](../../core/test_qfeeds_plans.py) | 22 |
+| [core/test_qfeeds_plans.py](../../core/test_qfeeds_plans.py) | 25 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
 | [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 14 |
 | [core/test_recovery_postgresql.py](../../core/test_recovery_postgresql.py) | 3 |
