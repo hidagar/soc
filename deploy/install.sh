@@ -135,8 +135,9 @@ server {
     ssl_certificate_key /etc/soc-portal/tls.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 2m;
-    # Rutas del Wazuh del SOC, si existen (deploy/configurar_wazuh_nginx.sh y deploy/nginx/soc-wazuh.conf.example).
-    include /etc/nginx/snippets/soc-wazuh*.conf;
+    # Rutas del Wazuh del SOC, si existen (deploy/configurar_wazuh_nginx.sh y deploy/nginx/soc-wazuh-rutas.conf.example).
+    # El patrón no debe abarcar otros archivos de snippets (p. ej. el del secreto, que va dentro de una location).
+    include /etc/nginx/snippets/soc-wazuh-rutas*.conf;
 
     location /static/ {
         alias /srv/soc-portal/staticfiles/;

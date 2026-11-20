@@ -7,7 +7,9 @@
 #
 # Las rutas de Wazuh (comprobación con el portal, /wazuh, /wazuh/ y la vuelta al login) estaban solo en el
 # bloque del nombre público. Este script:
-# 1. Las saca tal cual, con su secreto interno y sin mostrarlo, a /etc/nginx/snippets/soc-wazuh.conf (0600).
+# 1. Las saca tal cual, sin mostrar el secreto interno, a /etc/nginx/snippets/soc-wazuh-rutas.conf (0600).
+#    El secreto puede estar escrito en ellas o incluido desde otro archivo (p. ej. soc-wazuh-auth-key.conf),
+#    que no se toca.
 # 2. Las sustituye en su bloque original por un `include` de ese archivo.
 # 3. Añade el mismo `include` al bloque del portal por IP (sites-available/soc-portal), que no las tenía.
 # Guarda copia de los archivos que toca, comprueba `nginx -t` y, si falla, lo restaura todo sin recargar.
@@ -15,7 +17,7 @@
 set -euo pipefail
 
 NGINX=${SOC_NGINX_DIR:-/etc/nginx}
-SNIPPET=$NGINX/snippets/soc-wazuh.conf
+SNIPPET=$NGINX/snippets/soc-wazuh-rutas.conf
 IP_SITE=$NGINX/sites-available/soc-portal
 BACKUPS=${SOC_BACKUP_DIR:-/var/backups/soc-nginx}
 INCLUDE="    include $SNIPPET;"
@@ -40,13 +42,14 @@ show() {
   local f
   if [[ -f "$SNIPPET" ]]; then
     echo "Archivo común: $SNIPPET ($(stat -c %a "$SNIPPET"))."
-    grep -qi 'X-SOC-Wazuh-Key' "$SNIPPET" && echo "  Contiene el secreto interno (no se muestra)." \
-      || echo "  AVISO: no contiene la cabecera X-SOC-Wazuh-Key."
+    grep -qiE 'X-SOC-Wazuh-Key|^[[:space:]]*include[[:space:]]' "$SNIPPET" \
+      && echo "  Lleva el secreto interno, escrito o incluido de otro archivo (no se muestra)." \
+      || echo "  AVISO: no lleva la cabecera X-SOC-Wazuh-Key ni incluye el archivo que la tiene."
   else
     echo "Archivo común: no existe."
   fi
   while read -r f; do
-    [[ -n "$f" ]] || continue
+    [[ -n "$f" ]] && grep -q 'server_name' "$f" || continue  # solo archivos con bloques de servidor
     if grep -qF "include $SNIPPET;" "$f"; then echo "$f: incluye las rutas de Wazuh."
     elif grep -q 'location /wazuh/' "$f"; then echo "$f: tiene las rutas de Wazuh escritas dentro."
     else echo "$f: SIN rutas de Wazuh."; fi
@@ -101,16 +104,19 @@ if [[ -n "$SOURCE" ]]; then
        on && /location @soc_wazuh_login/ {last=1}
        on && last && /^[[:space:]]*}[[:space:]]*$/ {exit}' "$SOURCE" > "$tmp"
   for needed in 'location = /_soc_wazuh_auth' 'location /wazuh/' 'auth_request /_soc_wazuh_auth;' \
-                'location @soc_wazuh_login' 'X-SOC-Wazuh-Key'; do
+                'location @soc_wazuh_login'; do
     grep -qiF "$needed" "$tmp" || { rm -f "$tmp"; die "No se encontró '$needed' en las rutas de Wazuh de $SOURCE. Revisar a mano."; }
   done
+  # El secreto: escrito en la comprobación interna o incluido desde otro archivo (que se deja donde está).
+  grep -qiE 'X-SOC-Wazuh-Key|^[[:space:]]*include[[:space:]]' "$tmp" \
+    || { rm -f "$tmp"; die "Las rutas de Wazuh de $SOURCE no llevan el secreto interno. Revisar a mano."; }
   start=$(grep -n 'location = /_soc_wazuh_auth' "$SOURCE" | head -1 | cut -d: -f1)
   lines=$(wc -l < "$tmp")
   [[ $(sed -n "${start},$((start + lines - 1))p" "$SOURCE" | cmp -s - "$tmp"; echo $?) == 0 ]] \
     || { rm -f "$tmp"; die "Las rutas de Wazuh de $SOURCE no son contiguas. Revisar a mano."; }
   mkdir -p "$(dirname "$SNIPPET")"
   { echo "# Rutas del Wazuh del SOC: comprobación con el portal y proxy al Wazuh Dashboard local."
-    echo "# Contiene el secreto interno X-SOC-Wazuh-Key: no copiar fuera del servidor. Plantilla: deploy/nginx/soc-wazuh.conf.example"
+    echo "# Lleva el secreto interno X-SOC-Wazuh-Key (o lo incluye): no copiar fuera del servidor. Plantilla: deploy/nginx/soc-wazuh-rutas.conf.example"
     sed 's/^    //' "$tmp"; } > "$SNIPPET"
   chmod 600 "$SNIPPET"
   rm -f "$tmp"

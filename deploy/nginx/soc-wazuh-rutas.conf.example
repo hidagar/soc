@@ -1,6 +1,6 @@
-# Rutas del Wazuh del SOC para un bloque «server» del portal. Copiar a /etc/nginx/snippets/soc-wazuh.conf
+# Rutas del Wazuh del SOC para un bloque «server» del portal. Copiar a /etc/nginx/snippets/soc-wazuh-rutas.conf
 # (root, 0600), sustituir __SOC_WAZUH_PROXY_KEY__ por el valor de SOC_WAZUH_PROXY_KEY de
-# /etc/soc-portal/portal.env y añadir `include /etc/nginx/snippets/soc-wazuh.conf;` al bloque (install.sh ya lo
+# /etc/soc-portal/portal.env y añadir `include /etc/nginx/snippets/soc-wazuh-rutas.conf;` al bloque (install.sh ya lo
 # hace). Comprobar con `nginx -t` antes de recargar. En una VM que ya tiene estas rutas escritas en un bloque,
 # usar deploy/configurar_wazuh_nginx.sh, que las mueve aquí sin mostrar el secreto.
 #

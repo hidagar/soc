@@ -64,10 +64,11 @@ http {{
 ''')
         # El certificado del Wazuh Dashboard no existe aquí: `nginx -t` se ejecuta sobre copias con el de la prueba.
         cert = f's#/etc/wazuh-dashboard/certs/root-ca.pem#{d}/run/ca.pem#g'
-        snippet = f'{d}/nginx/snippets/soc-wazuh.conf'
+        snippet = f'{d}/nginx/snippets/soc-wazuh-rutas.conf'
         self.stub('nginx', f'[[ -f {d}/fail-nginx ]] && exit 1\nrm -rf {d}/run/enabled; mkdir -p {d}/run/enabled\n'
-                           f'[[ -f {snippet} ]] && sed "{cert}" {snippet} > {d}/run/soc-wazuh.conf\n'
-                           f'for f in {d}/nginx/sites-enabled/*; do sed -e "{cert}" -e "s#{snippet}#{d}/run/soc-wazuh.conf#g" '
+                           f'[[ -f {snippet} ]] && sed "{cert}" {snippet} > {d}/run/soc-wazuh-rutas.conf\n'
+                           f'for f in {d}/nginx/sites-enabled/* {d}/nginx/conf.d/*.conf; do [[ -e "$f" ]] || continue; '
+                           f'sed -e "{cert}" -e "s#{snippet}#{d}/run/soc-wazuh-rutas.conf#g" '
                            f'"$f" > {d}/run/enabled/$(basename "$f"); done\n'
                            f'exec {shutil.which("nginx")} -e {d}/run/error.log -t -q -c {d}/nginx/nginx.conf -p {d}/run')
         self.stub('systemctl', f'echo "$*" >> {d}/calls.log')
@@ -84,7 +85,7 @@ http {{
                               capture_output=True, text=True, timeout=120)
 
     def snippet(self):
-        return self.dir / 'nginx/snippets/soc-wazuh.conf'
+        return self.dir / 'nginx/snippets/soc-wazuh-rutas.conf'
 
     def test_moves_the_routes_to_a_shared_file_included_by_both_blocks(self):
         result = self.run_script('--yes')
@@ -128,7 +129,7 @@ http {{
 
     def test_the_example_in_deploy_is_valid_nginx(self):
         d = self.dir
-        example = (ROOT / 'deploy/nginx/soc-wazuh.conf.example').read_text()
+        example = (ROOT / 'deploy/nginx/soc-wazuh-rutas.conf.example').read_text()
         self.assertIn('__SOC_WAZUH_PROXY_KEY__', example)
         (d / 'run/ejemplo.conf').write_text(example.replace('/etc/wazuh-dashboard/certs/root-ca.pem', f'{d}/run/ca.pem'))
         (d / 'run/enabled').mkdir()
@@ -136,3 +137,32 @@ http {{
         result = subprocess.run([shutil.which('nginx'), '-e', f'{d}/run/error.log', '-t', '-q', '-c', f'{d}/nginx/nginx.conf',
                                  '-p', f'{d}/run'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_production_layout_with_the_secret_in_its_own_file(self):
+        """Como la VM: el bloque público en conf.d y el secreto incluido desde snippets/soc-wazuh-auth-key.conf."""
+        d = self.dir
+        (d / 'nginx/snippets').mkdir()
+        key = d / 'nginx/snippets/soc-wazuh-auth-key.conf'
+        key.write_text(f'proxy_set_header X-SOC-Wazuh-Key "{SECRET}";\n')
+        routes = WAZUH.replace(f'        proxy_set_header X-SOC-Wazuh-Key "{SECRET}";\n', f'        include {key};\n')
+        public = d / 'nginx/conf.d/soc-public-reports.conf'
+        public.write_text(self.public.read_text().replace(WAZUH, routes))
+        (d / 'nginx/sites-enabled' / self.public.name).unlink()
+        self.public.unlink()
+        result = self.run_script('--yes')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        snippet = self.snippet().read_text()
+        self.assertIn(f'include {key};', snippet)
+        self.assertNotIn(SECRET, snippet + public.read_text() + result.stdout + result.stderr)
+        self.assertEqual(key.read_text(), f'proxy_set_header X-SOC-Wazuh-Key "{SECRET}";\n')  # no se toca
+        include = f'include {self.snippet()};'
+        self.assertEqual((public.read_text().count(include), self.ip.read_text().count(include)), (1, 1))
+        shown = self.run_script('--ver').stdout
+        self.assertIn('incluido de otro archivo', shown)
+        self.assertNotIn('log-redaction', shown)
+
+    def test_install_only_includes_the_routes_file(self):
+        """El patrón de install.sh no debe abarcar el archivo del secreto (va dentro de una location)."""
+        install = (ROOT / 'deploy/install.sh').read_text()
+        self.assertIn('include /etc/nginx/snippets/soc-wazuh-rutas*.conf;', install)
+        self.assertNotIn('soc-wazuh*.conf', install)

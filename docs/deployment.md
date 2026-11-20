@@ -91,11 +91,11 @@ El botón «SOC general en Wazuh» (y el panel de cada cliente) lleva a `/wazuh/
 Sin esas rutas, el portal responde «Not Found» (su 404) a `/wazuh/…`. Así ocurría al entrar por `https://172.20.10.20:8443`, cuyo bloque, el que genera `install.sh`, no las tenía (20/11/2026).
 
 - **VM existente:** `sudo deploy/configurar_wazuh_nginx.sh`.
-  - Mueve las rutas del bloque que ya las tiene a `/etc/nginx/snippets/soc-wazuh.conf` (root, 0600, con el secreto, que no muestra).
+  - Mueve las rutas del bloque que ya las tiene a `/etc/nginx/snippets/soc-wazuh-rutas.conf` (root, 0600), sin mostrar el secreto. El secreto puede estar escrito en ellas o incluido desde otro archivo, como `snippets/soc-wazuh-auth-key.conf` en la VM, que no se toca.
   - Las incluye en ese bloque y en el del portal por IP (`sites-available/soc-portal`).
   - Guarda copia en `/var/backups/soc-nginx/` y comprueba `nginx -t`; si falla, lo restaura todo sin recargar.
   - `--ver` muestra qué bloques las incluyen.
-- **Instalación nueva:** copiar `deploy/nginx/soc-wazuh.conf.example` a `/etc/nginx/snippets/soc-wazuh.conf`, poner el valor de `SOC_WAZUH_PROXY_KEY` y dejar el archivo con permisos 0600. El bloque que genera `install.sh` ya lo incluye si existe.
+- **Instalación nueva:** copiar `deploy/nginx/soc-wazuh-rutas.conf.example` a `/etc/nginx/snippets/soc-wazuh-rutas.conf`, poner el valor de `SOC_WAZUH_PROXY_KEY` y dejar el archivo con permisos 0600. El bloque que genera `install.sh` ya lo incluye si existe.
 
 ## Reversión
 
