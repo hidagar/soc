@@ -257,7 +257,7 @@ La página es «Inteligencia y bloqueo › Q-Feeds en firewalls» (`QFeedsLicens
 - **Límites:** solo OPNsense con la conexión API. En UniFi u otros fabricantes, el plugin se configura a mano.
 
 ### Plan C: Q-Feeds en la lista de bloqueo del SOC
-Exige un acuerdo escrito de redistribución con Q-Feeds (OEM). Se activa con `SOC_PORTAL_QFEEDS_OEM`, cuyo valor es la referencia del acuerdo. Sin esa variable, las opciones aparecen desactivadas con la explicación y nada de Q-Feeds entra en `/feeds/bloqueo/`.
+Exige un acuerdo escrito de redistribución con Q-Feeds (OEM). Se activa con `SOC_PORTAL_QFEEDS_OEM`, cuyo valor es la referencia del acuerdo. El 20/11/2026 Q-Feeds aprobó al usuario este uso; conservar el acuerdo escrito junto al contrato, fuera del repositorio. Si el acuerdo pone condiciones (volumen, clientes, atribución, informes), reflejarlas aquí y en el código. Sin esa variable, las opciones aparecen desactivadas con la explicación y nada de Q-Feeds entra en `/feeds/bloqueo/`.
 
 Con el acuerdo, cada cliente puede activar en su lista:
 - **Entrada:** IPs que han atacado a algún cliente en los últimos 7 días y están en Q-Feeds (las coincidencias del plan A). Se descartan el ruido de fondo y los posibles falsos positivos de la CTI, igual que con CrowdSec.
