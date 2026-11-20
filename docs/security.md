@@ -64,6 +64,13 @@ Avisos por Teams y Telegram: salen los mismos datos que el correo urgente, al ca
 
 ## Proxy y SSO Wazuh
 
+Adjuntos de las solicitudes (`core/request_attachments.py`):
+- **Tipos:** se admiten por extensión y por contenido real (cabecera; los de texto, sin bytes nulos). Nada ejecutable, comprimido ni de Office.
+- **Almacenamiento:** cifrados en la base con la bóveda del SOC; se borran con su solicitud.
+- **Visibilidad:** heredan la del mensaje; el cliente no puede descargar los de una nota interna, ni siquiera conociendo su número (invariante 3).
+- **Descarga:** siempre como archivo (`application/octet-stream`, `attachment`, `nosniff`, CSP `sandbox`, sin caché). Las del SOC quedan en la auditoría.
+- **Sin antivirus:** pendiente de integrar ClamAV en la VM.
+
 Vuelta tras el MFA: al pedir el código, la sesión guarda a dónde volver (la página pedida o, tras una acción, la página desde la que se envió, según `Referer`). Solo se aceptan rutas del propio portal del mismo host, nunca las de MFA, login o logout; un cliente solo vuelve a `/cliente/`. Las acciones no se repiten solas.
 
 Nginx consulta `/security/wazuh/check/` con un secreto interno. El backend comprueba sesión, MFA, permisos y ámbito listo; devuelve identidad/rol controlados. El proxy debe sustituir cabeceras de identidad del navegador y proteger la ruta interna. No es un token administrador reutilizable en el frontend. Las rutas de Nginx están en `/etc/nginx/snippets/soc-wazuh-rutas.conf` (root, 0600), incluidas en cada bloque del portal; en la VM el secreto está aparte, en `snippets/soc-wazuh-auth-key.conf`, incluido dentro de la comprobación interna. La plantilla sin secreto es `deploy/nginx/soc-wazuh-rutas.conf.example` y `deploy/configurar_wazuh_nginx.sh` las mueve allí en una VM existente ([despliegue](deployment.md#wazuh-del-soc-por-nombre-y-por-ip)).

@@ -227,3 +227,11 @@ td[data-label="Revisión"]{min-width:150px}
 @media(min-width:701px){td[data-label="Revisión"] .review-actions{flex-direction:column}}
 .qfeeds-context{border-left:3px solid var(--brand,#0f5b35);padding:4px 12px;margin:10px 0}
 .danger-zone{margin-top:10px}
+
+/* Adjuntos de las solicitudes */
+.attachment-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px}
+.attachment-list li::before{content:"📎 ";}
+.attachment-list small{color:var(--muted,#566779)}
+label.attachments{display:block;margin:10px 0}
+label.attachments input[type=file]{padding:8px}
+label.attachments small{display:block;color:#566779;margin-top:4px}

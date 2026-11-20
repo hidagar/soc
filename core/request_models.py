@@ -70,3 +70,25 @@ class CustomerRequestEntry(models.Model):
 
     class Meta:
         ordering = ['created_at', 'pk']
+
+
+class CustomerRequestAttachment(models.Model):
+    """Archivo adjunto a un mensaje de una solicitud (captura, PDF, correo sospechoso…).
+
+    Se guarda cifrado en la base (bóveda del SOC) y se borra con su mensaje y su solicitud. Hereda la
+    visibilidad del mensaje: el adjunto de una nota interna no lo ve nunca el cliente (invariante 3).
+    No se analiza con un antivirus: el SOC lo abre con precaución.
+    """
+    entry = models.ForeignKey(CustomerRequestEntry, on_delete=models.CASCADE, related_name='attachments')
+    name = models.CharField(max_length=160)
+    content_type = models.CharField(max_length=80)
+    size = models.PositiveIntegerField()
+    sha256 = models.CharField(max_length=64)
+    encrypted_data = models.BinaryField(editable=False)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
+    created_at = models.DateTimeField(default=timezone.now)
+    objects = ScopedManager()
+    customer_lookup = 'entry__request__client_id'
+
+    class Meta:
+        ordering = ['created_at', 'pk']

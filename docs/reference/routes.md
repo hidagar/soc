@@ -48,6 +48,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `cliente/vulnerabilidades/` | `customer_vulnerabilities` | `service.customer_vulnerabilities` |
 | `cliente/solicitudes/` | `customer_requests` | `customer_requests.customer_list` |
 | `cliente/solicitudes/<int:pk>/` | `customer_request_detail` | `customer_requests.customer_detail` |
+| `cliente/solicitudes/<int:pk>/adjuntos/<int:attachment>/` | `customer_request_attachment` | `request_attachments.customer_download` |
 | `operations/requests/` | `requests` | `customer_requests.soc_list` |
 | `operations/policies/` | `policies` | `policy_views.overview` |
 | `search/` | `search` | `global_search.results` |
@@ -55,6 +56,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `cliente/cambios/` | `customer_policies` | `policy_views.customer_list` |
 | `cliente/cambios/<int:pk>/` | `customer_policy_decision` | `policy_views.customer_decision` |
 | `operations/requests/<int:pk>/` | `request_detail` | `customer_requests.soc_detail` |
+| `operations/requests/<int:pk>/adjuntos/<int:attachment>/` | `request_attachment` | `request_attachments.soc_download` |
 | `operations/vulnerabilities/` | `vulnerabilities` | `vulnerabilities.overview` |
 | `clients/<int:pk>/customer-view/` | `customer_preview` | `customer_preview.home` |
 | `clients/<int:pk>/customer-view/firewalls/` | `customer_preview_firewalls` | `customer_preview.firewalls` |

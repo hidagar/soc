@@ -58,6 +58,7 @@ Recibe invitación para establecer contraseña. La cuenta pertenece exactamente 
 - Elige qué necesita: consulta, cambio en el firewall o la red, desbloquear algo o sospecha de incidente. Después indica el asunto, la sede (opcional), el detalle y si afecta al trabajo ahora.
 - Sigue la conversación y recibe un correo, sin el texto, cuando el SOC responde.
 - Puede cerrarla cuando está resuelta y reabrirla, si no lo está, durante 14 días.
+- Puede adjuntar archivos al abrirla y en cada mensaje: capturas (PNG, JPG, GIF, WebP), PDF, texto (TXT, LOG, CSV) y correos (EML, MSG). Como mucho 3 por mensaje, 1,8 MB en total y 20 por solicitud. El SOC también puede adjuntar en sus respuestas y en sus notas internas, que el cliente no ve. Los adjuntos no pasan por un antivirus: el SOC los abre con precaución.
 - Límites: 20 abiertas a la vez y 10 nuevas al día. El mapa agregado es opcional. No accede a notas/secretos del operador ni a incidentes internos por el hecho de existir.
 
 Con «Mostrar firewalls y detecciones en el portal del cliente» activado en la ficha del cliente (desactivado por defecto), el portal añade:

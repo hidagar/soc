@@ -25,6 +25,7 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from .models import Client, CustomerRequest, CustomerRequestEntry, Incident, IncidentUpdate, Site
+from . import request_attachments as attachments
 from .request_sla import annotate, customer_commitment, transition_fields
 from .security import audit
 
@@ -152,6 +153,20 @@ def customer_requests_context(client, preview=False):
             'waiting': [r for r in rows if r.status == 'waiting']}
 
 
+def _attachment_count(req):
+    from .models import CustomerRequestAttachment
+    return CustomerRequestAttachment.objects.filter(entry__request=req).count()
+
+
+def _files_error(form, request):
+    """Valida los adjuntos de una solicitud nueva; los deja en `request.soc_attachments`. True si hay error."""
+    ready, error = attachments.clean(request.FILES.getlist('attachments'))
+    request.soc_attachments = ready
+    if error:
+        form.add_error(None, error)
+    return bool(error)
+
+
 @login_required
 @never_cache
 def customer_list(request):
@@ -165,17 +180,20 @@ def customer_list(request):
             form.add_error(None, f'Tenéis {MAX_OPEN} solicitudes abiertas. Cerrad las que ya estén resueltas o escribid a noc@ibred.es.')
         elif manager.filter(created_at__gte=now - timedelta(days=1)).count() >= MAX_PER_DAY:
             form.add_error(None, 'Se ha alcanzado el máximo de solicitudes nuevas por día. Escribid a noc@ibred.es si es urgente.')
-        elif form.is_valid():
+        elif form.is_valid() and not _files_error(form, request):
             data = form.cleaned_data
             with transaction.atomic():
                 req = CustomerRequest.objects.create(
                     client=client, site=data['site'], created_by=request.user, contact_email=request.user.email or _fallback_email(client),
                     kind=data['kind'], subject=data['subject'].strip(), urgent=data['urgent'], created_at=now, updated_at=now)
-                CustomerRequestEntry.objects.create(request=req, kind='customer', author=request.user, text=data['text'].strip(),
-                                                    status='new', created_at=now)
-                audit('customer.request', req, {'status': 'new'})
+                entry = CustomerRequestEntry.objects.create(request=req, kind='customer', author=request.user,
+                                                            text=data['text'].strip(), status='new', created_at=now)
+                attachments.store(entry, request.soc_attachments, request.user)
+                audit('customer.request', req, {'status': 'new', 'count': len(request.soc_attachments)})
             return redirect(reverse('customer_request_detail', args=[req.pk]) + '?enviada=1')
-    return render(request, 'customer_requests.html', {**customer_requests_context(client), 'form': form})
+    return render(request, 'customer_requests.html', {**customer_requests_context(client), 'form': form,
+                                                      'attachment_limits': attachments.limits_text(),
+                                                      'attachment_accept': attachments.ACCEPT, 'attachment_max': attachments.max_bytes()})
 
 
 @login_required
@@ -197,8 +215,13 @@ def customer_detail(request, pk):
                 audit('customer.request', req, {'status': 'resolved'})
             return redirect('customer_request_detail', pk=req.pk)
         text = request.POST.get('text', '').strip()
+        ready, files_error = attachments.clean(request.FILES.getlist('attachments'), _attachment_count(req))
+        if ready and not text:
+            text = 'Adjunto ' + ', '.join(a['name'] for a in ready) + '.'
         if not text or len(text) > MAX_TEXT:
             error = f'Escribe el mensaje, en un máximo de {MAX_TEXT} caracteres.'
+        elif files_error:
+            error = files_error
         elif req.status == 'resolved' and (not req.resolved_at or now - req.resolved_at > timedelta(days=REOPEN_DAYS)):
             error = 'Esta solicitud se cerró hace más de dos semanas. Abre una nueva.'
         else:
@@ -207,12 +230,16 @@ def customer_detail(request, pk):
                 CustomerRequest.objects.filter(pk=req.pk).update(status=status, updated_at=now,
                                                                  resolved_at=None if status != 'resolved' else req.resolved_at,
                                                                  **transition_fields(req, status, now))
-                CustomerRequestEntry.objects.create(request=req, kind='customer', author=request.user, text=text, status=status, created_at=now)
+                entry = CustomerRequestEntry.objects.create(request=req, kind='customer', author=request.user, text=text,
+                                                            status=status, created_at=now)
+                attachments.store(entry, ready, request.user)
                 CustomerRequest.objects.filter(pk=req.pk).update(soc_notified_at=None)  # novedad para el equipo SOC
-                audit('customer.request', req, {'status': status})
+                audit('customer.request', req, {'status': status, 'count': len(ready)})
             return redirect(reverse('customer_request_detail', args=[req.pk]) + '?enviada=1')
-    entries = req.entries.exclude(kind='internal')
+    entries = req.entries.exclude(kind='internal').prefetch_related('attachments')
     return render(request, 'customer_request_detail.html', {**_portal_base(client, False, 'requests'), 'req': req,
+                  'attachment_limits': attachments.limits_text(), 'attachment_accept': attachments.ACCEPT,
+                  'attachment_max': attachments.max_bytes(),
                   'commitment': customer_commitment(req),
                   'entries': entries, 'error': error, 'sent': request.GET.get('enviada') == '1',
                   'can_reply': req.open or (req.resolved_at and timezone.now() - req.resolved_at <= timedelta(days=REOPEN_DAYS))})
@@ -260,17 +287,27 @@ def soc_detail(request, pk):
             CustomerRequest.objects.filter(pk=req.pk).update(owner=request.user, updated_at=now)
             audit('request.assign', req, {'owner': request.user.pk})
         elif action == 'note':
+            ready, files_error = attachments.clean(request.FILES.getlist('attachments'), _attachment_count(req))
             if not text or len(text) > MAX_TEXT:
                 messages.error(request, 'Escribe la nota.')
+            elif files_error:
+                messages.error(request, files_error)
             else:
-                CustomerRequestEntry.objects.create(request=req, kind='internal', author=request.user, text=text, status=req.status, created_at=now)
-                audit('request.note', req, {'status': req.status})
+                with transaction.atomic():
+                    entry = CustomerRequestEntry.objects.create(request=req, kind='internal', author=request.user, text=text,
+                                                                status=req.status, created_at=now)
+                    attachments.store(entry, ready, request.user)
+                    audit('request.note', req, {'status': req.status, 'count': len(ready)})
         elif action == 'reply':
             status = request.POST.get('status', 'in_progress')
             if status not in ('in_progress', 'waiting', 'resolved'):
                 return HttpResponseForbidden('Estado no válido.')
             if not text or len(text) > MAX_TEXT:
                 messages.error(request, 'Escribe la respuesta para el cliente.')
+                return redirect('request_detail', pk=req.pk)
+            ready, files_error = attachments.clean(request.FILES.getlist('attachments'), _attachment_count(req))
+            if files_error:
+                messages.error(request, files_error)
                 return redirect('request_detail', pk=req.pk)
             with transaction.atomic():
                 fields = {'status': status, 'updated_at': now, 'resolved_at': now if status == 'resolved' else None,
@@ -281,8 +318,9 @@ def soc_detail(request, pk):
                     fields['owner'] = request.user
                 CustomerRequest.objects.filter(pk=req.pk).update(**fields)
                 entry = CustomerRequestEntry.objects.create(request=req, kind='soc', author=request.user, text=text, status=status, created_at=now)
+                attachments.store(entry, ready, request.user)
                 _queue_notice(entry, req)
-                audit('request.reply', req, {'status': status})
+                audit('request.reply', req, {'status': status, 'count': len(ready)})
             messages.success(request, 'Respuesta enviada al portal del cliente.'
                              + (' Le avisamos por correo en el próximo minuto.' if entry.notice_status == 'queued' else ''))
         elif action == 'incident':
@@ -305,8 +343,9 @@ def soc_detail(request, pk):
             return HttpResponseForbidden('Acción no válida.')
         return redirect('request_detail', pk=req.pk)
     annotate([req])
-    return render(request, 'request_detail.html', {'req': req, 'entries': req.entries.select_related('author'),
-                                                   'hints': HINTS})
+    return render(request, 'request_detail.html', {'req': req, 'entries': req.entries.select_related('author').prefetch_related('attachments'),
+                                                   'hints': HINTS, 'attachment_limits': attachments.limits_text(),
+                                                   'attachment_accept': attachments.ACCEPT, 'attachment_max': attachments.max_bytes()})
 
 
 def soc_counts():

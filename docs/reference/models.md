@@ -1363,6 +1363,22 @@ Fuente: [core/request_models.py](../../core/request_models.py).
 | `notice_attempted_at` | DateTimeField | null=True; blank=True |
 | `notice_sent_at` | DateTimeField | null=True; blank=True |
 | `provider_id` | CharField | max_length=180; blank=True |
+## CustomerRequestAttachment
+
+Fuente: [core/request_models.py](../../core/request_models.py).
+
+Ámbito declarado: `'entry__request__client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `entry` | ForeignKey | → CustomerRequestEntry; on_delete=models.CASCADE |
+| `name` | CharField | max_length=160 |
+| `content_type` | CharField | max_length=80 |
+| `size` | PositiveIntegerField |  |
+| `sha256` | CharField | max_length=64 |
+| `encrypted_data` | BinaryField |  |
+| `uploaded_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `created_at` | DateTimeField |  |
 ## SecurityScore
 
 Fuente: [core/score_models.py](../../core/score_models.py).
