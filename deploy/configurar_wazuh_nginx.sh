@@ -64,7 +64,8 @@ command -v nginx >/dev/null || die "Nginx no está instalado."
 
 SOURCE=""
 if [[ ! -f "$SNIPPET" ]]; then
-  mapfile -t found < <(grep -l 'location /wazuh/' $(site_files) 2>/dev/null || true)
+  mapfile -t sites < <(site_files)
+  mapfile -t found < <(grep -l 'location /wazuh/' "${sites[@]}" 2>/dev/null || true)
   [[ ${#found[@]} -eq 1 ]] || die "Se esperaba un único sitio con 'location /wazuh/' y hay ${#found[@]}. Revisar a mano."
   SOURCE=${found[0]}
   [[ "$SOURCE" != "$(readlink -f "$IP_SITE")" ]] \
