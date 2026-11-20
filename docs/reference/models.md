@@ -1456,31 +1456,6 @@ Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
 | `incident` | ForeignKey | → 'core.Incident'; on_delete=models.SET_NULL; null=True; blank=True |
 | `reviewed_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
 | `reviewed_at` | DateTimeField |  |
-## QFeedsLicense
-
-Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
-
-Ámbito declarado: `'device__site__client_id'`. Ver manager/middleware para aplicación.
-
-| Campo | Tipo | Relación / atributos declarados |
-|---|---|---|
-| `device` | OneToOneField | → 'core.Device'; on_delete=models.CASCADE |
-| `plan` | CharField | max_length=12 |
-| `users_band` | CharField | max_length=12 |
-| `encrypted_key` | TextField |  |
-| `key_hint` | CharField | max_length=8; blank=True |
-| `starts_on` | DateField |  |
-| `expires_on` | DateField |  |
-| `purchase_price` | DecimalField | null=True; blank=True |
-| `sale_price` | DecimalField | null=True; blank=True |
-| `reference` | CharField | max_length=120; blank=True |
-| `created_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
-| `created_at` | DateTimeField |  |
-| `updated_at` | DateTimeField |  |
-| `checked_at` | DateTimeField | null=True; blank=True |
-| `plugin_status` | JSONField | blank=True |
-| `vendor_status` | JSONField | blank=True |
-| `vendor_checked_at` | DateTimeField | null=True; blank=True |
 ## ThreatIntelLookup
 
 Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).

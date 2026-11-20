@@ -45,7 +45,6 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | `blocklist_efficacy` | 3600 | Eficacia de las reglas de bloqueo |
 | `threat_intel` | 900 | Inteligencia Q-Feeds |
 | `qfeeds_lookup` | 60 | Consultas de contexto Q-Feeds |
-| `qfeeds_devices` | 3600 | Licencias Q-Feeds en firewalls |
 | `soc_reputation` | 3600 | Reputación propia del SOC |
 | `security_score` | 3600 | Índice de seguridad |
 | `connectivity` | 900 | Conexión a Internet |

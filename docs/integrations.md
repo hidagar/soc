@@ -193,7 +193,7 @@ El plan gratuito publica cada indicador solo con una marca de tiempo (`t`): no t
 
 ## Q-Feeds, plan A: uso central con un plan de pago (20/11/2026)
 
-Decisión del 20/11/2026: contratar un plan de pago de Q-Feeds para el SOC y usarlo **solo de forma central**. La VM del SOC descarga las listas y las cruza con lo que recibe de todos los clientes. No se descartan los planes B (licencia por firewall del cliente, revendida por ib-red) ni C (sus datos en nuestra lista de bloqueo, que exige un acuerdo OEM), pero no se desarrollan.
+Decisión del 20/11/2026: contratar un plan de pago de Q-Feeds para el SOC y usarlo **solo de forma central**. La VM del SOC descarga las listas y las cruza con lo que recibe de todos los clientes. El mismo día se acordó también con Q-Feeds la redistribución en las listas de bloqueo del SOC, como con CrowdSec: ver la sección siguiente.
 
 **Lo que añade al código de la fase 1:**
 1. **Revisión de las conexiones salientes.** Cada destino de las listas al que conecta un equipo de un cliente queda «por revisar», primero los que tuvieron tráfico permitido. Se revisa en «Inteligencia Q-Feeds» o en la bandeja de trabajo, y el menú muestra cuántos esperan (en rojo si alguno tuvo tráfico permitido). Solo lo ve quien tiene el permiso de operaciones, dentro de su ámbito de clientes. Hay dos decisiones:
@@ -204,16 +204,14 @@ Decisión del 20/11/2026: contratar un plan de pago de Q-Feeds para el SOC y usa
 2. **Listas que ofrece la licencia.** La página muestra todas las listas del índice de Q-Feeds, incluidas o no, y si el SOC las descarga. Tras subir de plan se ve qué listas nuevas de IPs o dominios añadir a `SOC_PORTAL_QFEEDS_FEEDS`. Las de URL no se usan: las evidencias no guardan URL.
 3. **Evolución diaria.** Una fila por día, con la ventana de 7 días: indicadores, indicadores con categoría, destinos salientes, destinos con tráfico permitido, destinos por revisar, orígenes en Q-Feeds y cuántos de ellos no están en CrowdSec, y clientes afectados. Se guardan 120 días. Sirve para comparar el plan gratuito con la prueba Premium y para decidir la renovación.
 
-**Licencia:** el 20/11/2026 Q-Feeds confirmó al usuario que el uso central en el SOC para dar servicio a los clientes cabe en el plan normal (Plus o Premium); no hace falta Enterprise. Conservar esa confirmación fuera del repositorio, junto al contrato. La confirmación no cubre los planes B y C, así que se mantiene:
-- nada de Q-Feeds sale hacia firewalls ni hacia `/feeds/bloqueo/`;
-- al cliente solo le llega lo que el SOC publique de una incidencia (invariante 3): una conclusión del SOC sobre su propio tráfico, no las listas.
+**Licencia:** el 20/11/2026 Q-Feeds confirmó al usuario que el uso central en el SOC para dar servicio a los clientes cabe en el plan normal (Plus o Premium); no hace falta Enterprise. Conservar esa confirmación fuera del repositorio, junto al contrato. Al cliente le llega lo que el SOC publique de una incidencia (invariante 3) y, si su lista de bloqueo lo incluye, las IPs de Q-Feeds vistas en las detecciones (sección siguiente); nunca las listas de Q-Feeds.
 
 **Límites:**
 - Coincidir con una lista no acredita una infección (invariante 4); la incidencia se abre con gravedad alta si hubo tráfico permitido y media si no.
-- La API de consulta de indicadores (IOC Lookup) y TAXII 2.1 no están integradas: enviarían IPs a Q-Feeds y su contrato técnico no está contrastado.
+- TAXII 2.1 no está integrado. La consulta de indicadores (IOC Lookup) se integró después, con límites: ver la sección siguiente.
 - La comparación entre planes solo es válida con los mismos clientes y periodos parecidos.
 
-## Q-Feeds, planes B y C y consulta de contexto (20/11/2026)
+## Q-Feeds en la lista de bloqueo y consulta de contexto (20/11/2026)
 
 La [API de Q-Feeds](https://api.qfeeds.com/openapi/) se usa para tres cosas más. La telemetría (`telemetryapi.php`) **no** se integra: enviaría a Q-Feeds lo que bloquean los clientes.
 
@@ -234,44 +232,25 @@ Si la licencia la incluye, en «Inteligencia Q-Feeds › Consultar un indicador�
 - Se guarda un resumen acotado, nunca la respuesta cruda ni las notas de sus analistas.
 - La misma consulta no se repite en 7 días. Un 429 (cupo agotado o límite de peticiones) la deja en cola.
 
-### Plan B: licencia del cliente en su firewall OPNsense
-La página es «Inteligencia y bloqueo › Q-Feeds en firewalls» (`QFeedsLicense`, migración 0079).
-- **Titular:** el cliente, como exige el EULA; ib-red la vende como revendedor.
-- **Ficha por firewall:** plan, usuarios protegidos, inicio, caducidad, coste, precio al cliente, pedido o factura, y la clave del cliente.
-  - La clave se guarda cifrada y nunca se vuelve a mostrar (solo sus 4 últimos caracteres).
-  - Darla de alta o cambiarla exige el permiso de conexiones y un MFA reciente; queda en la auditoría sin la clave.
-  - La página suma ventas y margen anuales.
-- **Comprobación en Q-Feeds:** una vez al día, el trabajo `qfeeds_devices` lee `licenses.php` con la clave del cliente. Así sabe si la acepta, su caducidad y si incluye `malware_ip`. Solo se descarga el índice de la licencia.
-- **Preparación en el firewall, con el control de cambios.** Antes hay que instalar el plugin oficial `os-q-feeds-connector` desde la consola del firewall (Sistema › Firmware › Plugins) y dar a la cuenta API del SOC el privilegio «Services: QFeeds». Después, «Preparar en el firewall»:
-  1. Escribe la clave en el plugin (`/api/q_feeds/settings/set`), sin activar el bloqueo por DNS de Unbound.
-  2. Pide la descarga (`reconfigure`) y comprueba que la licencia incluye `malware_ip`.
-  3. Crea dos reglas **desactivadas** contra la tabla del plugin `__qfeeds_malware_ip`: entrada y salida por WAN.
+### Q-Feeds en la lista de bloqueo del SOC (como CrowdSec)
+El acuerdo con Q-Feeds (20/11/2026) es equivalente al de CrowdSec: el SOC usa su licencia y reparte lo relevante a cada cliente en su propia lista de bloqueo. No hay licencias por firewall ni plugin de Q-Feeds en los equipos de los clientes. Un primer enfoque con licencias por firewall vendidas por ib-red (#73) se retiró el mismo día (migración 0080), sin datos en producción.
 
-  Si el plugin ya tiene otra clave, no está instalado o la licencia no incluye la lista, la preparación se detiene con ese motivo y retira lo que hubiera creado. Activar sigue el flujo de siempre: aprobación, punto de recuperación y confirmación. Al revertir, la clave se retira solo si la puso el SOC y sigue siendo la de la ficha; si alguien la cambió en la consola, se pide revisión manual.
-- **Vigilancia** (cada hora, aviso en «Salud del SOC»):
-  - caducidad en 30 días o menos, o ya caducada (crítico);
-  - clave rechazada por Q-Feeds;
-  - caducidad en Q-Feeds distinta de la ficha (más de 7 días de diferencia);
-  - regla activa sin ninguna IP cargada en el plugin.
+En «Listas de bloqueo › cliente › Configuración de la lista»:
+- **«IPs en listas de Q-Feeds»**, junto a las de CrowdSec y con el mismo criterio: IPs que han atacado a algún cliente en los últimos 7 días y figuran en las listas vigentes de Q-Feeds (las coincidencias del plan A). Se descartan el ruido de fondo y los posibles falsos positivos de la CTI, igual que con CrowdSec. Viene marcada en las listas nuevas, como CrowdSec; en las que ya existían, hay que marcarla.
+- **«Incluir destinos de Q-Feeds a los que han conectado equipos de clientes»**, en la lista de salida (C2), desmarcada por defecto. Excluye los destinos revisados «Sin riesgo» para cualquier cliente.
 
-  Con la regla preparada o activa se leen también las estadísticas del plugin: IPs cargadas y direcciones bloqueadas.
-- **Límites:** solo OPNsense con la conexión API. En UniFi u otros fabricantes, el plugin se configura a mano.
+Se reparte por los mismos medios que el resto de la lista: URL para OPNsense (alias de tipo URL) y escritura en las listas de UniFi. Se aplican las mismas excepciones, IPs protegidas, máximo de entradas y freno de emergencia.
 
-### Plan C: Q-Feeds en la lista de bloqueo del SOC
-Exige un acuerdo escrito de redistribución con Q-Feeds (OEM). Se activa con `SOC_PORTAL_QFEEDS_OEM`, cuyo valor es la referencia del acuerdo. El 20/11/2026 Q-Feeds aprobó al usuario este uso; conservar el acuerdo escrito junto al contrato, fuera del repositorio. Si el acuerdo pone condiciones (volumen, clientes, atribución, informes), reflejarlas aquí y en el código. Sin esa variable, las opciones aparecen desactivadas con la explicación y nada de Q-Feeds entra en `/feeds/bloqueo/`.
+**Nunca se sirve la lista de Q-Feeds entera**, solo lo ya visto en las detecciones. Las entradas que solo vienen de Q-Feeds se marcan (`qfeeds_only`):
+- si se desmarca la opción del cliente, dejan de servirse en la siguiente descarga, sin esperar al recálculo;
+- si las listas de Q-Feeds dejan de estar vigentes (36 horas sin comprobar), desaparecen en el recálculo, porque ya no hay coincidencias.
 
-Con el acuerdo, cada cliente puede activar en su lista:
-- **Entrada:** IPs que han atacado a algún cliente en los últimos 7 días y están en Q-Feeds (las coincidencias del plan A). Se descartan el ruido de fondo y los posibles falsos positivos de la CTI, igual que con CrowdSec.
-- **Salida:** destinos de Q-Feeds a los que han conectado equipos de clientes, salvo los revisados «Sin riesgo» para cualquier cliente.
-
-**Revisión del piloto** (página de la lista del cliente, «Q-Feeds en esta lista»):
+**Revisión** (página de la lista del cliente, «Q-Feeds en esta lista»):
 - cuántas entradas de entrada y de salida vienen solo de Q-Feeds;
 - cuántas atacaron a este cliente o fueron contactadas por él, y con cuánto tráfico permitido;
 - un filtro para ver solo esas entradas, y «Excluir» en cada una, que la añade a las excepciones del cliente con una nota y queda en la auditoría.
 
 Para que un destino no entre en la lista de ningún cliente, se marca «Sin riesgo» en la revisión de Q-Feeds.
-
-**Nunca se sirve la lista de Q-Feeds entera**, solo lo ya visto en las detecciones. Las entradas que solo vienen de Q-Feeds se marcan (`qfeeds_only`) y la página indica cuántas hay. Si se retira el acuerdo o la opción, dejan de servirse en la siguiente descarga del firewall, sin esperar al recálculo. Excepciones, IPs protegidas, máximo de entradas y freno de emergencia se aplican igual.
 
 ## Reputación propia del SOC (observación)
 

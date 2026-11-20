@@ -47,7 +47,6 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_PORTAL_NVD_KEY | Clave gratuita de la API de NVD | Opcional; acelera la descarga del catálogo de vulnerabilidades (50 peticiones cada 30 s en lugar de 5). Secreto: solo en el archivo protegido. Ver [operación](operations.md#avisos-de-vulnerabilidad-dirigidos). |
 | SOC_PORTAL_QFEEDS_KEY | Clave de API del portal de Q-Feeds | Opcional; activa la inteligencia Q-Feeds (descarga de listas, sin enviar IPs). Secreto: solo en el archivo protegido. Ver [integraciones](integrations.md#inteligencia-q-feeds-fase-1). |
 | SOC_PORTAL_QFEEDS_FEEDS | Listas separadas por comas | Opcional; por defecto `malware_ip,malware_domains`. Solo se descargan las incluidas en la licencia. |
-| SOC_PORTAL_QFEEDS_OEM | Referencia del acuerdo escrito de redistribución con Q-Feeds | Opcional; sin ella nada de Q-Feeds entra en las listas de bloqueo (plan C). Solo con el acuerdo firmado. Ver [integraciones](integrations.md#plan-c-q-feeds-en-la-lista-de-bloqueo-del-soc). |
 | SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE | Entero (0–50) | Listas que el SOC puede suscribir por su cuenta; 0 = solo recomendar. |
 | SOC_PORTAL_CROWDSEC_CTI_PER_RUN | Entero (1–20) | Consultas CTI por ejecución del trabajo, cada 15 minutos (2 por defecto). Subirlo solo si CrowdSec no responde 429. |
 | SOC_PORTAL_CROWDSEC_MONTHLY_LIMIT | Entero | Cupo CTI mensual del plan; vacío o 0 = sin tope mensual propio (solo el diario). |

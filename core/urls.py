@@ -12,7 +12,6 @@ from . import global_search
 from . import client_timeline
 from . import monthly_report
 from . import threat_intel
-from . import qfeeds_devices
 from . import soc_reputation
 from . import sla_views
 from . import continuity
@@ -126,7 +125,6 @@ urlpatterns = [
     path('operations/inteligencia/',threat_intel.overview,name='threat_intel'),
     path('operations/inteligencia/revisar/',threat_intel.review,name='threat_intel_review'),
     path('operations/inteligencia/contexto/',threat_intel.lookup_request,name='threat_intel_lookup'),
-    path('operations/inteligencia/licencias/',qfeeds_devices.licenses,name='qfeeds_licenses'),
     path('operations/reputacion-propia/',soc_reputation.overview,name='soc_reputation'),
     path('operations/crowdsec/lists/',crowdsec_catalog.overview,name='crowdsec_lists'),
     path('operations/crowdsec/lists/<int:pk>/',crowdsec_catalog.action,name='crowdsec_list_action'),

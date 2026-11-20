@@ -208,9 +208,9 @@ class BlocklistFeed(models.Model):
     # Lista de salida (C2): destinos a los que los equipos del cliente no deben conectarse.
     outbound_enabled=models.BooleanField('Publicar la lista de salida (C2)',default=False)
     include_c2_detections=models.BooleanField('Incluir destinos C2 detectados por el SOC',default=True)
-    # Plan C de Q-Feeds: solo con acuerdo de redistribución (SOC_PORTAL_QFEEDS_OEM) y solo IPs vistas en detecciones.
-    include_qfeeds=models.BooleanField('Incluir atacantes de clientes que están en Q-Feeds',default=False)
-    include_qfeeds_c2=models.BooleanField('Incluir destinos de Q-Feeds a los que conectan clientes',default=False)
+    # Q-Feeds, con el mismo criterio que CrowdSec: solo IPs vistas en las detecciones de los clientes.
+    include_qfeeds=models.BooleanField('Incluir IPs en listas de Q-Feeds',default=True)
+    include_qfeeds_c2=models.BooleanField('Incluir destinos de Q-Feeds contactados por clientes',default=False)
     outbound_entries=models.JSONField(default=list,blank=True)
     allowlist=models.TextField('Excepciones (nunca bloquear)',blank=True,help_text='Una IP o red CIDR por línea: proveedores, socios, oficinas remotas.')
     max_entries=models.PositiveIntegerField('Máximo de entradas',default=2000)
