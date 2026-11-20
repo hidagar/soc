@@ -104,6 +104,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_syslog_adoption.py](../../core/test_syslog_adoption.py) | 10 |
 | [core/test_text_encoding.py](../../core/test_text_encoding.py) | 1 |
 | [core/test_threat_intel.py](../../core/test_threat_intel.py) | 15 |
+| [core/test_threat_intel_review.py](../../core/test_threat_intel_review.py) | 7 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 11 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
@@ -201,3 +202,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0075_plazos_solicitudes.py](../../core/migrations/0075_plazos_solicitudes.py)
 - [core/migrations/0076_horario_laboral.py](../../core/migrations/0076_horario_laboral.py)
 - [core/migrations/0077_pausa_incidencias.py](../../core/migrations/0077_pausa_incidencias.py)
+- [core/migrations/0078_revision_qfeeds.py](../../core/migrations/0078_revision_qfeeds.py)

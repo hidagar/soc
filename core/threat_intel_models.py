@@ -1,4 +1,5 @@
 """Inteligencia de amenazas descargada (Q-Feeds): copia local de las listas y coincidencias con los clientes."""
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -47,6 +48,28 @@ class ThreatIntelMatch(models.Model):
     class Meta:
         ordering = ['-allowed', '-events', 'ip']
         constraints = [models.UniqueConstraint(fields=['client', 'ip', 'role'], name='unique_threat_match')]
+
+
+class ThreatIntelReview(models.Model):
+    """Decisión del SOC sobre un destino saliente de un cliente que figura en las listas (plan A de Q-Feeds).
+
+    `ThreatIntelMatch` se recalcula entero en cada ejecución; la decisión se guarda aparte para no perderla.
+    Vuelve a la cola si aparece tráfico hacia ese destino después de la decisión (descartado) o después de
+    resolver la incidencia abierta. Dato interno del SOC: el cliente solo ve lo que se publique de la incidencia.
+    """
+    DECISIONS = [('dismissed', 'Sin riesgo'), ('incident', 'Incidencia abierta')]
+    client = models.ForeignKey('core.Client', on_delete=models.CASCADE, related_name='threat_reviews')
+    ip = models.GenericIPAddressField()
+    decision = models.CharField(max_length=12, choices=DECISIONS)
+    reason = models.CharField(max_length=160, blank=True)
+    incident = models.ForeignKey('core.Incident', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
+    reviewed_at = models.DateTimeField(default=timezone.now)
+    objects = ScopedManager()
+    customer_lookup = 'client_id'
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['client', 'ip'], name='unique_threat_review')]
 
 
 class SocReputation(models.Model):

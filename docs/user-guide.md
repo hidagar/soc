@@ -27,7 +27,7 @@ Los nombres de menús pueden evolucionar; las rutas/handlers están en la refere
    - «Inteligencia y bloqueo» reúne en pestañas la reputación CrowdSec, sus listas, las listas de bloqueo, Q-Feeds y la reputación propia.
    - El buscador del menú (tecla `/`) encuentra clientes, sedes, firewalls, incidencias, solicitudes (`SOL-`), políticas (`POL-`), CVE e IPs.
 8. Atender los plazos de cada caso (si están activados en «Plazos de atención»): asumirlo es el acuse; la primera nota, acción, tarea para el cliente o comprobación de la guía es el diagnóstico. La cola «Plazo vencido o próximo» de la bandeja ordena lo urgente.
-9. Con Q-Feeds configurado, revisar en «Inteligencia Q-Feeds» las conexiones salientes permitidas hacia indicadores de malware o C2: cada una es un motivo para investigar el equipo interno, no una infección confirmada.
+9. Con Q-Feeds configurado, revisar las conexiones salientes hacia indicadores de malware o C2. Están en la bandeja de trabajo («Conexiones hacia destinos maliciosos») y en «Inteligencia Q-Feeds». Cada una es un motivo para investigar el equipo interno, no una infección confirmada: marcarla «Sin riesgo» con el motivo o abrir una incidencia interna. Vuelve a la cola si hay tráfico nuevo hacia ese destino.
 10. Con acceso global, «Reputación propia» muestra las IPs que atacan a varios clientes y si, una vez marcadas, atacaron después a otros: es la medida para decidir si distribuir esa lista. No bloquea nada.
 11. Atender las **solicitudes de clientes** («Respuesta › Solicitudes de clientes», también en la bandeja). Opciones:
     - **Responder:** el cliente lo ve en su portal y recibe un aviso por correo sin el texto. Al responder se elige si la solicitud queda en curso, esperando al cliente o resuelta.

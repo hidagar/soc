@@ -123,6 +123,7 @@ urlpatterns = [
     path('operations/sla/',sla_views.settings_view,name='sla_settings'),
     path('operations/blocklists/',blocklist.overview,name='blocklists'),
     path('operations/inteligencia/',threat_intel.overview,name='threat_intel'),
+    path('operations/inteligencia/revisar/',threat_intel.review,name='threat_intel_review'),
     path('operations/reputacion-propia/',soc_reputation.overview,name='soc_reputation'),
     path('operations/crowdsec/lists/',crowdsec_catalog.overview,name='crowdsec_lists'),
     path('operations/crowdsec/lists/<int:pk>/',crowdsec_catalog.action,name='crowdsec_list_action'),

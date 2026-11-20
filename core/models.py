@@ -469,7 +469,7 @@ from .improvement_models import ReportVersion, IpReputation, BlocklistFeed, Crow
 from .improvement_models import AdvancedReview
 from .sla_models import SlaPolicy, SlaSettings
 from .notice_models import CustomerNotice
-from .threat_intel_models import SocReputation, ThreatIndicator, ThreatIntelMatch
+from .threat_intel_models import SocReputation, ThreatIndicator, ThreatIntelMatch, ThreatIntelReview
 from .monthly_models import MonthlyReport, MonthlyReportShare, MonthlyReportVersion
 from .audit_models import AuditAnchor
 from .score_models import SecurityScore

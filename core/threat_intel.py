@@ -11,6 +11,12 @@
   los clientes, que nunca se consultan a terceros. Coincidir con la lista es contexto para investigar:
   no acredita ataque, infección ni compromiso (invariante 4).
 - Licencia: uso interno del SOC. Esta fase no distribuye nada a firewalls de clientes.
+
+Plan A (uso central con un plan de pago): las conexiones salientes hacia destinos de las listas pasan a ser
+trabajo del SOC. Cada una se revisa («Sin riesgo» o «Abrir incidencia»); la decisión se guarda en
+`ThreatIntelReview` y el destino vuelve a la cola si hay tráfico nuevo después. Una evolución diaria permite
+comparar planes (gratuito, prueba Premium) con los mismos clientes. Nada de esto llega al cliente salvo lo que
+el SOC publique de una incidencia.
 """
 import base64
 import ipaddress
@@ -23,17 +29,20 @@ from urllib import error as urlerror
 from urllib import parse as urlparse
 from urllib import request as urlrequest
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, Max, Min, Q
-from django.http import HttpResponseForbidden
-from django.shortcuts import render
+from django.http import Http404, HttpResponseForbidden
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
-from .models import Client, IpReputation, OperationalIssue, SecurityEvidence, ThreatIndicator, ThreatIntelMatch, WorkerState
+from .models import (Client, Incident, IncidentUpdate, IpReputation, OperationalIssue, SecurityEvidence, ThreatIndicator,
+                     ThreatIntelMatch, ThreatIntelReview, WorkerState)
+from .security import audit
 
 API = 'https://api.qfeeds.com'
 STATE = 'threat-intel'
@@ -54,6 +63,8 @@ LISTS_FRESH = timedelta(hours=24)
 MIN_PREFIX = {4: 16, 6: 32}  # una red más amplia en una lista de amenazas no aporta contexto útil
 BUCKET = {4: 16, 6: 32}
 CHUNK = 2000
+HISTORY_DAYS = 120
+MAX_OFFERED = 50
 FEED_NAME = re.compile(r'^[a-z0-9_]{1,32}$')
 DOMAIN = re.compile(r'^(?=.{1,253}$)(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$')
 
@@ -244,6 +255,11 @@ def sync(now=None):
             if not isinstance(listed, list):
                 raise FeedError('índice no válido')
             wanted, seen = wanted_feeds(), set()
+            # Lo que ofrece la licencia, aunque no se descargue: tras cambiar de plan se ve qué listas añadir.
+            values['offered'] = [{'name': str(item.get('feed_type')), 'type': str(item.get('type') or '')[:16],
+                                  'licensed': bool(item.get('licensed')), 'wanted': item.get('feed_type') in wanted}
+                                 for item in listed[:MAX_OFFERED]
+                                 if isinstance(item, dict) and FEED_NAME.match(str(item.get('feed_type') or ''))]
             for item in listed:
                 name = str(item.get('feed_type') or '') if isinstance(item, dict) else ''
                 if name not in wanted:
@@ -401,7 +417,64 @@ def refresh_matches(now=None):
         WorkerState.reserve(STATE)
         ThreatIntelMatch._base_manager.all().delete()
         ThreatIntelMatch._base_manager.bulk_create(rows)
+    if values.get('configured'):
+        _record_history(rows, feeds, now)
     return len(rows)
+
+
+def _record_history(rows, feeds, now):
+    """Una fila por día con lo que aportan las listas vigentes (ventana de 7 días): sirve para comparar planes."""
+    values = details()
+    states = values.get('feeds') or {}
+    outbound = [r for r in rows if r.role == 'destination']
+    inbound = [r for r in rows if r.role == 'source']
+    reviews = ThreatIntelReview._base_manager.filter(ip__in=[r.ip for r in outbound]).select_related('incident')
+    day = timezone.localdate(now).isoformat()
+    entry = {'date': day, 'feeds': sorted(feeds), 'indicators': sum(states[f].get('count') or 0 for f in feeds),
+             'categorized': sum(states[f].get('categorized') or 0 for f in feeds),
+             'outbound': len(outbound), 'outbound_allowed': sum(1 for r in outbound if r.allowed),
+             'pending': len(pending(outbound, reviews)), 'inbound': len(inbound),
+             'inbound_only': sum(1 for r in inbound if not r.crowdsec_listed),
+             'clients': len({r.client_id for r in rows})}
+    history = [h for h in values.get('history') or [] if isinstance(h, dict) and h.get('date') != day] + [entry]
+    values['history'] = history[-HISTORY_DAYS:]
+    _save(values)
+
+
+def needs_review(match, review):
+    """Un destino saliente necesita revisión si nadie lo ha revisado o si hay tráfico nuevo tras la decisión."""
+    if review is None:
+        return True
+    if review.decision == 'dismissed':
+        return match.last_seen > review.reviewed_at
+    incident = review.incident
+    if incident is None:  # la incidencia ya no existe
+        return match.last_seen > review.reviewed_at
+    if incident.status != 'resolved':
+        return False
+    return match.last_seen > (incident.resolved_at or review.reviewed_at)
+
+
+def pending(matches, reviews):
+    """Destinos (ThreatIntelMatch) que esperan revisión; añade `.review` a cada uno. Permitidos primero."""
+    index = {(r.client_id, r.ip): r for r in reviews}
+    result = []
+    for match in matches:
+        match.review = index.get((match.client_id, match.ip))
+        match.needs_review = needs_review(match, match.review)
+        if match.needs_review:
+            result.append(match)
+    return sorted(result, key=lambda m: (-m.allowed, -m.events, m.ip))
+
+
+def review_queue(client_id=None):
+    """Destinos salientes por revisar dentro del ámbito del usuario (bandeja de trabajo y menú)."""
+    matches = ThreatIntelMatch.objects.filter(role='destination').select_related('client')
+    reviews = ThreatIntelReview.objects.select_related('incident')
+    if client_id:
+        matches, reviews = matches.filter(client_id=client_id), reviews.filter(client_id=client_id)
+    matches = list(matches)
+    return pending(matches, reviews.filter(ip__in={m.ip for m in matches}))
 
 
 def _aggregate(base, role, field, values, feeds, networks, names):
@@ -474,6 +547,8 @@ def overview(request):
             invalid = True
     matches = ThreatIntelMatch.objects.select_related('client')
     outbound = list(matches.filter(role='destination')[:200])
+    reviews = ThreatIntelReview.objects.select_related('incident', 'reviewed_by').filter(ip__in={r.ip for r in outbound})
+    waiting = pending(outbound, reviews)
     inbound_qs = matches.filter(role='source')
     inbound = list(inbound_qs[:100])
     for row in outbound + inbound:
@@ -484,4 +559,82 @@ def overview(request):
         'values': values, 'feeds': feeds, 'configured': values.get('configured'), 'usable': bool(usable), 'uncategorized': uncategorized,
         'last_ok': parse_datetime(values.get('last_ok_at') or ''), 'checked': parse_datetime(values.get('checked_at') or ''),
         'query': query, 'result': result, 'invalid': invalid, 'outbound': outbound, 'inbound': inbound,
-        'outbound_allowed': sum(1 for r in outbound if r.allowed), 'summary': summary})
+        'outbound_allowed': sum(1 for r in outbound if r.allowed), 'summary': summary, 'waiting': len(waiting),
+        'offered': values.get('offered') or [], 'history': _history(values),
+        'can_open_incident': request.user.has_perm('core.add_incident')})
+
+
+@login_required
+@require_POST
+def review(request):
+    """Decisión sobre un destino saliente: «Sin riesgo» o abrir una incidencia interna."""
+    if not request.user.has_perm('core.manage_operations'):
+        return HttpResponseForbidden('Permiso de operaciones requerido.')
+    client_id, ip = request.POST.get('client', ''), request.POST.get('ip', '').strip()
+    if not client_id.isdigit():
+        raise Http404
+    # Solo un destino que figura ahora en las coincidencias y dentro del ámbito del usuario.
+    match = ThreatIntelMatch.objects.filter(role='destination', client_id=int(client_id), ip=ip).select_related('client').first()
+    if match is None:
+        messages.warning(request, 'Ese destino ya no figura en las coincidencias de los últimos 7 días.')
+        return redirect(reverse_back(request))
+    action = request.POST.get('action')
+    now = timezone.now()
+    if action == 'dismiss':
+        reason = ' '.join(request.POST.get('reason', '').split())[:160]
+        with transaction.atomic():
+            ThreatIntelReview.objects.update_or_create(client=match.client, ip=match.ip, defaults={
+                'decision': 'dismissed', 'reason': reason, 'incident': None, 'reviewed_by': request.user, 'reviewed_at': now})
+            audit('threat_intel.dismissed', match.client, {'decision': 'dismissed'})
+        messages.success(request, f'{match.ip} marcado sin riesgo para {match.client.name}. Volverá si hay tráfico nuevo hacia ese destino.')
+        return redirect(reverse_back(request))
+    if action != 'incident':
+        return HttpResponseForbidden('Acción no válida.')
+    if not request.user.has_perm('core.add_incident'):
+        return HttpResponseForbidden('Tu cuenta no puede abrir incidencias.')
+    current = ThreatIntelReview.objects.filter(client=match.client, ip=match.ip, decision='incident').select_related('incident').first()
+    if current and current.incident and current.incident.status != 'resolved':
+        return redirect('incident_detail', pk=current.incident_id)
+    evidence = (SecurityEvidence._base_manager.filter(client_scope_id=match.client_id, destination_ip=match.ip)
+                .select_related('device__site').order_by('-observed_at').first())
+    device = evidence.device if evidence and evidence.device.site.client_id == match.client_id else None
+    categories = ', '.join(match.categories) or 'sin categoría en el plan actual'
+    lines = [f'Conexiones de equipos del cliente hacia {match.ip}, que figura en las listas de inteligencia de amenazas del SOC '
+             f'(Q-Feeds: {", ".join(match.feeds)}; {categories}).',
+             f'Últimos 7 días: {match.events} detecciones, {match.allowed} permitidas por el firewall. '
+             f'Primera {timezone.localtime(match.first_seen):%d/%m/%Y %H:%M}, última {timezone.localtime(match.last_seen):%d/%m/%Y %H:%M}.',
+             'Equipos internos: ' + (', '.join(match.peers) or 'sin identificar') + '.',
+             'Figurar en una lista no acredita una infección: revisar el equipo de origen, el proceso que abre la conexión y si el destino es legítimo.']
+    with transaction.atomic():
+        incident = Incident.objects.create(
+            client=match.client, site=device.site if device else None, device=device,
+            title=f'Conexión hacia un destino de las listas de amenazas: {match.ip}'[:220], description='\n\n'.join(lines),
+            severity='high' if match.allowed else 'medium', owner=request.user, observed_at=match.first_seen)
+        IncidentUpdate.objects.create(incident=incident, author=request.user, text='Abierta desde la revisión de Q-Feeds.')
+        ThreatIntelReview.objects.update_or_create(client=match.client, ip=match.ip, defaults={
+            'decision': 'incident', 'reason': '', 'incident': incident, 'reviewed_by': request.user, 'reviewed_at': now})
+        audit('threat_intel.incident', match.client, {'incident_id': incident.pk})
+    messages.success(request, 'Incidencia interna abierta. El cliente no la ve hasta que se publique.')
+    return redirect('incident_detail', pk=incident.pk)
+
+
+def _history(values):
+    """Últimos 30 días de la evolución, el más reciente primero, con la fecha como fecha."""
+    from datetime import date
+    rows = []
+    for item in reversed(values.get('history') or []):
+        try:
+            rows.append({**item, 'day': date.fromisoformat(item.get('date') or '')})
+        except (TypeError, ValueError):
+            continue
+        if len(rows) == 30:
+            break
+    return rows
+
+
+def reverse_back(request):
+    """Vuelve a la bandeja si la decisión se tomó allí; si no, a la página de Q-Feeds."""
+    from django.urls import reverse
+    if request.POST.get('back') == 'work_queue':
+        return reverse('work_queue') + '#destinos-maliciosos'
+    return reverse('threat_intel') + '#salientes'

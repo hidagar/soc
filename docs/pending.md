@@ -1,6 +1,6 @@
 # Trabajo pendiente
 
-Lista única de lo que falta, actualizada el **16/11/2026**. Reúne los «Pendiente» de la [hoja de ruta](roadmap.md), del [traspaso](handoff.md) y de cada entrega del [registro de cambios](changelog.md).
+Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendiente» de la [hoja de ruta](roadmap.md), del [traspaso](handoff.md) y de cada entrega del [registro de cambios](changelog.md).
 
 **Cómo se mantiene:** cada entrega quita aquí lo que cierra y añade lo que deja pendiente, en el mismo pull request (AGENTS.md, «Antes de terminar»). Cada punto indica quién puede hacerlo:
 - **Usuario:** requiere producción, credenciales, equipos de clientes o una decisión de negocio. No se hace desde el código.
@@ -14,6 +14,7 @@ Lista única de lo que falta, actualizada el **16/11/2026**. Reúne los «Pendie
 | Activar los plazos de las solicitudes | 13/11 | Desplegados. Se activan en «Plazos de atención»; revisar antes los valores (8 h y 5 días; urgentes, 1 h y 1 día). |
 | Configurar el horario laboral | 13/11 | Desplegado. Indicar jornada, días y festivos de Baleares del año, y decidir si se aplica a urgentes y a incidencias medias y bajas. |
 | Desplegar la pausa de las incidencias y decidir si se activa | 13/11 | Migración 0077. Casilla en «Plazos de atención», desactivada por defecto. |
+| Activar la licencia de pago de Q-Feeds para el SOC (plan A) | Q-Feeds, 20/11 | Antes de pagar: mirar «Evolución» unas semanas, probar Premium 7 días (cambiando `SOC_PORTAL_QFEEDS_KEY`) y pedir a Q-Feeds por escrito si el uso central para clientes cabe en el plan o exige Enterprise. Tras contratar, añadir a `SOC_PORTAL_QFEEDS_FEEDS` las listas nuevas que muestre «Listas que ofrece tu licencia». |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -65,7 +66,9 @@ Lista única de lo que falta, actualizada el **16/11/2026**. Reúne los «Pendie
 - Regla de Wazuh para las alarmas de gateway de OPNsense, si se envían.
 
 ### Inteligencia y bloqueo
-- Q-Feeds fase 2: firewalls propios de ib-red con el plugin oficial y regla con control de cambios. Fase 3, en clientes, solo con acuerdo escrito de licencia.
+- Hecho el 20/11: Q-Feeds plan A (uso central con un plan de pago): revisión de destinos salientes, bandeja, menú, listas de la licencia y evolución diaria.
+- Q-Feeds: consulta de indicadores (IOC Lookup) y TAXII 2.1 si se contrata Enterprise o el complemento. Antes, conocer su API y decidir qué IPs se envían.
+- Q-Feeds planes B y C (licencia por firewall del cliente con el plugin, o sus datos en nuestra lista de bloqueo) solo con acuerdo escrito de licencia.
 - Reputación propia: distribuirla como opción de la lista de bloqueo cuando la medida lo justifique.
 - CrowdSec: decidir si el motor comparte señales; decidir qué reputación se publica al cliente.
 

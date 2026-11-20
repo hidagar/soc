@@ -190,6 +190,28 @@ Comprobado con una clave real del plan gratuito el 05/11/2026:
 
 El plan gratuito publica cada indicador solo con una marca de tiempo (`t`): no trae la lista de categorías (`m`) que usa el plugin. La página lo indica («Sin categoría en este plan»), y una IP en la lista solo significa que Q-Feeds la considera maliciosa.
 
+## Q-Feeds, plan A: uso central con un plan de pago (20/11/2026)
+
+Decisión del 20/11/2026: contratar un plan de pago de Q-Feeds para el SOC y usarlo **solo de forma central**. La VM del SOC descarga las listas y las cruza con lo que recibe de todos los clientes. No se descartan los planes B (licencia por firewall del cliente, revendida por ib-red) ni C (sus datos en nuestra lista de bloqueo, que exige un acuerdo OEM), pero no se desarrollan.
+
+**Lo que añade al código de la fase 1:**
+1. **Revisión de las conexiones salientes.** Cada destino de las listas al que conecta un equipo de un cliente queda «por revisar», primero los que tuvieron tráfico permitido. Se revisa en «Inteligencia Q-Feeds» o en la bandeja de trabajo, y el menú muestra cuántos esperan (en rojo si alguno tuvo tráfico permitido). Solo lo ve quien tiene el permiso de operaciones, dentro de su ámbito de clientes. Hay dos decisiones:
+   - **Sin riesgo:** con un motivo opcional (un CDN, un servicio legítimo…).
+   - **Abrir incidencia:** crea una incidencia **interna** con el equipo, los equipos internos implicados, las listas, las categorías y los recuentos. Si la incidencia ya existe y sigue abierta, lleva a ella. Exige el permiso de abrir incidencias.
+
+   La decisión se guarda en `ThreatIntelReview` (migración 0078), porque las coincidencias se recalculan enteras cada 15 minutos. El destino vuelve a la cola si aparece tráfico nuevo hacia él después de descartarlo o después de resolver la incidencia. Ambas decisiones quedan en la auditoría.
+2. **Listas que ofrece la licencia.** La página muestra todas las listas del índice de Q-Feeds, incluidas o no, y si el SOC las descarga. Tras subir de plan se ve qué listas nuevas de IPs o dominios añadir a `SOC_PORTAL_QFEEDS_FEEDS`. Las de URL no se usan: las evidencias no guardan URL.
+3. **Evolución diaria.** Una fila por día, con la ventana de 7 días: indicadores, indicadores con categoría, destinos salientes, destinos con tráfico permitido, destinos por revisar, orígenes en Q-Feeds y cuántos de ellos no están en CrowdSec, y clientes afectados. Se guardan 120 días. Sirve para comparar el plan gratuito con la prueba Premium y para decidir la renovación.
+
+**Licencia:** el uso central entra en la duda planteada en la valoración. Las condiciones de Q-Feeds limitan los datos a «fines internos» del titular, y para el uso en el SOC de un proveedor remiten a Enterprise o a complementos. Hasta tener su confirmación por escrito:
+- nada de Q-Feeds sale hacia firewalls ni hacia `/feeds/bloqueo/`;
+- al cliente solo le llega lo que el SOC publique de una incidencia (invariante 3): una conclusión del SOC sobre su propio tráfico, no las listas.
+
+**Límites:**
+- Coincidir con una lista no acredita una infección (invariante 4); la incidencia se abre con gravedad alta si hubo tráfico permitido y media si no.
+- La API de consulta de indicadores (IOC Lookup) y TAXII 2.1 no están integradas: enviarían IPs a Q-Feeds y su contrato técnico no está contrastado.
+- La comparación entre planes solo es válida con los mismos clientes y periodos parecidos.
+
 ## Reputación propia del SOC (observación)
 
 `core/soc_reputation.py` y la página «Detección e investigación → Reputación propia». Requiere el permiso `manage_operations` y **acceso a todos los clientes**, porque resume ataques a varios de ellos. El SOC usa las detecciones de todos sus clientes para formar su propia lista de IPs atacantes. Esta fase es solo de **observación**: no bloquea ni distribuye nada.

@@ -12,7 +12,7 @@ INTEL_TABS = [
     ("crowdsec_overview", "Reputación CrowdSec", "", ()),
     ("crowdsec_lists", "Listas de CrowdSec", "core.manage_operations", ("crowdsec_list_action",)),
     ("blocklists", "Listas de bloqueo", "core.manage_operations", ("blocklist_detail",)),
-    ("threat_intel", "Q-Feeds", "core.manage_operations", ()),
+    ("threat_intel", "Q-Feeds", "core.manage_operations", ("threat_intel_review",)),
     ("soc_reputation", "Reputación propia", "core.manage_operations", ()),
 ]
 
@@ -109,7 +109,11 @@ def badges():
     exposures = DeviceExposure.objects.filter(resolved_at__isnull=True, dismissed_at__isnull=True, advisory__isnull=True,
                                               device__active=True)
     policies = PolicyProposal.objects.filter(status__in=("proposed", "approved", "not_effective"))
+    from .threat_intel import review_queue
+    destinations = review_queue()
     return {
+        # Destinos salientes de las listas de Q-Feeds por revisar; urgente si alguno tuvo tráfico permitido.
+        "crowdsec_overview": (len(destinations), any(m.allowed for m in destinations)),
         "requests": (requests.count(), requests.filter(urgent=True).exists()),
         "vulnerabilities": (exposures.values("device").distinct().count(), exposures.filter(record__kev_added__isnull=False).exists()),
         "policies": (policies.count(), policies.filter(status="approved").exists()),
@@ -133,6 +137,8 @@ def build_navigation(request, global_access):
     if not is_customer:
         try:
             counts = badges()
+            if not user.has_perm("core.manage_operations"):
+                counts.pop("crowdsec_overview", None)  # solo quien puede revisarlos
         except Exception:  # el menú no puede romper una página
             import logging
             logging.getLogger(__name__).exception("No se pudieron calcular los contadores del menú")

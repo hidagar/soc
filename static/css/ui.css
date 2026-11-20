@@ -214,3 +214,14 @@ input[type=checkbox],input[type=radio]{width:18px;height:18px;accent-color:#0B61
 @media(max-width:700px){.card>table{display:block;overflow-x:auto;max-width:100%}}
 .helptext{color:#566779}
 @media(max-width:700px){input[type=checkbox],input[type=radio]{width:24px;height:24px}}
+
+/* Revisión de destinos de Q-Feeds (plan A) */
+.review-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-top:4px}
+.review-actions form{margin:0}
+.review-actions details{position:relative}
+.review-actions details[open]>form{display:grid;gap:6px;margin-top:6px;min-width:220px}
+.review-actions summary{list-style:none;cursor:pointer}
+.review-actions summary::-webkit-details-marker{display:none}
+.review-actions .button,.review-actions summary{white-space:nowrap}
+td[data-label="Revisión"]{min-width:150px}
+@media(min-width:701px){td[data-label="Revisión"] .review-actions{flex-direction:column}}

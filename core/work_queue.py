@@ -74,7 +74,16 @@ def work_queue(request):
         'overdue_actions': overdue.order_by('due_at', 'pk')[:50],
         'issues': issues.order_by('opened_at', 'pk')[:50], 'issue_total': issues.count(),
         'customer_requests': _requests(selected),
+        'threat_destinations': _threat_destinations(request, selected),
     })
+
+
+def _threat_destinations(request, selected):
+    """Conexiones salientes hacia destinos de las listas de Q-Feeds sin revisar (solo con permiso de operaciones)."""
+    if not request.user.has_perm('core.manage_operations'):
+        return []
+    from .threat_intel import review_queue
+    return review_queue(int(selected) if selected.isdigit() else None)[:20]
 
 
 def _requests(selected):

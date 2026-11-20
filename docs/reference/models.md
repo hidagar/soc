@@ -1439,6 +1439,21 @@ Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
 | `peers` | JSONField | blank=True |
 | `crowdsec_listed` | BooleanField |  |
 | `updated_at` | DateTimeField |  |
+## ThreatIntelReview
+
+Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `ip` | GenericIPAddressField |  |
+| `decision` | CharField | max_length=12 |
+| `reason` | CharField | max_length=160; blank=True |
+| `incident` | ForeignKey | → 'core.Incident'; on_delete=models.SET_NULL; null=True; blank=True |
+| `reviewed_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `reviewed_at` | DateTimeField |  |
 ## SocReputation
 
 Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
