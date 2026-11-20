@@ -2,7 +2,7 @@
 
 **Fecha del registro: 20/10/2026.** Revalidar antes de operar producción.
 
-> **Estado actual (11/11/2026):** lo entregado desde entonces, con su PR, migración y estado de despliegue, está en el [registro de cambios](changelog.md). Todo lo que falta, separado entre acciones del usuario y desarrollo, está en [trabajo pendiente](pending.md). `main`: `a0e901d` (#74). Último despliegue confirmado: `a0e901d` (#74, el 20/11). Este archivo conserva el contexto histórico del 20/10.
+> **Estado actual (11/11/2026):** lo entregado desde entonces, con su PR, migración y estado de despliegue, está en el [registro de cambios](changelog.md). Todo lo que falta, separado entre acciones del usuario y desarrollo, está en [trabajo pendiente](pending.md). `main`: `aa78bb7` (#79). Último despliegue confirmado: `d3b3333` (#77, el 20/11); el script de Nginx de #79 también está aplicado. Este archivo conserva el contexto histórico del 20/10.
 
 ## Qué hay construido
 
