@@ -152,9 +152,12 @@ def stage(plan):
     try:
         from .blocklist import TEMPLATE_OUT,TEMPLATES,alias_name
         from . import policy_changes
+        from . import qfeeds_devices
         crowdsec=plan.template in TEMPLATES
         restrict=plan.template==policy_changes.TEMPLATE
+        qfeeds=plan.template==qfeeds_devices.TEMPLATE
         if crowdsec: stage_blocklist_alias(plan,c)
+        if qfeeds: qfeeds_devices.stage_plugin(plan,api,c,completed)
         origins_alias=policy_changes.stage_alias(plan,api,c,completed) if restrict else ''
         for index,desired in enumerate(plan.preview['rules']):
             rule={**desired,'description':f'SOC PLAN {plan.pk} v{plan.template_version} {index+1}'}
@@ -178,15 +181,16 @@ def stage(plan):
             observed=api(c,'/api/firewall/filter/get_rule/'+uid).get('rule',{})
             if str(observed.get('enabled'))!='0' or observed.get('description')!=rule['description']:
                 raise ValueError('La regla no está desactivada o su identidad difiere.')
-        if not crowdsec and not restrict:
+        if not crowdsec and not restrict and not qfeeds:
             stage_ids(plan,c)
             if plan.device.zenarmor_enabled: stage_zenarmor(plan,c)
         plan.status='staged'; plan.result='Borradores desactivados verificados. La activación desde este panel corresponde a las reglas de firewall; revisa las políticas de inspección en la consola antes de activarlas.'
         audit('change.staged',plan,{'count':len(plan.remote_objects),'template':plan.template})
-    except Exception:
+    except Exception as exc:
         # Undo only resources belonging to this plan; never restore an entire unrelated config.
+        from .qfeeds_devices import PublicError
         rollback(plan,delete=True)
-        plan.status='failed'; plan.result='No terminó la preparación. Se retiraron los objetos propios que pudieron verificarse; revisar el estado remoto.'
+        plan.status='failed'; plan.result=(str(exc) if isinstance(exc,PublicError) else 'No terminó la preparación. Se retiraron los objetos propios que pudieron verificarse; revisar el estado remoto.')[:240]
     plan.save()
 
 def rollback(plan,delete=False):
@@ -194,6 +198,10 @@ def rollback(plan,delete=False):
     # Las reglas antes que el alias: OPNsense no borra un alias en uso.
     for obj in sorted(plan.remote_objects,key=lambda o:o.get('kind')=='alias'):
         kind=obj.get('kind','firewall')
+        if kind=='qfeeds':
+            from .qfeeds_devices import rollback_plugin
+            rollback_plugin(obj,api,c,delete)
+            continue
         if kind=='alias':
             current=api(c,'/api/firewall/alias/get_item/'+obj['uuid']).get('alias',{})
             if current.get('description')!=obj['rule']['description']: raise ValueError('El alias cambió de propietario; intervención manual requerida.')

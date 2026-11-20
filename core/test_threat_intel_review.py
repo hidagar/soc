@@ -8,13 +8,14 @@ from django.urls import reverse
 
 from . import threat_intel
 from .models import AuditEvent, Incident, SecurityEvidence, StaffAccess, ThreatIntelReview
-from .test_threat_intel import C2, OTHER_C2, ThreatIntelTests
+from . import test_threat_intel as base
+from .test_threat_intel import C2, OTHER_C2
 
 
 @override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
 class ThreatIntelReviewTests(TestCase):
-    setUp = ThreatIntelTests.setUp
-    sync = ThreatIntelTests.sync
+    setUp = base.ThreatIntelTests.setUp
+    sync = base.ThreatIntelTests.sync
 
     def ready(self, now=None):
         self.sync()

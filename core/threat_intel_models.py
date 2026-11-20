@@ -72,6 +72,67 @@ class ThreatIntelReview(models.Model):
         constraints = [models.UniqueConstraint(fields=['client', 'ip'], name='unique_threat_review')]
 
 
+class QFeedsLicense(models.Model):
+    """Plan B de Q-Feeds: licencia del propio cliente para un firewall OPNsense, vendida por ib-red.
+
+    El titular de la licencia es el cliente (EULA de Q-Feeds: uso interno del usuario final); el SOC guarda
+    la clave cifrada para configurarla en el plugin oficial con el control de cambios y vigila su caducidad.
+    La clave nunca se muestra ni se registra. `plugin_status` guarda la última lectura del plugin (sin la clave).
+    """
+    PLANS = [('plus', 'Plus'), ('premium', 'Premium')]
+    BANDS = [('lt50', 'Menos de 50 usuarios'), ('50_250', '50 a 250'), ('250_1000', '250 a 1000'), ('gt1000', 'Más de 1000')]
+    device = models.OneToOneField('core.Device', on_delete=models.CASCADE, related_name='qfeeds_license')
+    plan = models.CharField('Plan', max_length=12, choices=PLANS)
+    users_band = models.CharField('Usuarios protegidos', max_length=12, choices=BANDS)
+    encrypted_key = models.TextField(editable=False)
+    key_hint = models.CharField(max_length=8, blank=True, editable=False)  # últimos 4 caracteres, para reconocerla
+    starts_on = models.DateField('Inicio')
+    expires_on = models.DateField('Caducidad')
+    purchase_price = models.DecimalField('Coste anual (€)', max_digits=9, decimal_places=2, null=True, blank=True)
+    sale_price = models.DecimalField('Precio al cliente (€)', max_digits=9, decimal_places=2, null=True, blank=True)
+    reference = models.CharField('Pedido o factura', max_length=120, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+    plugin_status = models.JSONField(default=dict, blank=True)
+    # Comprobación de la clave en Q-Feeds (licenses.php, una vez al día): caducidad, listas y si la acepta.
+    vendor_status = models.JSONField(default=dict, blank=True)
+    vendor_checked_at = models.DateTimeField(null=True, blank=True)
+    objects = ScopedManager()
+    customer_lookup = 'device__site__client_id'
+
+    class Meta:
+        ordering = ['expires_on', 'pk']
+
+    @property
+    def margin(self):
+        if self.purchase_price is None or self.sale_price is None:
+            return None
+        return self.sale_price - self.purchase_price
+
+
+class ThreatIntelLookup(models.Model):
+    """Consulta de contexto de un indicador en la API IOC Lookup de Q-Feeds (si la licencia la incluye).
+
+    La web solo la encola; el trabajo protegido `qfeeds_lookup` la envía con la clave del SOC. Solo se admiten
+    indicadores que ya figuran en las listas descargadas: a Q-Feeds no se le revela ninguna IP o destino nuevo
+    de los clientes. `result` guarda un resumen acotado de la respuesta, nunca la respuesta cruda.
+    """
+    STATUSES = [('queued', 'En cola'), ('done', 'Hecha'), ('failed', 'Fallida')]
+    value = models.CharField(max_length=253, db_index=True)
+    status = models.CharField(max_length=12, choices=STATUSES, default='queued')
+    matched = models.BooleanField(default=False)
+    result = models.JSONField(default=dict, blank=True)
+    error = models.CharField(max_length=160, blank=True)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
+    requested_at = models.DateTimeField(default=timezone.now)
+    done_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-requested_at', '-pk']
+
+
 class SocReputation(models.Model):
     """Reputación propia del SOC: IP pública que ataca a varios clientes (30 días), con su nivel.
 

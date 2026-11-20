@@ -12,7 +12,8 @@ INTEL_TABS = [
     ("crowdsec_overview", "Reputación CrowdSec", "", ()),
     ("crowdsec_lists", "Listas de CrowdSec", "core.manage_operations", ("crowdsec_list_action",)),
     ("blocklists", "Listas de bloqueo", "core.manage_operations", ("blocklist_detail",)),
-    ("threat_intel", "Q-Feeds", "core.manage_operations", ("threat_intel_review",)),
+    ("threat_intel", "Q-Feeds", "core.manage_operations", ("threat_intel_review", "threat_intel_lookup")),
+    ("qfeeds_licenses", "Q-Feeds en firewalls", "core.manage_operations", ()),
     ("soc_reputation", "Reputación propia", "core.manage_operations", ()),
 ]
 

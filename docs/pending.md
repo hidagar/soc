@@ -15,6 +15,8 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 | Configurar el horario laboral | 13/11 | Desplegado. Indicar jornada, días y festivos de Baleares del año, y decidir si se aplica a urgentes y a incidencias medias y bajas. |
 | Desplegar la pausa de las incidencias y decidir si se activa | 13/11 | Migración 0077. Casilla en «Plazos de atención», desactivada por defecto. |
 | Contratar el plan de pago de Q-Feeds para el SOC (plan A) | Q-Feeds, 20/11 | Q-Feeds confirmó el 20/11 que el uso central cabe en el plan normal. Antes de elegir entre Plus y Premium: mirar «Evolución» unos días y probar Premium 7 días (cambiando `SOC_PORTAL_QFEEDS_KEY`). Tras contratar, añadir a `SOC_PORTAL_QFEEDS_FEEDS` las listas nuevas que muestre «Listas que ofrece tu licencia». |
+| Q-Feeds plan B: primera licencia de cliente en un firewall propio | Q-Feeds, 20/11 | Comprar una licencia Plus para un OPNsense de ib-red, instalar `os-q-feeds-connector`, dar a la cuenta API el privilegio «Services: QFeeds», darla de alta en «Q-Feeds en firewalls» y probar «Preparar en el firewall» y la activación antes de venderla. |
+| Q-Feeds plan C: acuerdo escrito de redistribución (OEM) | Q-Feeds, 20/11 | La confirmación del 20/11 cubre el uso central (plan A). Sin acuerdo OEM no se configura `SOC_PORTAL_QFEEDS_OEM`. |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -67,8 +69,8 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 
 ### Inteligencia y bloqueo
 - Hecho el 20/11: Q-Feeds plan A (uso central con un plan de pago): revisión de destinos salientes, bandeja, menú, listas de la licencia y evolución diaria.
-- Q-Feeds: consulta de indicadores (IOC Lookup) y TAXII 2.1 si se contrata Enterprise o el complemento. Antes, conocer su API y decidir qué IPs se envían.
-- Q-Feeds planes B y C (licencia por firewall del cliente con el plugin, o sus datos en nuestra lista de bloqueo) solo con acuerdo escrito de licencia.
+- Hecho el 20/11: Q-Feeds planes B y C y consulta de contexto (IOC Lookup).
+- Q-Feeds: TAXII 2.1 (hashes) si se contrata Enterprise; plugin por API en UniFi u otros fabricantes; mostrar al cliente en su portal la protección de Q-Feeds de su firewall (decidir qué se publica).
 - Reputación propia: distribuirla como opción de la lista de bloqueo cuando la medida lo justifique.
 - CrowdSec: decidir si el motor comparte señales; decidir qué reputación se publica al cliente.
 

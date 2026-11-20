@@ -18,6 +18,14 @@ Fase 2: el SOC orquesta también decisiones propias, siempre con las mismas exce
   propia URL y plantilla (regla de salida en WAN). Fuentes: bloqueos manuales de salida y destinos
   de detecciones salientes de malware/control remoto que se repiten (2 días o 2 clientes). Por
   privacidad no se consulta a CrowdSec por destinos de conexiones salientes (docs/security.md).
+
+Plan C de Q-Feeds (opcional por cliente): solo si existe acuerdo de redistribución con Q-Feeds
+(`SOC_PORTAL_QFEEDS_OEM`, con la referencia del acuerdo). Nunca se sirve la lista de Q-Feeds entera:
+- entrada: IPs que han atacado a algún cliente en 7 días y figuran en Q-Feeds;
+- salida: destinos de Q-Feeds a los que han conectado equipos de clientes, salvo los que el SOC haya
+  marcado «Sin riesgo» en la revisión.
+Las entradas que solo vienen de Q-Feeds se marcan (`qfeeds_only`) y dejan de servirse al momento si se
+retira el acuerdo; las demás excepciones y frenos se aplican igual.
 """
 import hashlib
 import hmac
@@ -63,6 +71,54 @@ SOC_STALE = timedelta(hours=1)  # si el motor no responde, la última lectura va
 SOC_LIMIT = 5000
 TITLE = 'Bloqueo CrowdSec del SOC'
 VERSION = '1.0'
+
+
+def qfeeds_allowed():
+    """Hay acuerdo escrito con Q-Feeds para redistribuir sus datos a los firewalls (plan C)."""
+    return bool(os.environ.get('SOC_PORTAL_QFEEDS_OEM', '').strip())
+
+
+def _qfeeds_reason(categories):
+    return 'Q-Feeds' + (': ' + ', '.join(categories[:3]) if categories else '')
+
+
+def qfeeds_sources(now):
+    """IPs que atacaron a algún cliente (7 días) y están en las listas vigentes de Q-Feeds: {ip: categorías}.
+
+    Se apoya en las coincidencias del trabajo «Inteligencia Q-Feeds», que solo existen con listas vigentes.
+    El ruido de fondo y los posibles falsos positivos de la CTI se descartan igual que en el resto.
+    """
+    from .models import ThreatIntelMatch
+    result = {}
+    for ip, categories in ThreatIntelMatch._base_manager.filter(role='source').values_list('ip', 'categories'):
+        result.setdefault(ip, [])
+        result[ip] = sorted(set(result[ip]) | set(categories or []))
+    noisy = set()
+    ips = sorted(result)
+    for start in range(0, len(ips), 1000):
+        noisy |= {ip for ip, noise, fps in IpReputation.objects.filter(ip__in=ips[start:start + 1000], cti_found=True)
+                  .values_list('ip', 'background_noise', 'false_positives') if noise == 'high' or fps}
+    return {ip: cats for ip, cats in result.items() if ip not in noisy}
+
+
+def qfeeds_destinations():
+    """Destinos de Q-Feeds a los que han conectado equipos de clientes (7 días), sin los revisados «Sin riesgo».
+
+    Un destino descartado para cualquier cliente no entra en la lista de nadie: suele ser un servicio compartido.
+    """
+    from .models import ThreatIntelMatch, ThreatIntelReview
+    dismissed = set(ThreatIntelReview._base_manager.filter(decision='dismissed').values_list('ip', flat=True))
+    result = {}
+    for ip, client_id, events, categories in ThreatIntelMatch._base_manager.filter(role='destination').values_list(
+            'ip', 'client_id', 'events', 'categories'):
+        if ip in dismissed:
+            continue
+        row = result.setdefault(ip, {'clients': set(), 'events': 0, 'categories': set()})
+        row['clients'].add(client_id)
+        row['events'] += events
+        row['categories'] |= set(categories or [])
+    return {ip: {'clients': len(r['clients']), 'events': r['events'], 'categories': sorted(r['categories'])}
+            for ip, r in result.items()}
 
 
 def parse_allowlist(text):
@@ -157,8 +213,9 @@ def c2_destinations(now):
     return result
 
 
-def build_outbound(feed, c2, protected, now):
-    """Lista de salida de un cliente: bloqueos manuales de salida y, si se activa, destinos C2 recurrentes."""
+def build_outbound(feed, c2, protected, now, qfeeds=None):
+    """Lista de salida de un cliente: bloqueos manuales de salida y, si se activa, destinos C2 recurrentes
+    y destinos de Q-Feeds (plan C)."""
     allow = parse_allowlist(feed.allowlist)
     manual, covered = manual_entries(feed, now, allow, protected, 'out')
     automatic = []
@@ -170,7 +227,20 @@ def build_outbound(feed, c2, protected, now):
                 continue
             automatic.append({'ip': ip, 'reasons': [f'Destino C2/malware: {row["events"]} detecciones en {row["days"]} días'],
                               'c2': True, 'clients': row['clients'], 'events': row['events'], 'here': 0, 'here_allowed': 0})
-        automatic.sort(key=lambda e: (-e['clients'], -e['events'], e['ip']))
+    if feed.include_qfeeds_c2 and qfeeds:
+        known = {e['ip']: e for e in automatic}
+        for ip, row in qfeeds.items():
+            reason = _qfeeds_reason(row['categories']) + f' (destino de {row["clients"]} cliente{"s" if row["clients"] != 1 else ""})'
+            if ip in known:
+                known[ip]['reasons'].append(reason)
+                continue
+            address = ipaddress.ip_address(ip)
+            if not address.is_global or conflict(ipaddress.ip_network(ip), allow, protected) or any(
+                    address.version == n.version and address in n for n in covered):
+                continue
+            automatic.append({'ip': ip, 'reasons': [reason], 'qfeeds_only': True, 'clients': row['clients'],
+                              'events': row['events'], 'here': 0, 'here_allowed': 0})
+    automatic.sort(key=lambda e: (-e['clients'], -e['events'], e['ip']))
     return manual + automatic[:feed.max_entries]
 
 
@@ -245,6 +315,10 @@ def qualifying(now):
             reasons.append('CTI: maliciosa')
         if reasons:
             result[row.ip] = {'reasons': reasons[:4], 'listed': listed, 'cti': malicious}
+    if qfeeds_allowed():
+        for ip, categories in qfeeds_sources(now).items():
+            info = result.setdefault(ip, {'reasons': [], 'listed': False, 'cti': False})
+            info.update(qfeeds=True, qfeeds_reason=_qfeeds_reason(categories))
     return result
 
 
@@ -322,21 +396,28 @@ def build(feed, candidates, stats, protected, now, soc=None, repeat=None):
     for ip, info in candidates.items():
         if ip in seen or inside(ip):
             continue
-        if not (feed.include_lists and info['listed']) and not (feed.include_cti and info['cti']):
+        via_crowdsec = (feed.include_lists and info['listed']) or (feed.include_cti and info['cti'])
+        via_qfeeds = bool(feed.include_qfeeds and info.get('qfeeds'))
+        if not via_crowdsec and not via_qfeeds:
             continue
         item = stats.get(ip)
         address = ipaddress.ip_address(ip)
         if not item or not address.is_global or ip in protected or any(address in network for network in allow):
             continue
         here = item['clients'].get(feed.client_id, (0, 0))
-        entries.append({'ip': ip, 'reasons': info['reasons'], 'clients': len(item['clients']), 'events': item['count'],
-                        'here': here[0], 'here_allowed': here[1]})
+        reasons = (list(info['reasons']) if via_crowdsec else []) + ([info['qfeeds_reason']] if via_qfeeds else [])
+        entry = {'ip': ip, 'reasons': reasons, 'clients': len(item['clients']), 'events': item['count'],
+                 'here': here[0], 'here_allowed': here[1]}
+        if via_qfeeds and not via_crowdsec:
+            entry['qfeeds_only'] = True
+        entries.append(entry)
     if feed.include_repeat_attackers:
         listed = {e['ip']: e for e in entries}
         for ip, (events, days, allowed) in sorted((repeat or {}).items()):
             reason = f'Ataques repetidos a este cliente: {events} detecciones en {days} días'
             if ip in listed:
                 listed[ip]['reasons'] = listed[ip]['reasons'] + [reason]
+                listed[ip].pop('qfeeds_only', None)  # también lo justifica el propio SOC
                 continue
             try:
                 address = ipaddress.ip_address(ip)
@@ -369,13 +450,15 @@ def refresh_feeds(now=None):
     candidates = qualifying(now)
     soc = soc_detections(now) if any(f.include_soc_detections for f in feeds) else {}
     c2 = c2_destinations(now) if any(f.outbound_enabled for f in feeds) else {}
+    qfeeds = (qfeeds_destinations() if qfeeds_allowed() and any(f.outbound_enabled and f.include_qfeeds_c2 for f in feeds)
+              else {})
     stats = activity(set(candidates) | {ip for ip in soc if '/' not in ip}, now)
     protected = protected_addresses()
     repeat = repeat_attackers(now, [f.client_id for f in feeds if f.include_repeat_attackers])
     for feed in feeds:
         try:
             entries = build(feed, candidates, stats, protected, now, soc, repeat.get(feed.client_id))
-            outbound = build_outbound(feed, c2, protected, now) if feed.outbound_enabled else []
+            outbound = build_outbound(feed, c2, protected, now, qfeeds) if feed.outbound_enabled else []
         except ValueError:
             continue  # Excepciones no válidas: se conserva la última lista buena y se avisa en su página.
         before = {e['ip'] for e in feed.entries}
@@ -420,10 +503,13 @@ def servable(feed, now=None, outbound=False):
         allow = []  # La lista guardada ya se calculó con las últimas excepciones válidas.
     protected = protected_addresses()
     stamp = now.isoformat()
+    oem = qfeeds_allowed()
     result = []
     for entry in (feed.outbound_entries if outbound else feed.entries):
         if entry.get('until') and entry['until'] <= stamp:
             continue  # Bloqueo manual caducado desde el último recálculo.
+        if entry.get('qfeeds_only') and not (oem and (feed.include_qfeeds_c2 if outbound else feed.include_qfeeds)):
+            continue  # Sin acuerdo de redistribución (o desactivado): lo de Q-Feeds deja de servirse ya.
         if not conflict(ipaddress.ip_network(entry['ip'], strict=False), allow, protected):
             result.append(entry['ip'])
     return result
@@ -742,10 +828,14 @@ def detail(request, client_pk):
                 feed.include_repeat_attackers = request.POST.get('include_repeat_attackers') == 'on'
                 feed.outbound_enabled = request.POST.get('outbound_enabled') == 'on'
                 feed.include_c2_detections = request.POST.get('include_c2_detections') == 'on'
+                if qfeeds_allowed():
+                    feed.include_qfeeds = request.POST.get('include_qfeeds') == 'on'
+                    feed.include_qfeeds_c2 = request.POST.get('include_qfeeds_c2') == 'on'
                 feed.enabled = request.POST.get('enabled') == 'on'
                 feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'include_soc_detections',
                                          'include_repeat_attackers',
-                                         'outbound_enabled', 'include_c2_detections', 'enabled', 'updated_at'])
+                                         'outbound_enabled', 'include_c2_detections', 'include_qfeeds', 'include_qfeeds_c2',
+                                         'enabled', 'updated_at'])
                 if feed.enabled and not feed.token_hash:
                     rotate_token(feed)
                 audit('blocklist.settings', client, {'status': 'enabled' if feed.enabled else 'disabled',
@@ -859,4 +949,6 @@ def detail(request, client_pk):
         'url': feed_url(feed) if show_url and feed.enabled else '', 'error': error or allowlist_error,
         'url_out': feed_url(feed, outbound=True) if show_url and feed.enabled and feed.outbound_enabled else '',
         'outbound': feed.outbound_entries[:300], 'outbound_count': len(feed.outbound_entries),
-        'devices': _devices(client), 'plans': plans, 'observation': feed.observation})
+        'devices': _devices(client), 'plans': plans, 'observation': feed.observation, 'qfeeds_allowed': qfeeds_allowed(),
+        'qfeeds_count': sum(1 for e in feed.entries if e.get('qfeeds_only')),
+        'qfeeds_out_count': sum(1 for e in feed.outbound_entries if e.get('qfeeds_only'))})

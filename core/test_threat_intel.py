@@ -36,9 +36,13 @@ DOMAINS = {'feed': 'malware_domains', 'kind': 'domain', 'generated_at': '2026-11
            'iocs': {'Malo.Example.com.': {}, 'mal..dominio': {}}}
 
 
+USAGE = {'lookups_limit_month': 5000, 'lookups_used_month': 10, 'lookups_remaining_month': 4990, 'quota_reset_at': '2026-12-01 00:00:00'}
+
+
 class FakeApi:
-    def __init__(self, index=INDEX, ips=IPS, domains=DOMAINS, error=None):
+    def __init__(self, index=INDEX, ips=IPS, domains=DOMAINS, error=None, lookup=USAGE):
         self.index, self.ips, self.domains, self.error, self.requests = index, ips, domains, error, []
+        self.lookup = lookup
 
     def __call__(self, req):
         self.requests.append(req)
@@ -46,6 +50,10 @@ class FakeApi:
             raise urlerror.HTTPError(req.full_url, self.error, 'error', {}, None)
         if '/licenses.php' in req.full_url:
             body = self.index
+        elif '/ioc_lookup.php' in req.full_url:
+            if isinstance(self.lookup, int):
+                raise urlerror.HTTPError(req.full_url, self.lookup, 'error', {}, None)
+            body = self.lookup
         else:
             body = self.ips if 'feed_type=malware_ip' in req.full_url else self.domains
         return io.BytesIO(json.dumps(body).encode())
@@ -87,7 +95,9 @@ class ThreatIntelTests(TestCase):
         for req in api.requests:
             self.assertNotIn(KEY, req.full_url)
             self.assertEqual(req.get_header('Authorization'), 'Basic ' + base64.b64encode(f'api_token:{KEY}'.encode()).decode())
-        self.assertEqual(len(api.requests), 3)
+        # Índice, cupo de consultas de contexto (no gasta consultas) y las dos listas.
+        self.assertEqual(len(api.requests), 4)
+        self.assertIn('/ioc_lookup.php?action=usage', api.requests[1].full_url)
 
     def test_unchanged_lists_are_not_downloaded_again(self):
         self.sync()

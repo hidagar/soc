@@ -212,6 +212,59 @@ Decisión del 20/11/2026: contratar un plan de pago de Q-Feeds para el SOC y usa
 - La API de consulta de indicadores (IOC Lookup) y TAXII 2.1 no están integradas: enviarían IPs a Q-Feeds y su contrato técnico no está contrastado.
 - La comparación entre planes solo es válida con los mismos clientes y periodos parecidos.
 
+## Q-Feeds, planes B y C y consulta de contexto (20/11/2026)
+
+La [API de Q-Feeds](https://api.qfeeds.com/openapi/) se usa para tres cosas más. La telemetría (`telemetryapi.php`) **no** se integra: enviaría a Q-Feeds lo que bloquean los clientes.
+
+### Licencia del SOC y cupo de consultas (plan A)
+- El índice `licenses.php`, que ya se leía, aporta la caducidad de la licencia del SOC (`company_info.token_expiration`) y si incluye el acceso Premium.
+- Con 30 días o menos para la caducidad se abre `platform:threat-intel-license` en «Salud del SOC»; si ya caducó, como crítico.
+- Una vez al día se lee el cupo de la API IOC Lookup con `action=usage`, que no gasta consultas. Un 403 indica que la licencia no la incluye; ese rechazo no pausa la descarga de las listas.
+
+### Consulta de contexto (IOC Lookup)
+Si la licencia la incluye, en «Inteligencia Q-Feeds › Consultar un indicador» aparece «Ver contexto en Q-Feeds (gasta 1 consulta)». La consulta devuelve:
+- veredicto, puntuación y número de fuentes;
+- motivos, etiquetas y técnicas MITRE ATT&CK;
+- país y ASN, fechas, indicadores relacionados y si está marcado como falso positivo.
+
+**Límites:**
+- Solo se pueden consultar indicadores que **ya figuran en las listas descargadas**: a Q-Feeds no se le revela ninguna IP ni destino nuevo de los clientes.
+- La web solo encola (`ThreatIntelLookup`). El trabajo protegido `qfeeds_lookup` (cada minuto, hasta 10) la envía con la clave del SOC en la cabecera.
+- Se guarda un resumen acotado, nunca la respuesta cruda ni las notas de sus analistas.
+- La misma consulta no se repite en 7 días. Un 429 (cupo agotado o límite de peticiones) la deja en cola.
+
+### Plan B: licencia del cliente en su firewall OPNsense
+La página es «Inteligencia y bloqueo › Q-Feeds en firewalls» (`QFeedsLicense`, migración 0079).
+- **Titular:** el cliente, como exige el EULA; ib-red la vende como revendedor.
+- **Ficha por firewall:** plan, usuarios protegidos, inicio, caducidad, coste, precio al cliente, pedido o factura, y la clave del cliente.
+  - La clave se guarda cifrada y nunca se vuelve a mostrar (solo sus 4 últimos caracteres).
+  - Darla de alta o cambiarla exige el permiso de conexiones y un MFA reciente; queda en la auditoría sin la clave.
+  - La página suma ventas y margen anuales.
+- **Comprobación en Q-Feeds:** una vez al día, el trabajo `qfeeds_devices` lee `licenses.php` con la clave del cliente. Así sabe si la acepta, su caducidad y si incluye `malware_ip`. Solo se descarga el índice de la licencia.
+- **Preparación en el firewall, con el control de cambios.** Antes hay que instalar el plugin oficial `os-q-feeds-connector` desde la consola del firewall (Sistema › Firmware › Plugins) y dar a la cuenta API del SOC el privilegio «Services: QFeeds». Después, «Preparar en el firewall»:
+  1. Escribe la clave en el plugin (`/api/q_feeds/settings/set`), sin activar el bloqueo por DNS de Unbound.
+  2. Pide la descarga (`reconfigure`) y comprueba que la licencia incluye `malware_ip`.
+  3. Crea dos reglas **desactivadas** contra la tabla del plugin `__qfeeds_malware_ip`: entrada y salida por WAN.
+
+  Si el plugin ya tiene otra clave, no está instalado o la licencia no incluye la lista, la preparación se detiene con ese motivo y retira lo que hubiera creado. Activar sigue el flujo de siempre: aprobación, punto de recuperación y confirmación. Al revertir, la clave se retira solo si la puso el SOC y sigue siendo la de la ficha; si alguien la cambió en la consola, se pide revisión manual.
+- **Vigilancia** (cada hora, aviso en «Salud del SOC»):
+  - caducidad en 30 días o menos, o ya caducada (crítico);
+  - clave rechazada por Q-Feeds;
+  - caducidad en Q-Feeds distinta de la ficha (más de 7 días de diferencia);
+  - regla activa sin ninguna IP cargada en el plugin.
+
+  Con la regla preparada o activa se leen también las estadísticas del plugin: IPs cargadas y direcciones bloqueadas.
+- **Límites:** solo OPNsense con la conexión API. En UniFi u otros fabricantes, el plugin se configura a mano.
+
+### Plan C: Q-Feeds en la lista de bloqueo del SOC
+Exige un acuerdo escrito de redistribución con Q-Feeds (OEM). Se activa con `SOC_PORTAL_QFEEDS_OEM`, cuyo valor es la referencia del acuerdo. Sin esa variable, las opciones aparecen desactivadas con la explicación y nada de Q-Feeds entra en `/feeds/bloqueo/`.
+
+Con el acuerdo, cada cliente puede activar en su lista:
+- **Entrada:** IPs que han atacado a algún cliente en los últimos 7 días y están en Q-Feeds (las coincidencias del plan A). Se descartan el ruido de fondo y los posibles falsos positivos de la CTI, igual que con CrowdSec.
+- **Salida:** destinos de Q-Feeds a los que han conectado equipos de clientes, salvo los revisados «Sin riesgo» para cualquier cliente.
+
+**Nunca se sirve la lista de Q-Feeds entera**, solo lo ya visto en las detecciones. Las entradas que solo vienen de Q-Feeds se marcan (`qfeeds_only`) y la página indica cuántas hay. Si se retira el acuerdo o la opción, dejan de servirse en la siguiente descarga del firewall, sin esperar al recálculo. Excepciones, IPs protegidas, máximo de entradas y freno de emergencia se aplican igual.
+
 ## Reputación propia del SOC (observación)
 
 `core/soc_reputation.py` y la página «Detección e investigación → Reputación propia». Requiere el permiso `manage_operations` y **acceso a todos los clientes**, porque resume ataques a varios de ellos. El SOC usa las detecciones de todos sus clientes para formar su propia lista de IPs atacantes. Esta fase es solo de **observación**: no bloquea ni distribuye nada.

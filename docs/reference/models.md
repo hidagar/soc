@@ -374,6 +374,8 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `include_repeat_attackers` | BooleanField |  |
 | `outbound_enabled` | BooleanField |  |
 | `include_c2_detections` | BooleanField |  |
+| `include_qfeeds` | BooleanField |  |
+| `include_qfeeds_c2` | BooleanField |  |
 | `outbound_entries` | JSONField | blank=True |
 | `allowlist` | TextField | blank=True |
 | `max_entries` | PositiveIntegerField |  |
@@ -1454,6 +1456,45 @@ Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
 | `incident` | ForeignKey | → 'core.Incident'; on_delete=models.SET_NULL; null=True; blank=True |
 | `reviewed_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
 | `reviewed_at` | DateTimeField |  |
+## QFeedsLicense
+
+Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
+
+Ámbito declarado: `'device__site__client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `device` | OneToOneField | → 'core.Device'; on_delete=models.CASCADE |
+| `plan` | CharField | max_length=12 |
+| `users_band` | CharField | max_length=12 |
+| `encrypted_key` | TextField |  |
+| `key_hint` | CharField | max_length=8; blank=True |
+| `starts_on` | DateField |  |
+| `expires_on` | DateField |  |
+| `purchase_price` | DecimalField | null=True; blank=True |
+| `sale_price` | DecimalField | null=True; blank=True |
+| `reference` | CharField | max_length=120; blank=True |
+| `created_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `created_at` | DateTimeField |  |
+| `updated_at` | DateTimeField |  |
+| `checked_at` | DateTimeField | null=True; blank=True |
+| `plugin_status` | JSONField | blank=True |
+| `vendor_status` | JSONField | blank=True |
+| `vendor_checked_at` | DateTimeField | null=True; blank=True |
+## ThreatIntelLookup
+
+Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `value` | CharField | max_length=253; db_index=True |
+| `status` | CharField | max_length=12 |
+| `matched` | BooleanField |  |
+| `result` | JSONField | blank=True |
+| `error` | CharField | max_length=160; blank=True |
+| `requested_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
+| `requested_at` | DateTimeField |  |
+| `done_at` | DateTimeField | null=True; blank=True |
 ## SocReputation
 
 Fuente: [core/threat_intel_models.py](../../core/threat_intel_models.py).

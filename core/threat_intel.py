@@ -41,7 +41,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import (Client, Incident, IncidentUpdate, IpReputation, OperationalIssue, SecurityEvidence, ThreatIndicator,
-                     ThreatIntelMatch, ThreatIntelReview, WorkerState)
+                     ThreatIntelLookup, ThreatIntelMatch, ThreatIntelReview, WorkerState)
 from .security import audit
 
 API = 'https://api.qfeeds.com'
@@ -64,6 +64,12 @@ MIN_PREFIX = {4: 16, 6: 32}  # una red más amplia en una lista de amenazas no a
 BUCKET = {4: 16, 6: 32}
 CHUNK = 2000
 HISTORY_DAYS = 120
+LICENSE_ISSUE = 'platform:threat-intel-license'
+LICENSE_NOTICE = timedelta(days=30)
+USAGE_EVERY = timedelta(hours=24)  # consultar el cupo no gasta consultas
+LOOKUP_REUSE = timedelta(days=7)
+LOOKUPS_PER_RUN = 10
+MAX_LOOKUP = 256 * 1024
 MAX_OFFERED = 50
 FEED_NAME = re.compile(r'^[a-z0-9_]{1,32}$')
 DOMAIN = re.compile(r'^(?=.{1,253}$)(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$')
@@ -254,6 +260,11 @@ def sync(now=None):
             listed = index.get('feeds') if isinstance(index, dict) else None
             if not isinstance(listed, list):
                 raise FeedError('índice no válido')
+            company = index.get('company_info') if isinstance(index.get('company_info'), dict) else {}
+            values['license'] = {'expires': _iso(company.get('token_expiration')), 'premium': bool(company.get('premium_access')),
+                                 'features': [str(f.get('name'))[:60] for f in index.get('features') or []
+                                              if isinstance(f, dict) and f.get('licensed')][:20]}
+            _lookup_usage(key, values, now)
             wanted, seen = wanted_feeds(), set()
             # Lo que ofrece la licencia, aunque no se descargue: tras cambiar de plan se ve qué listas añadir.
             values['offered'] = [{'name': str(item.get('feed_type')), 'type': str(item.get('type') or '')[:16],
@@ -310,7 +321,50 @@ def sync(now=None):
     values.update(feeds=feeds, checked_at=now.isoformat())
     _save(values)
     _health(values, now)
+    _license_health(values, now)
     return downloaded
+
+
+def _lookup_usage(key, values, now):
+    """Cupo mensual de la API IOC Lookup (`action=usage`, no consume consultas), una vez al día.
+
+    Un 403 significa que la licencia no la incluye. Va aparte de la descarga: un rechazo aquí no pausa las listas.
+    """
+    current = values.get('lookup') or {}
+    checked = parse_datetime(current.get('checked_at') or '')
+    if checked and now - checked < USAGE_EVERY:
+        return
+    try:
+        usage = _get('/ioc_lookup.php', {'action': 'usage'}, key, MAX_INDEX)
+    except FeedError as exc:
+        if exc.status in (401, 403):
+            values['lookup'] = {'available': False, 'checked_at': now.isoformat()}
+        return
+    values['lookup'] = {'available': True, 'checked_at': now.isoformat(), **_quota(usage)}
+
+
+def _quota(data):
+    def number(value):
+        return value if isinstance(value, int) and value >= 0 else None
+    data = data if isinstance(data, dict) else {}
+    return {'limit': number(data.get('lookups_limit_month')), 'used': number(data.get('lookups_used_month')),
+            'remaining': number(data.get('lookups_remaining_month')), 'reset': str(data.get('quota_reset_at') or '')[:20]}
+
+
+def license_expiry(values=None):
+    values = details() if values is None else values
+    return parse_datetime((values.get('license') or {}).get('expires') or '')
+
+
+def _license_health(values, now):
+    from .operations import set_issue
+    expires = license_expiry(values)
+    if values.get('configured') and expires and expires - now <= LICENSE_NOTICE:
+        text = ('La licencia de Q-Feeds del SOC caducó el ' if expires <= now else 'La licencia de Q-Feeds del SOC caduca el ')
+        set_issue(LICENSE_ISSUE, 'Licencia de Q-Feeds del SOC', now=now, severity='critical' if expires <= now else 'warning',
+                  details=text + timezone.localtime(expires).strftime('%d/%m/%Y') + '. Renovarla en el portal de Q-Feeds.')
+    else:
+        OperationalIssue.objects.filter(key=LICENSE_ISSUE, active=True).update(active=False, resolved_at=now)
 
 
 def _health(values, now):
@@ -561,7 +615,9 @@ def overview(request):
         'query': query, 'result': result, 'invalid': invalid, 'outbound': outbound, 'inbound': inbound,
         'outbound_allowed': sum(1 for r in outbound if r.allowed), 'summary': summary, 'waiting': len(waiting),
         'offered': values.get('offered') or [], 'history': _history(values),
-        'can_open_incident': request.user.has_perm('core.add_incident')})
+        'can_open_incident': request.user.has_perm('core.add_incident'), 'license_info': values.get('license') or {},
+        'license_expires': license_expiry(values), 'lookup_info': values.get('lookup') or {}, 'can_lookup': lookup_available(values),
+        'context': _context(query, result, now)})
 
 
 @login_required
@@ -638,3 +694,116 @@ def reverse_back(request):
     if request.POST.get('back') == 'work_queue':
         return reverse('work_queue') + '#destinos-maliciosos'
     return reverse('threat_intel') + '#salientes'
+
+
+
+def _clean_ioc(ioc):
+    """Resumen acotado de la respuesta de IOC Lookup: nunca se guarda ni se muestra la respuesta cruda."""
+    if not isinstance(ioc, dict):
+        return {}
+
+    def text(value, size):
+        return str(value)[:size] if isinstance(value, (str, int, float)) else ''
+
+    def stamp(value):
+        return _iso(value)
+    geo = next((e.get('data') for e in ioc.get('enrichments') or [] if isinstance(e, dict) and e.get('source') == 'geoip'
+                and isinstance(e.get('data'), dict)), {}) or {}
+    linked = ioc.get('linked_iocs') if isinstance(ioc.get('linked_iocs'), dict) else {}
+    return {
+        'verdict': text(ioc.get('verdict'), 20), 'score': ioc.get('score') if isinstance(ioc.get('score'), int) else None,
+        'first_seen': stamp(ioc.get('first_seen')), 'last_seen': stamp(ioc.get('last_seen')),
+        'sources': ioc.get('source_count') if isinstance(ioc.get('source_count'), int) else None,
+        'false_positive': bool(ioc.get('is_false_positive')),
+        'reasons': [text(r, 160) for r in (ioc.get('verdict_reasons') or [])[:8] if isinstance(r, str)],
+        'tags': [text(t.get('name'), 40) for t in (ioc.get('tags') or [])[:10] if isinstance(t, dict) and t.get('name')],
+        'mitre': [{'id': text(m.get('id'), 20), 'name': text(m.get('name'), 80),
+                   'tactics': [text(t.get('name'), 60) for t in (m.get('tactics') or [])[:3] if isinstance(t, dict)]}
+                  for m in (ioc.get('mitre_attack') or [])[:10] if isinstance(m, dict)],
+        'country': text(geo.get('country_name') or geo.get('country'), 60), 'asn': text(geo.get('asn_org'), 120),
+        'linked': sum(v for v in (linked.get('outbound_total'), linked.get('inbound_total')) if isinstance(v, int)),
+    }
+
+
+def process_lookups(now=None):
+    """Trabajo `qfeeds_lookup`: envía las consultas en cola (como mucho 10 por pasada). Devuelve cuántas resolvió."""
+    now = now or timezone.now()
+    key = api_key()
+    queued = list(ThreatIntelLookup.objects.filter(status='queued').order_by('requested_at', 'pk')[:LOOKUPS_PER_RUN])
+    if not queued:
+        return 0
+    if not key:
+        ThreatIntelLookup.objects.filter(pk__in=[q.pk for q in queued]).update(status='failed', error='Q-Feeds sin configurar.',
+                                                                              done_at=now)
+        return 0
+    done = 0
+    quota = None
+    for item in queued:
+        try:
+            data = _get('/ioc_lookup.php', {'action': 'ioc', 'value': item.value}, key, MAX_LOOKUP)
+        except FeedError as exc:
+            if exc.status == 429:
+                break  # cupo agotado o límite de peticiones: se queda en cola
+            error = {403: 'La licencia no incluye las consultas de contexto o no tienen cupo.'}.get(exc.status, str(exc))
+            ThreatIntelLookup.objects.filter(pk=item.pk).update(status='failed', error=error[:160], done_at=now)
+            continue
+        data = data if isinstance(data, dict) else {}
+        quota = _quota(data.get('meta'))
+        ThreatIntelLookup.objects.filter(pk=item.pk).update(status='done', matched=bool(data.get('matched')),
+                                                            result=_clean_ioc(data.get('ioc')), done_at=now)
+        done += 1
+    if quota and quota.get('remaining') is not None:
+        values = details()
+        values['lookup'] = {**(values.get('lookup') or {}), 'available': True, **quota}
+        _save(values)
+    return done
+
+
+VERDICTS = {'malicious': 'Maliciosa', 'suspicious': 'Sospechosa', 'benign': 'Benigna', 'unknown': 'Sin veredicto'}
+
+
+def _context(query, result, now):
+    """Última consulta de contexto del indicador buscado, preparada para la página."""
+    if not result or not result.get('hits'):
+        return None
+    item = ThreatIntelLookup.objects.filter(value=query.lower().rstrip('.')).order_by('-requested_at').first()
+    if item is None:
+        return None
+    data = item.result or {}
+    item.verdict_label = VERDICTS.get(data.get('verdict'), (data.get('verdict') or 'Sin veredicto').capitalize())
+    item.first = parse_datetime(data.get('first_seen') or '')
+    item.last = parse_datetime(data.get('last_seen') or '')
+    item.fresh = item.status == 'queued' or bool(item.status == 'done' and item.done_at and now - item.done_at < LOOKUP_REUSE)
+    return item
+
+
+def lookup_available(values=None):
+    values = details() if values is None else values
+    info = values.get('lookup') or {}
+    return bool(values.get('configured') and info.get('available') and info.get('remaining') != 0)
+
+
+@login_required
+@require_POST
+def lookup_request(request):
+    """Encola una consulta de contexto. Solo indicadores que ya están en las listas descargadas."""
+    from django.urls import reverse
+    if not request.user.has_perm('core.manage_operations'):
+        return HttpResponseForbidden('Permiso de operaciones requerido.')
+    value = request.POST.get('value', '').strip().lower()[:253]
+    back = reverse('threat_intel') + '?' + urlparse.urlencode({'q': value}) + '#consulta'
+    if not lookup_available():
+        messages.error(request, 'La licencia de Q-Feeds no incluye consultas de contexto o no queda cupo este mes.')
+        return redirect(back)
+    found = lookup(value)
+    if found['status'] != 'ok' or not found['hits']:
+        messages.error(request, 'Solo se consultan indicadores que ya están en las listas descargadas de Q-Feeds.')
+        return redirect(back)
+    recent = ThreatIntelLookup.objects.filter(value=value).exclude(status='failed').order_by('-requested_at').first()
+    if recent and (recent.status == 'queued' or (recent.done_at and timezone.now() - recent.done_at < LOOKUP_REUSE)):
+        messages.info(request, 'Ya hay una consulta reciente de este indicador: no se repite para no gastar cupo.')
+        return redirect(back)
+    ThreatIntelLookup.objects.create(value=value, requested_by=request.user)
+    audit('threat_intel.lookup', None, {'status': 'queued'})
+    messages.success(request, 'Consulta en cola: el resultado aparece aquí en un minuto aproximadamente.')
+    return redirect(back)

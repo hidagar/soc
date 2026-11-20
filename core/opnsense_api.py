@@ -87,8 +87,8 @@ def _request_json(api_url, api_key, api_secret, ca_certificate, path, method="GE
     )
     try:
         # Applying IDS output settings installs the ruleset and restarts Suricata.
-        # Keep regular reads short; this specific operation needs a bounded wait.
-        timeout = 60 if method == 'POST' and path == '/api/ids/service/reconfigure' else 10
+        # Keep regular reads short; these operations need a bounded wait (the Q-Feeds plugin downloads its lists).
+        timeout = 60 if method == 'POST' and path in ('/api/ids/service/reconfigure', '/api/q_feeds/settings/reconfigure') else 10
         with opener.open(req, timeout=timeout) as response:
             if "json" not in response.headers.get("Content-Type", "").lower():
                 raise OpnsenseApiError("OPNsense no devolvió JSON en la API.")

@@ -92,6 +92,8 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `operations/blocklists/` | `blocklists` | `blocklist.overview` |
 | `operations/inteligencia/` | `threat_intel` | `threat_intel.overview` |
 | `operations/inteligencia/revisar/` | `threat_intel_review` | `threat_intel.review` |
+| `operations/inteligencia/contexto/` | `threat_intel_lookup` | `threat_intel.lookup_request` |
+| `operations/inteligencia/licencias/` | `qfeeds_licenses` | `qfeeds_devices.licenses` |
 | `operations/reputacion-propia/` | `soc_reputation` | `soc_reputation.overview` |
 | `operations/crowdsec/lists/` | `crowdsec_lists` | `crowdsec_catalog.overview` |
 | `operations/crowdsec/lists/<int:pk>/` | `crowdsec_list_action` | `crowdsec_catalog.action` |

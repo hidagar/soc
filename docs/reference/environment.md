@@ -45,6 +45,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_PUBLIC_SYSLOG_IP` | [core/provisioning.py](../../core/provisioning.py) |
 | `SOC_PORTAL_QFEEDS_FEEDS` | [core/threat_intel.py](../../core/threat_intel.py) |
 | `SOC_PORTAL_QFEEDS_KEY` | [core/threat_intel.py](../../core/threat_intel.py) |
+| `SOC_PORTAL_QFEEDS_OEM` | [core/blocklist.py](../../core/blocklist.py) |
 | `SOC_PORTAL_RECEIVER_IP` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_RECEIVER_PORT` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_SECRET_KEY` | [socportal/settings.py](../../socportal/settings.py) |

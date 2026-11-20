@@ -79,6 +79,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_policy_proposals.py](../../core/test_policy_proposals.py) | 10 |
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
+| [core/test_qfeeds_plans.py](../../core/test_qfeeds_plans.py) | 22 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
 | [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 14 |
 | [core/test_recovery_postgresql.py](../../core/test_recovery_postgresql.py) | 3 |
@@ -203,3 +204,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0076_horario_laboral.py](../../core/migrations/0076_horario_laboral.py)
 - [core/migrations/0077_pausa_incidencias.py](../../core/migrations/0077_pausa_incidencias.py)
 - [core/migrations/0078_revision_qfeeds.py](../../core/migrations/0078_revision_qfeeds.py)
+- [core/migrations/0079_qfeeds_planes_b_c.py](../../core/migrations/0079_qfeeds_planes_b_c.py)
