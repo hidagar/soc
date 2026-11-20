@@ -49,7 +49,7 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 
 ### Solicitudes de clientes
 - Hecho el 13/11: plazos de primera respuesta y resolución, con horario laboral. Faltan plazos propios por cliente.
-- Adjuntos.
+- Hecho el 20/11: adjuntos en las solicitudes. Falta analizarlos con un antivirus (ClamAV en la VM) antes de que el SOC los descargue.
 
 ### Vulnerabilidades
 - UniFi Network Application, si se obtiene su versión.

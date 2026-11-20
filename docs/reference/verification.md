@@ -89,6 +89,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_report_versions.py](../../core/test_report_versions.py) | 8 |
 | [core/test_reputation.py](../../core/test_reputation.py) | 39 |
+| [core/test_request_attachments.py](../../core/test_request_attachments.py) | 8 |
 | [core/test_request_sla.py](../../core/test_request_sla.py) | 6 |
 | [core/test_retention.py](../../core/test_retention.py) | 5 |
 | [core/test_roadmap_456.py](../../core/test_roadmap_456.py) | 22 |
@@ -209,3 +210,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0079_qfeeds_planes_b_c.py](../../core/migrations/0079_qfeeds_planes_b_c.py)
 - [core/migrations/0080_qfeeds_como_crowdsec.py](../../core/migrations/0080_qfeeds_como_crowdsec.py)
 - [core/migrations/0081_recordatorio_politicas.py](../../core/migrations/0081_recordatorio_politicas.py)
+- [core/migrations/0082_adjuntos_solicitudes.py](../../core/migrations/0082_adjuntos_solicitudes.py)

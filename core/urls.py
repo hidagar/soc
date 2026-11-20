@@ -7,6 +7,7 @@ from . import client_services
 from . import chat_alerts
 from . import vulnerabilities
 from . import customer_requests
+from . import request_attachments
 from . import policy_views
 from . import global_search
 from . import client_timeline
@@ -80,6 +81,7 @@ urlpatterns = [
     path('cliente/vulnerabilidades/',service.customer_vulnerabilities,name='customer_vulnerabilities'),
     path('cliente/solicitudes/',customer_requests.customer_list,name='customer_requests'),
     path('cliente/solicitudes/<int:pk>/',customer_requests.customer_detail,name='customer_request_detail'),
+    path('cliente/solicitudes/<int:pk>/adjuntos/<int:attachment>/',request_attachments.customer_download,name='customer_request_attachment'),
     path('operations/requests/',customer_requests.soc_list,name='requests'),
     path('operations/policies/',policy_views.overview,name='policies'),
     path('search/',global_search.results,name='search'),
@@ -87,6 +89,7 @@ urlpatterns = [
     path('cliente/cambios/',policy_views.customer_list,name='customer_policies'),
     path('cliente/cambios/<int:pk>/',policy_views.customer_decision,name='customer_policy_decision'),
     path('operations/requests/<int:pk>/',customer_requests.soc_detail,name='request_detail'),
+    path('operations/requests/<int:pk>/adjuntos/<int:attachment>/',request_attachments.soc_download,name='request_attachment'),
     path('operations/vulnerabilities/',vulnerabilities.overview,name='vulnerabilities'),
     path('clients/<int:pk>/customer-view/',customer_preview.home,name='customer_preview'),
     path('clients/<int:pk>/customer-view/firewalls/',customer_preview.firewalls,name='customer_preview_firewalls'),
