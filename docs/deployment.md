@@ -81,6 +81,22 @@ sudo deploy/configurar_registros.sh          # --ver muestra el estado; --quitar
 
 Desde entonces, las opciones de gunicorn viajan con el código y `update.sh` las actualiza. `install.sh` ya instala así las instalaciones nuevas. Motivo y alcance: [seguridad](security.md#secretos-en-url-y-registros).
 
+## Wazuh del SOC por nombre y por IP
+
+El botón «SOC general en Wazuh» (y el panel de cada cliente) lleva a `/wazuh/…` en el mismo host por el que se entró al portal. Nginx debe tener las rutas de Wazuh en **todos** los bloques del portal:
+- `/_soc_wazuh_auth`: pregunta al portal la sesión, el doble factor y el ámbito, con el secreto `SOC_WAZUH_PROXY_KEY`;
+- `/wazuh` y `/wazuh/`: reenvío al Wazuh Dashboard local (`https://127.0.0.1:5602`) con la identidad devuelta;
+- `@soc_wazuh_login`: vuelta a la entrada del portal si no hay sesión.
+
+Sin esas rutas, el portal responde «Not Found» (su 404) a `/wazuh/…`. Así ocurría al entrar por `https://172.20.10.20:8443`, cuyo bloque, el que genera `install.sh`, no las tenía (20/11/2026).
+
+- **VM existente:** `sudo deploy/configurar_wazuh_nginx.sh`.
+  - Mueve las rutas del bloque que ya las tiene a `/etc/nginx/snippets/soc-wazuh.conf` (root, 0600, con el secreto, que no muestra).
+  - Las incluye en ese bloque y en el del portal por IP (`sites-available/soc-portal`).
+  - Guarda copia en `/var/backups/soc-nginx/` y comprueba `nginx -t`; si falla, lo restaura todo sin recargar.
+  - `--ver` muestra qué bloques las incluyen.
+- **Instalación nueva:** copiar `deploy/nginx/soc-wazuh.conf.example` a `/etc/nginx/snippets/soc-wazuh.conf`, poner el valor de `SOC_WAZUH_PROXY_KEY` y dejar el archivo con permisos 0600. El bloque que genera `install.sh` ya lo incluye si existe.
+
 ## Reversión
 
 Detener escritores/timers y servicios nuevos antes de restaurar código/unidades y base compatible. Retirar archivos nuevos ausentes en versión anterior; no dejar migraciones importándose contra un esquema restaurado. Recargar systemd, regenerar estáticos y arrancar componentes previstos.
