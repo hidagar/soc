@@ -203,7 +203,7 @@ Decisión del 20/11/2026: contratar un plan de pago de Q-Feeds para el SOC y usa
 2. **Listas que ofrece la licencia.** La página muestra todas las listas del índice de Q-Feeds, incluidas o no, y si el SOC las descarga. Tras subir de plan se ve qué listas nuevas de IPs o dominios añadir a `SOC_PORTAL_QFEEDS_FEEDS`. Las de URL no se usan: las evidencias no guardan URL.
 3. **Evolución diaria.** Una fila por día, con la ventana de 7 días: indicadores, indicadores con categoría, destinos salientes, destinos con tráfico permitido, destinos por revisar, orígenes en Q-Feeds y cuántos de ellos no están en CrowdSec, y clientes afectados. Se guardan 120 días. Sirve para comparar el plan gratuito con la prueba Premium y para decidir la renovación.
 
-**Licencia:** el uso central entra en la duda planteada en la valoración. Las condiciones de Q-Feeds limitan los datos a «fines internos» del titular, y para el uso en el SOC de un proveedor remiten a Enterprise o a complementos. Hasta tener su confirmación por escrito:
+**Licencia:** el 20/11/2026 Q-Feeds confirmó al usuario que el uso central en el SOC para dar servicio a los clientes cabe en el plan normal (Plus o Premium); no hace falta Enterprise. Conservar esa confirmación fuera del repositorio, junto al contrato. La confirmación no cubre los planes B y C, así que se mantiene:
 - nada de Q-Feeds sale hacia firewalls ni hacia `/feeds/bloqueo/`;
 - al cliente solo le llega lo que el SOC publique de una incidencia (invariante 3): una conclusión del SOC sobre su propio tráfico, no las listas.
 
