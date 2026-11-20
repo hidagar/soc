@@ -109,16 +109,17 @@ def qfeeds_destinations():
     from .models import ThreatIntelMatch, ThreatIntelReview
     dismissed = set(ThreatIntelReview._base_manager.filter(decision='dismissed').values_list('ip', flat=True))
     result = {}
-    for ip, client_id, events, categories in ThreatIntelMatch._base_manager.filter(role='destination').values_list(
-            'ip', 'client_id', 'events', 'categories'):
+    for ip, client_id, events, allowed, categories in ThreatIntelMatch._base_manager.filter(role='destination').values_list(
+            'ip', 'client_id', 'events', 'allowed', 'categories'):
         if ip in dismissed:
             continue
-        row = result.setdefault(ip, {'clients': set(), 'events': 0, 'categories': set()})
+        row = result.setdefault(ip, {'clients': set(), 'events': 0, 'categories': set(), 'by_client': {}})
         row['clients'].add(client_id)
         row['events'] += events
         row['categories'] |= set(categories or [])
-    return {ip: {'clients': len(r['clients']), 'events': r['events'], 'categories': sorted(r['categories'])}
-            for ip, r in result.items()}
+        row['by_client'][client_id] = (events, allowed)
+    return {ip: {'clients': len(r['clients']), 'events': r['events'], 'categories': sorted(r['categories']),
+                 'by_client': r['by_client']} for ip, r in result.items()}
 
 
 def parse_allowlist(text):
@@ -238,8 +239,9 @@ def build_outbound(feed, c2, protected, now, qfeeds=None):
             if not address.is_global or conflict(ipaddress.ip_network(ip), allow, protected) or any(
                     address.version == n.version and address in n for n in covered):
                 continue
+            here = row.get('by_client', {}).get(feed.client_id, (0, 0))
             automatic.append({'ip': ip, 'reasons': [reason], 'qfeeds_only': True, 'clients': row['clients'],
-                              'events': row['events'], 'here': 0, 'here_allowed': 0})
+                              'events': row['events'], 'here': here[0], 'here_allowed': here[1]})
     automatic.sort(key=lambda e: (-e['clients'], -e['events'], e['ip']))
     return manual + automatic[:feed.max_entries]
 
@@ -728,6 +730,31 @@ def _devices(client):
                                  management_method='api').select_related('site')
 
 
+def exclude_entry(request, client, feed):
+    """Añade a las excepciones del cliente una IP que está ahora en su lista (revisión del piloto). Devuelve un error o ''."""
+    value = request.POST.get('ip', '').strip()
+    current = {e['ip'] for e in feed.entries} | {e['ip'] for e in feed.outbound_entries}
+    if value not in current:
+        return 'Esa IP ya no está en la lista del cliente.'
+    allowlist = feed.allowlist.strip()
+    try:
+        networks = parse_allowlist(allowlist)
+    except ValueError as exc:
+        return str(exc)
+    network = ipaddress.ip_network(value, strict=False)
+    if any(network.version == n.version and network.subnet_of(n) for n in networks):
+        return ''
+    if len(networks) >= MAX_ALLOWLIST:
+        return f'Como máximo {MAX_ALLOWLIST} excepciones.'
+    label = 'Q-Feeds' if any(e['ip'] == value and e.get('qfeeds_only') for e in feed.entries + feed.outbound_entries) else 'lista'
+    with transaction.atomic():
+        BlocklistFeed.objects.filter(pk=feed.pk).update(
+            allowlist=(allowlist + '\n' if allowlist else '') + f'{value}  # excluida en la revisión ({label}) por {request.user.get_username()}'[:200],
+            updated_at=timezone.now())
+        audit('blocklist.exclusion', client, {'count': len(networks) + 1})
+    return ''
+
+
 def global_access(user):
     """Bloqueos para todos los clientes: solo quien tiene acceso global al SOC."""
     from .models import StaffAccess
@@ -843,6 +870,12 @@ def detail(request, client_pk):
                 refresh_feeds()
                 messages.success(request, 'Configuración guardada y lista recalculada.')
                 return redirect('blocklist_detail', client_pk=client.pk)
+        elif action == 'exclude':
+            error = exclude_entry(request, client, feed)
+            if not error:
+                refresh_feeds()
+                messages.success(request, 'Añadida a las excepciones del cliente: deja de servirse en la próxima descarga.')
+                return redirect(reverse('blocklist_detail', args=[client.pk]) + ('?solo=qfeeds' if request.POST.get('solo') else ''))
         elif action == 'manual_add':
             error = add_manual(request, client)
             if not error:
@@ -939,16 +972,28 @@ def detail(request, client_pk):
         # Medida del trabajo horario: calcularla aquí recorría 7 días de eventos del equipo en cada visita.
         binding.efficacy = stored_efficacy(binding)
         binding.efficacy_pending = binding.policies_enabled and binding.policies_enabled_at and not binding.efficacy
+    only_qfeeds = request.GET.get('solo') == 'qfeeds'
+    q_in = [e for e in feed.entries if e.get('qfeeds_only')]
+    q_out = [e for e in feed.outbound_entries if e.get('qfeeds_only')]
+    pilot = None
+    if feed.include_qfeeds or feed.include_qfeeds_c2 or q_in or q_out:
+        pilot = {'inbound': len(q_in), 'inbound_here': sum(1 for e in q_in if e['here']),
+                 'inbound_allowed': sum(e['here_allowed'] for e in q_in),
+                 'outbound': len(q_out), 'outbound_here': sum(1 for e in q_out if e['here']),
+                 'outbound_allowed': sum(e['here_allowed'] for e in q_out)}
     return render(request, 'blocklist_detail.html', {
         'warnings': warnings, 'manual_blocks': manual, 'global_access': global_access(request.user),
         'prefill_network': request.GET.get('network', '')[:64],
         'unifi_devices': unifi_devices, 'unifi_bindings': unifi_bindings, 'unifi_unlinked': unifi_unlinked,
         'unifi_candidates': getattr(request, 'unifi_candidates', None), 'unifi_device': getattr(request, 'unifi_device', None),
         'manual_max_days': MANUAL_MAX_DAYS,
-        'client': client, 'feed': feed, 'entries': feed.entries[:300], 'count': len(feed.entries),
+        'client': client, 'feed': feed, 'count': len(feed.entries), 'only_qfeeds': only_qfeeds,
+        'entries': [e for e in feed.entries if e.get('qfeeds_only') or not only_qfeeds][:300],
+        'pilot': pilot, 'can_exclude': request.user.has_perm('core.manage_operations'),
         'url': feed_url(feed) if show_url and feed.enabled else '', 'error': error or allowlist_error,
         'url_out': feed_url(feed, outbound=True) if show_url and feed.enabled and feed.outbound_enabled else '',
-        'outbound': feed.outbound_entries[:300], 'outbound_count': len(feed.outbound_entries),
+        'outbound': [e for e in feed.outbound_entries if e.get('qfeeds_only') or not only_qfeeds][:300],
+        'outbound_count': len(feed.outbound_entries),
         'devices': _devices(client), 'plans': plans, 'observation': feed.observation, 'qfeeds_allowed': qfeeds_allowed(),
         'qfeeds_count': sum(1 for e in feed.entries if e.get('qfeeds_only')),
         'qfeeds_out_count': sum(1 for e in feed.outbound_entries if e.get('qfeeds_only'))})

@@ -264,6 +264,13 @@ Con el acuerdo, cada cliente puede activar en su lista:
 - **Entrada:** IPs que han atacado a algún cliente en los últimos 7 días y están en Q-Feeds (las coincidencias del plan A). Se descartan el ruido de fondo y los posibles falsos positivos de la CTI, igual que con CrowdSec.
 - **Salida:** destinos de Q-Feeds a los que han conectado equipos de clientes, salvo los revisados «Sin riesgo» para cualquier cliente.
 
+**Revisión del piloto** (página de la lista del cliente, «Q-Feeds en esta lista»):
+- cuántas entradas de entrada y de salida vienen solo de Q-Feeds;
+- cuántas atacaron a este cliente o fueron contactadas por él, y con cuánto tráfico permitido;
+- un filtro para ver solo esas entradas, y «Excluir» en cada una, que la añade a las excepciones del cliente con una nota y queda en la auditoría.
+
+Para que un destino no entre en la lista de ningún cliente, se marca «Sin riesgo» en la revisión de Q-Feeds.
+
 **Nunca se sirve la lista de Q-Feeds entera**, solo lo ya visto en las detecciones. Las entradas que solo vienen de Q-Feeds se marcan (`qfeeds_only`) y la página indica cuántas hay. Si se retira el acuerdo o la opción, dejan de servirse en la siguiente descarga del firewall, sin esperar al recálculo. Excepciones, IPs protegidas, máximo de entradas y freno de emergencia se aplican igual.
 
 ## Reputación propia del SOC (observación)

@@ -1,0 +1,1 @@
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="exclude"><input type="hidden" name="ip" value="{{ e.ip }}">{% if only_qfeeds %}<input type="hidden" name="solo" value="1">{% endif %}<button class="button secondary" title="Añadir {{ e.ip }} a las excepciones del cliente">Excluir</button></form>

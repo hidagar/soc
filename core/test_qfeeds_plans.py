@@ -110,6 +110,49 @@ class BlocklistQFeedsTests(Base):
         self.assertTrue(feed.include_qfeeds and feed.include_qfeeds_c2)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
+class PilotReviewTests(Base):
+    """Revisión del piloto del plan C en la página de la lista del cliente."""
+
+    def setUp(self):
+        Base.setUp(self)
+        self.ready()
+        self.feed = BlocklistFeed.objects.create(client=self.company, enabled=True, include_lists=False, include_cti=False,
+                                                 include_qfeeds=True, outbound_enabled=True, include_c2_detections=False,
+                                                 include_qfeeds_c2=True)
+        with mock.patch.dict(os.environ, OEM):
+            refresh_feeds(self.now)
+        self.feed.refresh_from_db()
+        login(self, 'manage_operations')
+
+    def test_outbound_entries_say_whether_this_client_contacted_them(self):
+        entry = next(e for e in self.feed.outbound_entries if e['ip'] == C2)
+        self.assertEqual((entry['here'], entry['here_allowed']), (1, 1))
+
+    def test_page_summarises_the_pilot_and_filters_qfeeds_entries(self):
+        url = reverse('blocklist_detail', args=[self.company.pk])
+        with mock.patch.dict(os.environ, OEM):
+            page = self.client.get(url)
+            self.assertContains(page, 'Q-Feeds en esta lista')
+            self.assertContains(page, 'Contactados por este cliente')
+            self.assertContains(page, 'Solo Q-Feeds')
+            filtered = self.client.get(url, {'solo': 'qfeeds'})
+        self.assertContains(filtered, 'mostrando solo Q-Feeds')
+        self.assertContains(filtered, C2)
+
+    def test_exclude_adds_the_ip_to_the_exceptions_and_removes_it(self):
+        url = reverse('blocklist_detail', args=[self.company.pk])
+        with mock.patch.dict(os.environ, OEM):
+            self.client.post(url, {'action': 'exclude', 'ip': C2})
+            self.client.post(url, {'action': 'exclude', 'ip': C2})  # repetir no la duplica
+            self.feed.refresh_from_db()
+            self.assertEqual(self.feed.allowlist.count(C2), 1)
+            self.assertIn('excluida en la revisión (Q-Feeds)', self.feed.allowlist)
+            self.assertNotIn(C2, [e['ip'] for e in self.feed.outbound_entries])
+            response = self.client.post(url, {'action': 'exclude', 'ip': '8.8.8.8'})
+        self.assertContains(response, 'ya no está en la lista')
+
+
 class FakeFirewall:
     """API del plugin de Q-Feeds en OPNsense, en memoria."""
 
