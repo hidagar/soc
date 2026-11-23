@@ -429,6 +429,14 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `include_c2_detections` | BooleanField |  |
 | `include_qfeeds` | BooleanField |  |
 | `include_qfeeds_c2` | BooleanField |  |
+| `qfeeds_preventive` | BooleanField |  |
+| `preventive_max` | PositiveIntegerField |  |
+| `preventive_count` | PositiveIntegerField |  |
+| `preventive_fetch_at` | DateTimeField | null=True; blank=True |
+| `qfeeds_dns` | BooleanField |  |
+| `dns_allowlist` | TextField | blank=True |
+| `dns_count` | PositiveIntegerField |  |
+| `dns_fetch_at` | DateTimeField | null=True; blank=True |
 | `outbound_entries` | JSONField | blank=True |
 | `allowlist` | TextField | blank=True |
 | `max_entries` | PositiveIntegerField |  |
@@ -451,7 +459,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | Campo | Tipo | Relación / atributos declarados |
 |---|---|---|
 | `device` | ForeignKey | → 'core.Device'; on_delete=models.CASCADE |
-| `direction` | CharField | max_length=4 |
+| `direction` | CharField | max_length=8 |
 | `site_id` | CharField | max_length=36 |
 | `list_id` | CharField | max_length=36 |
 | `list_name` | CharField | max_length=240 |

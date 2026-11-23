@@ -45,6 +45,7 @@ from . import reputation_views
 from . import customer_portal
 from . import customer_preview
 from . import blocklist
+from . import qfeeds_distribution
 from . import crowdsec_catalog
 from . import invitations
 from . import secure_logs
@@ -137,9 +138,12 @@ urlpatterns = [
     path('operations/reputacion-propia/',soc_reputation.overview,name='soc_reputation'),
     path('operations/crowdsec/lists/',crowdsec_catalog.overview,name='crowdsec_lists'),
     path('operations/crowdsec/lists/<int:pk>/',crowdsec_catalog.action,name='crowdsec_list_action'),
+    path('operations/blocklists/qfeeds/',qfeeds_distribution.overview,name='blocklist_qfeeds'),
     path('operations/blocklists/<int:client_pk>/',blocklist.detail,name='blocklist_detail'),
     path('feeds/bloqueo/<int:client_pk>/<str:token>/',blocklist.serve,name='blocklist_serve'),
     path('feeds/bloqueo/<int:client_pk>/<str:token>/salida/',blocklist.serve_outbound,name='blocklist_serve_out'),
+    path('feeds/bloqueo/<int:client_pk>/<str:token>/qfeeds/',blocklist.serve_preventive,name='blocklist_serve_qfeeds'),
+    path('feeds/bloqueo/<int:client_pk>/<str:token>/dominios/',blocklist.serve_dns,name='blocklist_serve_dns'),
     path('operations/protection/',protection_views.protection_list,name='protection_list'),
     path('operations/protection/<int:pk>/',protection_views.protection_device,name='protection_device'),
     path('operations/exposure/',exposure_views.exposure_list,name='exposure_list'),

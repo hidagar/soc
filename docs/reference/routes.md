@@ -103,9 +103,12 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `operations/reputacion-propia/` | `soc_reputation` | `soc_reputation.overview` |
 | `operations/crowdsec/lists/` | `crowdsec_lists` | `crowdsec_catalog.overview` |
 | `operations/crowdsec/lists/<int:pk>/` | `crowdsec_list_action` | `crowdsec_catalog.action` |
+| `operations/blocklists/qfeeds/` | `blocklist_qfeeds` | `qfeeds_distribution.overview` |
 | `operations/blocklists/<int:client_pk>/` | `blocklist_detail` | `blocklist.detail` |
 | `feeds/bloqueo/<int:client_pk>/<str:token>/` | `blocklist_serve` | `blocklist.serve` |
 | `feeds/bloqueo/<int:client_pk>/<str:token>/salida/` | `blocklist_serve_out` | `blocklist.serve_outbound` |
+| `feeds/bloqueo/<int:client_pk>/<str:token>/qfeeds/` | `blocklist_serve_qfeeds` | `blocklist.serve_preventive` |
+| `feeds/bloqueo/<int:client_pk>/<str:token>/dominios/` | `blocklist_serve_dns` | `blocklist.serve_dns` |
 | `operations/protection/` | `protection_list` | `protection_views.protection_list` |
 | `operations/protection/<int:pk>/` | `protection_device` | `protection_views.protection_device` |
 | `operations/exposure/` | `exposure_list` | `exposure_views.exposure_list` |

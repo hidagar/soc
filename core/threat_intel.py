@@ -10,7 +10,8 @@
 - Como la búsqueda es local, el SOC puede revisar también los **destinos** de las conexiones salientes de
   los clientes, que nunca se consultan a terceros. Coincidir con la lista es contexto para investigar:
   no acredita ataque, infección ni compromiso (invariante 4).
-- Licencia: uso interno del SOC. Esta fase no distribuye nada a firewalls de clientes.
+- Licencia: uso interno del SOC en la fase 1. Desde el acuerdo del 20/11/2026 (equivalente al de CrowdSec) las listas
+  llegan a los clientes por `blocklist` y `qfeeds_distribution`.
 
 Plan A (uso central con un plan de pago): las conexiones salientes hacia destinos de las listas pasan a ser
 trabajo del SOC. Cada una se revisa («Sin riesgo» o «Abrir incidencia»); la decisión se guarda en

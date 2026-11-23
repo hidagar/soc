@@ -95,7 +95,8 @@ def device_rows(devices):
     for plan in ChangePlan._base_manager.filter(device_id__in=ids, template__in=TEMPLATES).order_by('pk'):
         plans[plan.device_id] = plan  # el último plan del dispositivo manda
     # La de entrada manda; la de salida (C2) solo si no hay de entrada.
-    bindings = {b.device_id: b for b in UnifiBlocklistBinding._base_manager.filter(device_id__in=ids).order_by('-direction')}
+    bindings = {b.device_id: b for b in UnifiBlocklistBinding._base_manager.filter(device_id__in=ids, direction__in=('in', 'out'))
+                .order_by('-direction')}
     archives = {}
     for archive in ConfigurationArchive._base_manager.filter(device_id__in=ids, status='saved').order_by('created_at'):
         archives[archive.device_id] = archive

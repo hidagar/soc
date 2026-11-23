@@ -117,14 +117,15 @@ def stage_zenarmor(plan,c):
 
 def stage_blocklist_alias(plan,c):
     """Tabla de IPs que el firewall descarga de la lista del SOC. Sin regla activa no bloquea nada."""
-    from .blocklist import TEMPLATE_OUT,alias_name,feed_url
+    from .blocklist import alias_name,feed_url,plan_kind
     from .models import BlocklistFeed
-    outbound=plan.template==TEMPLATE_OUT
+    kind=plan_kind(plan)
     feed=BlocklistFeed.objects.filter(client_id=plan.parameters.get('client'),enabled=True).first()
     if not feed or feed.client_id!=plan.device.site.client_id: raise ValueError('La lista del cliente no está activada.')
-    if outbound and not feed.outbound_enabled: raise ValueError('La lista de salida del cliente no está activada.')
+    if kind=='out' and not feed.outbound_enabled: raise ValueError('La lista de salida del cliente no está activada.')
+    if kind=='preventive' and not feed.qfeeds_preventive: raise ValueError('La lista preventiva de Q-Feeds del cliente no está activada.')
     name=alias_name(plan);description=f'SOC PLAN {plan.pk} alias'
-    desired={'enabled':'1','name':name,'type':'urltable','content':feed_url(feed,outbound=outbound),
+    desired={'enabled':'1','name':name,'type':'urltable','content':feed_url(feed,kind=kind),
         'updatefreq':plan.preview['alias']['updatefreq'],'description':description}
     rows=api(c,'/api/firewall/alias/search_item?rowCount=-1').get('rows',[])
     found=next((r for r in rows if r.get('name')==name),None)
@@ -150,17 +151,17 @@ def stage(plan):
     plan.baseline_hash=digest(baseline)
     plan.status='staging'; plan.save()
     try:
-        from .blocklist import TEMPLATE_OUT,TEMPLATES,alias_name
+        from .blocklist import ALL_TEMPLATES,alias_name
         from . import policy_changes
-        crowdsec=plan.template in TEMPLATES
+        crowdsec=plan.template in ALL_TEMPLATES
         restrict=plan.template==policy_changes.TEMPLATE
         if crowdsec: stage_blocklist_alias(plan,c)
         origins_alias=policy_changes.stage_alias(plan,api,c,completed) if restrict else ''
         for index,desired in enumerate(plan.preview['rules']):
             rule={**desired,'description':f'SOC PLAN {plan.pk} v{plan.template_version} {index+1}'}
             if crowdsec:
-                # Entrada: bloquea orígenes de la lista; salida (C2): bloquea destinos de la lista.
-                rule['destination_net' if plan.template==TEMPLATE_OUT else 'source_net']=alias_name(plan)
+                # Entrada: bloquea orígenes de la lista; salida: bloquea destinos de la lista.
+                rule['destination_net' if desired.get('direction')=='out' else 'source_net']=alias_name(plan)
             if restrict:
                 # Bloquea el servicio a todo origen que NO esté en el alias de autorizados.
                 rule['source_net']=origins_alias;rule['source_not']='1'

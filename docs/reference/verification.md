@@ -84,6 +84,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_portal_friendly.py](../../core/test_portal_friendly.py) | 5 |
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
+| [core/test_qfeeds_distribution.py](../../core/test_qfeeds_distribution.py) | 21 |
 | [core/test_qfeeds_plans.py](../../core/test_qfeeds_plans.py) | 18 |
 | [core/test_receiver_transition.py](../../core/test_receiver_transition.py) | 3 |
 | [core/test_recovery_coverage.py](../../core/test_recovery_coverage.py) | 14 |
@@ -219,3 +220,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0084_antivirus_equipos.py](../../core/migrations/0084_antivirus_equipos.py)
 - [core/migrations/0085_aviso_urgente_equipos.py](../../core/migrations/0085_aviso_urgente_equipos.py)
 - [core/migrations/0086_portal_antivirus.py](../../core/migrations/0086_portal_antivirus.py)
+- [core/migrations/0087_qfeeds_clientes.py](../../core/migrations/0087_qfeeds_clientes.py)

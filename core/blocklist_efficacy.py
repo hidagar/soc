@@ -117,10 +117,10 @@ def measure(plan, now=None):
 
 def refresh(now=None):
     """Trabajo `blocklist_efficacy`: mide cada regla de bloqueo del SOC activa en un OPNsense por API."""
-    from .blocklist import TEMPLATES
+    from .blocklist import ALL_TEMPLATES
     now = now or timezone.now()
     measured = 0
-    plans = ChangePlan._base_manager.filter(template__in=TEMPLATES, status='active', device__vendor='opnsense',
+    plans = ChangePlan._base_manager.filter(template__in=ALL_TEMPLATES, status='active', device__vendor='opnsense',
                                             device__management_method='api', device__active=True).select_related('device')
     for plan in plans:
         measured += int(measure(plan, now))
@@ -149,29 +149,44 @@ def summary(plan, now=None):
 def client_protection(client, first_day=None, last_day=None, now=None):
     """Proyección para el cliente (invariante 3): solo cifras agregadas de las reglas activas del SOC.
 
-    IPs en sus listas y paquetes bloqueados en el periodo (por defecto, los últimos 7 días).
-    Nunca IPs, motivos, bloqueos manuales ni errores internos. None si no hay ninguna regla activa
-    con la lista publicada. `measured` es False hasta que haya una lectura de los contadores.
+    IPs en sus listas y paquetes bloqueados en el periodo (por defecto, los últimos 7 días), por lista:
+    `inbound` (lista del SOC), `outbound` (salida C2) y `preventive` (Q-Feeds preventiva). La de entrada
+    añade `sources`: cuántas de sus IPs confirman CrowdSec y cuántas Q-Feeds. Nunca IPs, motivos, bloqueos
+    manuales ni errores internos. None si no hay ninguna regla activa con la lista publicada. `measured`
+    es False hasta que haya una lectura de los contadores.
     """
-    from .blocklist import TEMPLATE_OUT, TEMPLATES
+    from .blocklist import ALL_TEMPLATES, plan_kind
     from .models import BlocklistFeed
+    from .qfeeds_distribution import source_counts
     now = now or timezone.now()
     last_day = last_day or timezone.localtime(now).date()
     first_day = first_day or last_day - timedelta(days=6)
     feed = BlocklistFeed._base_manager.filter(client=client, enabled=True, stopped=False).first()
     if not feed:
         return None
-    plans = ChangePlan._base_manager.filter(template__in=TEMPLATES, status='active', device__site__client=client,
+    keys = {'in': 'inbound', 'out': 'outbound', 'preventive': 'preventive', 'qfeeds': 'preventive'}
+    available = {'inbound': True, 'outbound': feed.outbound_enabled, 'preventive': feed.qfeeds_preventive}
+
+    def item_for(key):
+        if key not in result:
+            entries = {'inbound': len(feed.entries), 'outbound': len(feed.outbound_entries),
+                       'preventive': feed.preventive_count}[key]
+            result[key] = {'entries': entries, 'packets': 0, 'firewalls': [], 'measured': False, 'measuring': False}
+            if key == 'inbound':
+                counts = source_counts(feed.entries)
+                result[key]['sources'] = {'crowdsec': counts['crowdsec'], 'qfeeds': counts['qfeeds']}
+        return result[key]
+
+    plans = ChangePlan._base_manager.filter(template__in=ALL_TEMPLATES, status='active', device__site__client=client,
                                             device__active=True).select_related('device').order_by('device__name')
     result = {}
     for plan in plans:
-        outbound = plan.template == TEMPLATE_OUT
-        if outbound and not feed.outbound_enabled:
+        key = keys[plan_kind(plan)]
+        if not available[key]:
             continue
-        key = 'outbound' if outbound else 'inbound'
-        item = result.setdefault(key, {'entries': len(feed.outbound_entries if outbound else feed.entries),
-                                       'packets': 0, 'firewalls': [], 'measured': False, 'measuring': False})
-        item['firewalls'].append(plan.device.name)
+        item = item_for(key)
+        if plan.device.name not in item['firewalls']:
+            item['firewalls'].append(plan.device.name)
         item['measuring'] = True
         state = WorkerState.objects.filter(name=state_name(plan)).first()
         history = (state.details.get('history') or {}) if state else {}
@@ -184,12 +199,14 @@ def client_protection(client, first_day=None, last_day=None, now=None):
     for binding in UnifiBlocklistBinding._base_manager.filter(device__site__client=client, device__active=True, enabled=True,
                                                               synced_at__isnull=False, error='',
                                                               policies_enabled=True).select_related('device'):
-        outbound = binding.direction == 'out'
-        if outbound and not feed.outbound_enabled:
+        key = keys.get(binding.direction)
+        if not key or not available[key]:
             continue
-        item = result.setdefault('outbound' if outbound else 'inbound',
-                                 {'entries': len(feed.outbound_entries if outbound else feed.entries), 'packets': 0,
-                                  'firewalls': [], 'measured': False, 'measuring': False})
+        item = item_for(key)
         if binding.device.name not in item['firewalls']:
             item['firewalls'].append(binding.device.name)
+        if key == 'preventive' and not item['measuring']:
+            # Solo UniFi: su lista lleva un tope (IPv4); se cuenta lo escrito, no la lista entera.
+            item['unifi_entries'] = max(item.get('unifi_entries', 0), binding.pushed_count)
+            item['entries'] = item['unifi_entries']
     return result or None

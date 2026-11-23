@@ -211,6 +211,16 @@ class BlocklistFeed(models.Model):
     # Q-Feeds, con el mismo criterio que CrowdSec: solo IPs vistas en las detecciones de los clientes.
     include_qfeeds=models.BooleanField('Incluir IPs en listas de Q-Feeds',default=True)
     include_qfeeds_c2=models.BooleanField('Incluir destinos de Q-Feeds contactados por clientes',default=False)
+    # Q-Feeds preventiva: la lista de IPs de Q-Feeds (sin esperar a que ataquen), con su propia URL y regla.
+    qfeeds_preventive=models.BooleanField('Publicar la lista preventiva de Q-Feeds',default=False)
+    preventive_max=models.PositiveIntegerField('Máximo de la lista preventiva',default=50000)
+    preventive_count=models.PositiveIntegerField(default=0)
+    preventive_fetch_at=models.DateTimeField(null=True,blank=True)
+    # Dominios de Q-Feeds para el DNS del firewall (lista de bloqueo de Unbound por URL).
+    qfeeds_dns=models.BooleanField('Publicar los dominios de Q-Feeds para el DNS',default=False)
+    dns_allowlist=models.TextField('Dominios que nunca se bloquean',blank=True,help_text='Un dominio por línea; incluye sus subdominios.')
+    dns_count=models.PositiveIntegerField(default=0)
+    dns_fetch_at=models.DateTimeField(null=True,blank=True)
     outbound_entries=models.JSONField(default=list,blank=True)
     allowlist=models.TextField('Excepciones (nunca bloquear)',blank=True,help_text='Una IP o red CIDR por línea: proveedores, socios, oficinas remotas.')
     max_entries=models.PositiveIntegerField('Máximo de entradas',default=2000)
@@ -234,7 +244,7 @@ class UnifiBlocklistBinding(models.Model):
     que la usa; el SOC solo sustituye las direcciones. `item_format` se aprende de la propia lista.
     """
     device=models.ForeignKey('core.Device',on_delete=models.CASCADE,related_name='unifi_blocklists')
-    direction=models.CharField(max_length=4,default='in',choices=[('in','Entrada'),('out','Salida (C2)')])
+    direction=models.CharField(max_length=8,default='in',choices=[('in','Entrada'),('out','Salida (C2)'),('qfeeds','Preventiva Q-Feeds')])
     site_id=models.CharField(max_length=36)
     list_id=models.CharField(max_length=36)
     list_name=models.CharField(max_length=240)

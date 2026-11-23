@@ -183,7 +183,7 @@ Comprobado contra un motor CrowdSec real: respuestas `null` sin decisiones, deci
    - Solo se revisan las IPs que aparecen en las detecciones que recibe el SOC, no todo el tráfico.
    - Los dominios solo se consultan a mano: las evidencias no guardan nombres de dominio.
    - Q-Feeds no publica la caducidad por entrada ni una tasa de falsos positivos.
-7. **Licencia:** el contrato de Q-Feeds limita el uso a fines internos y prohíbe redistribuir los datos a terceros, con una licencia por equipo que los use. Esta fase no sirve las listas a ningún firewall. Llevarlas a firewalls propios o de clientes (fases 2 y 3) requiere licencia por firewall y, para clientes, un acuerdo escrito con Q-Feeds.
+7. **Licencia:** el contrato de Q-Feeds limita el uso a fines internos y prohíbe redistribuir los datos a terceros, con una licencia por equipo que los use. Esta fase no sirve las listas a ningún firewall. Llevarlas a firewalls propios o de clientes (fases 2 y 3) requiere licencia por firewall y, para clientes, un acuerdo escrito con Q-Feeds. *Superado el 20/11/2026: acuerdo de redistribución equivalente al de CrowdSec (secciones siguientes).*
 
 Comprobado con una clave real del plan gratuito el 05/11/2026:
 - descarga correcta de las dos listas, unos 210.000 indicadores en total;
@@ -241,7 +241,7 @@ En «Listas de bloqueo › cliente › Configuración de la lista»:
 
 Se reparte por los mismos medios que el resto de la lista: URL para OPNsense (alias de tipo URL) y escritura en las listas de UniFi. Se aplican las mismas excepciones, IPs protegidas, máximo de entradas y freno de emergencia.
 
-**Nunca se sirve la lista de Q-Feeds entera**, solo lo ya visto en las detecciones. Las entradas que solo vienen de Q-Feeds se marcan (`qfeeds_only`):
+En **esta lista** solo entra lo ya visto en las detecciones; la lista entera de Q-Feeds, si se activa, va aparte, con su propia URL y regla (sección siguiente). Las entradas que solo vienen de Q-Feeds se marcan (`qfeeds_only`):
 - si se desmarca la opción del cliente, dejan de servirse en la siguiente descarga, sin esperar al recálculo;
 - si las listas de Q-Feeds dejan de estar vigentes (36 horas sin comprobar), desaparecen en el recálculo, porque ya no hay coincidencias.
 
@@ -251,6 +251,29 @@ Se reparte por los mismos medios que el resto de la lista: URL para OPNsense (al
 - un filtro para ver solo esas entradas, y «Excluir» en cada una, que la añade a las excepciones del cliente con una nota y queda en la auditoría.
 
 Para que un destino no entre en la lista de ningún cliente, se marca «Sin riesgo» en la revisión de Q-Feeds.
+
+### Q-Feeds para los clientes: lista preventiva, dominios, medición y activación masiva (23/11/2026)
+`core/qfeeds_distribution.py` (migración 0087). Con el acuerdo equivalente al de CrowdSec, cada cliente puede recibir además dos listas propias. Las dos usan el token y el freno de emergencia de su lista del SOC y se sirven **vacías** si la lista está desactivada o detenida, si el cliente está inactivo o si las listas de Q-Feeds no están vigentes (36 horas). Se calculan al descargarlas: una excepción nueva vale en la siguiente descarga.
+
+**Lista preventiva** («Publicar la lista preventiva de Q-Feeds», desmarcada por defecto, con su máximo: 50.000 por defecto, hasta 200.000):
+- las IPs y redes de las listas vigentes de Q-Feeds **aunque aún no hayan atacado a ningún cliente**: primero las que ya atacaron a alguno y después las más recientes;
+- nunca IPs de clientes o del SOC, las excepciones de **cualquier** cliente, los destinos revisados «Sin riesgo» ni redes más amplias que /24 (IPv4) o /48 (IPv6);
+- URL `/feeds/bloqueo/<cliente>/<token>/qfeeds/`. En OPNsense por API, «Preparar bloqueo preventivo» crea con el control de cambios una tabla por URL propia (`SOC_QFEEDS_<plan>`) y una regla de entrada desactivada; hay otra plantilla para la salida. Activarla sigue el control de cambios (MFA, punto de restauración, confirmación);
+- en UniFi, «Lista preventiva Q-Feeds» en «Bloqueo en UniFi»: lista y políticas propias (External→Internal y External→Gateway), con las 4.000 primeras IPv4;
+- si la lista supera el máximo de entradas de tablas de OPNsense (Firewall › Ajustes › Avanzado), el firewall no la carga entera: la página avisa cuando «IPs cargadas» queda por debajo del 90 % de lo publicado.
+
+**Dominios para el DNS** («Publicar los dominios de Q-Feeds para el DNS», desmarcada por defecto):
+- los dominios de las listas vigentes, uno por línea, para las listas de bloqueo de Unbound en OPNsense. URL `/feeds/bloqueo/<cliente>/<token>/dominios/`;
+- excepciones propias del cliente («Dominios que nunca se bloquean»), que incluyen sus subdominios; si una excepción es un subdominio de un dominio de la lista, se retira también ese dominio (Unbound no puede desbloquear un subdominio de lo que bloquea). El dominio del portal del SOC nunca se publica;
+- se configura **a mano** en el firewall («Servicios › Unbound DNS › Listas de bloqueo»): no hay plantilla del control de cambios y el SOC no mide lo que bloquea el DNS.
+
+**Medición por fuente.** Cada regla tiene sus contadores (trabajo «Eficacia de las reglas de bloqueo», cada hora), así que se distingue lo que cortó la lista del SOC (CrowdSec, detecciones propias y atacantes vistos en Q-Feeds) de lo que cortó la preventiva. Una IP que esté en las dos la cuenta la regla que va antes. Cada entrada de la lista del SOC guarda sus fuentes (`sources`: `crowdsec`, `qfeeds`, `soc`, `manual`); las calculadas antes se clasifican por sus motivos. Se muestra:
+- al SOC, en la lista del cliente («Por fuente: …» y los contadores de cada regla) y en «Q-Feeds en los clientes»;
+- al cliente, en «Firewalls», el informe semanal y el mensual (HTML y PDF): cuántas IPs de su lista figuran en CrowdSec y cuántas en Q-Feeds, y la lista preventiva con sus paquetes cortados. Solo cifras agregadas, sin IPs ni motivos (invariante 3).
+
+**Q-Feeds en los clientes** («Listas de bloqueo › Q-Feeds en los clientes», permiso de operaciones):
+- tabla con todos los clientes: lista publicada, entradas de Q-Feeds (entrada y salida), preventiva (entradas, reglas activas o pendientes, UniFi, última descarga), dominios y paquetes cortados en 7 días por cada lista;
+- activación o desactivación de las cuatro opciones en los clientes marcados. Primero «Ver qué cambiaría» (cambios, qué entraría en cada cliente y avisos, sin guardar nada); «Aplicar» solo vale para la selección previsualizada. Activar exige un MFA reciente; desactivar no, como el freno de emergencia. Opcional: publicar la lista del cliente si no lo estaba y, con permiso de conexiones, preparar un borrador desactivado de la regla preventiva en cada OPNsense por API (sin duplicar los que ya existen). Cada cliente queda en la auditoría (`blocklist.qfeeds_bulk`).
 
 ## Antivirus de equipos vía agente Wazuh (23/11/2026)
 

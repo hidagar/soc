@@ -23,9 +23,11 @@ Q-Feeds es otra fuente, con el mismo criterio que CrowdSec (acuerdo de redistrib
 - entrada: IPs que han atacado a algún cliente en 7 días y figuran en las listas vigentes de Q-Feeds;
 - salida (opcional): destinos de Q-Feeds a los que han conectado equipos de clientes, salvo los que el
   SOC haya marcado «Sin riesgo» en la revisión.
-Nunca se sirve la lista de Q-Feeds entera. Las entradas que solo vienen de Q-Feeds se marcan
+En esta lista no entra la lista de Q-Feeds entera. Las entradas que solo vienen de Q-Feeds se marcan
 (`qfeeds_only`): dejan de servirse al momento si se desactiva la opción del cliente y desaparecen en el
 recálculo si las listas de Q-Feeds dejan de estar vigentes. Excepciones y frenos se aplican igual.
+La lista preventiva (Q-Feeds entera, con su propia URL y regla) y los dominios para el DNS están en
+`qfeeds_distribution`. Cada entrada guarda en `sources` las fuentes que la justifican (medición por fuente).
 """
 import hashlib
 import hmac
@@ -47,6 +49,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 
 from .models import BlocklistFeed, ChangePlan, Client, Device, IpReputation, ManualBlock, SecurityEvidence, WorkerState
+from .qfeeds_distribution import PREVENTIVE_LIMIT as PREVENTIVE_LIMIT_VIEW, TEMPLATES as QFEEDS_TEMPLATES
 from .reputation import TTL, protected_addresses
 from .security import audit, decrypt, encrypt, mfa_redirect
 
@@ -58,6 +61,9 @@ MAX_ALLOWLIST = 200
 TEMPLATE = 'crowdsec'
 TEMPLATE_OUT = 'crowdsec_out'
 TEMPLATES = (TEMPLATE, TEMPLATE_OUT)
+ALL_TEMPLATES = TEMPLATES + QFEEDS_TEMPLATES  # todas las reglas del SOC que usan una tabla por URL
+SERVE_ROUTES = {'in': 'blocklist_serve', 'out': 'blocklist_serve_out', 'preventive': 'blocklist_serve_qfeeds',
+                'dns': 'blocklist_serve_dns'}
 TITLE_OUT = 'Bloqueo de salida (C2) del SOC'
 C2_MIN_DAYS = 2      # un destino visto un solo día en un solo cliente puede ser un falso positivo de firma
 C2_MIN_CLIENTS = 2
@@ -192,6 +198,7 @@ def manual_entries(feed, now, allow, protected, direction):
             continue
         covered.append(network)
         manual.append({'ip': _label(network), 'reasons': ['Bloqueo manual: ' + block.reason[:80]], 'manual': block.pk,
+                       'sources': ['manual'],
                        'scope': 'todos' if block.client_id is None else 'cliente', 'until': block.expires_at.isoformat(),
                        'clients': 0, 'events': 0, 'here': 0, 'here_allowed': 0})
     return manual, covered
@@ -228,20 +235,21 @@ def build_outbound(feed, c2, protected, now, qfeeds=None):
                     address.version == n.version and address in n for n in covered):
                 continue
             automatic.append({'ip': ip, 'reasons': [f'Destino C2/malware: {row["events"]} detecciones en {row["days"]} días'],
-                              'c2': True, 'clients': row['clients'], 'events': row['events'], 'here': 0, 'here_allowed': 0})
+                              'c2': True, 'sources': ['soc'], 'clients': row['clients'], 'events': row['events'], 'here': 0, 'here_allowed': 0})
     if feed.include_qfeeds_c2 and qfeeds:
         known = {e['ip']: e for e in automatic}
         for ip, row in qfeeds.items():
             reason = _qfeeds_reason(row['categories']) + f' (destino de {row["clients"]} cliente{"s" if row["clients"] != 1 else ""})'
             if ip in known:
                 known[ip]['reasons'].append(reason)
+                known[ip]['sources'] = sorted(set(known[ip]['sources']) | {'qfeeds'})
                 continue
             address = ipaddress.ip_address(ip)
             if not address.is_global or conflict(ipaddress.ip_network(ip), allow, protected) or any(
                     address.version == n.version and address in n for n in covered):
                 continue
             here = row.get('by_client', {}).get(feed.client_id, (0, 0))
-            automatic.append({'ip': ip, 'reasons': [reason], 'qfeeds_only': True, 'clients': row['clients'],
+            automatic.append({'ip': ip, 'reasons': [reason], 'qfeeds_only': True, 'sources': ['qfeeds'], 'clients': row['clients'],
                               'events': row['events'], 'here': here[0], 'here_allowed': here[1]})
     automatic.sort(key=lambda e: (-e['clients'], -e['events'], e['ip']))
     return manual + automatic[:feed.max_entries]
@@ -395,7 +403,7 @@ def build(feed, candidates, stats, protected, now, soc=None, repeat=None):
                 continue
             item = stats.get(value, {'count': 0, 'clients': {}})
             here = item['clients'].get(feed.client_id, (0, 0))
-            detected.append({'ip': value, 'reasons': ['Detectado por el SOC: ' + scenario], 'soc': True,
+            detected.append({'ip': value, 'reasons': ['Detectado por el SOC: ' + scenario], 'soc': True, 'sources': ['soc'],
                              'clients': len(item['clients']), 'events': item['count'], 'here': here[0], 'here_allowed': here[1]})
     seen = {e['ip'] for e in detected}
     entries = []
@@ -413,7 +421,8 @@ def build(feed, candidates, stats, protected, now, soc=None, repeat=None):
         here = item['clients'].get(feed.client_id, (0, 0))
         reasons = (list(info['reasons']) if via_crowdsec else []) + ([info['qfeeds_reason']] if via_qfeeds else [])
         entry = {'ip': ip, 'reasons': reasons, 'clients': len(item['clients']), 'events': item['count'],
-                 'here': here[0], 'here_allowed': here[1]}
+                 'here': here[0], 'here_allowed': here[1],
+                 'sources': (['crowdsec'] if via_crowdsec else []) + (['qfeeds'] if via_qfeeds else [])}
         if via_qfeeds and not via_crowdsec:
             entry['qfeeds_only'] = True
         entries.append(entry)
@@ -423,6 +432,7 @@ def build(feed, candidates, stats, protected, now, soc=None, repeat=None):
             reason = f'Ataques repetidos a este cliente: {events} detecciones en {days} días'
             if ip in listed:
                 listed[ip]['reasons'] = listed[ip]['reasons'] + [reason]
+                listed[ip]['sources'] = sorted(set(listed[ip]['sources']) | {'soc'})
                 listed[ip].pop('qfeeds_only', None)  # también lo justifica el propio SOC
                 continue
             try:
@@ -433,7 +443,7 @@ def build(feed, candidates, stats, protected, now, soc=None, repeat=None):
                     or any(address.version == n.version and address in n for n in allow)):
                 continue
             item = stats.get(ip, {'count': events, 'clients': {feed.client_id: (events, allowed)}})
-            entries.append({'ip': ip, 'reasons': [reason], 'repeat': True, 'clients': len(item['clients']),
+            entries.append({'ip': ip, 'reasons': [reason], 'repeat': True, 'sources': ['soc'], 'clients': len(item['clients']),
                             'events': item['count'], 'here': events, 'here_allowed': allowed})
     entries.sort(key=lambda e: (-e['here'], -e['clients'], -e['events'], e['ip']))
     # Los manuales no cuentan para el máximo: son decisiones explícitas y con caducidad.
@@ -460,6 +470,8 @@ def refresh_feeds(now=None):
     stats = activity(set(candidates) | {ip for ip in soc if '/' not in ip}, now)
     protected = protected_addresses()
     repeat = repeat_attackers(now, [f.client_id for f in feeds if f.include_repeat_attackers])
+    from .qfeeds_distribution import refresh_counts
+    counts = refresh_counts(feeds)
     for feed in feeds:
         try:
             entries = build(feed, candidates, stats, protected, now, soc, repeat.get(feed.client_id))
@@ -470,7 +482,8 @@ def refresh_feeds(now=None):
         after = {e['ip'] for e in entries}
         # Solo si la configuración no cambió mientras se calculaba; si cambió, se recalcula en la próxima pasada.
         if not BlocklistFeed.objects.filter(pk=feed.pk, updated_at=feed.updated_at).update(
-                entries=entries, outbound_entries=outbound, generated_at=now, observation=observation(entries, now)):
+                entries=entries, outbound_entries=outbound, generated_at=now, observation=observation(entries, now),
+                preventive_count=counts[feed.pk][0], dns_count=counts[feed.pk][1]):
             continue
         if before != after:
             audit('blocklist.generated', feed.client, {'count': len(after),
@@ -519,22 +532,30 @@ def servable(feed, now=None, outbound=False):
     return result
 
 
-def feed_url(feed, outbound=False):
-    """URL completa con el token, para el firewall. Solo se construye para quien gestiona conexiones."""
+def feed_url(feed, outbound=False, kind=None):
+    """URL completa con el token, para el firewall. Solo se construye para quien gestiona conexiones.
+
+    `kind`: 'in' (lista de entrada), 'out' (salida C2), 'preventive' (Q-Feeds preventiva) o 'dns' (dominios).
+    """
     from .invitations import origin
     if not feed.encrypted_token:
         return ''
-    return origin() + reverse('blocklist_serve_out' if outbound else 'blocklist_serve',
-                              args=[feed.client_id, decrypt(feed.encrypted_token)])
+    kind = kind or ('out' if outbound else 'in')
+    return origin() + reverse(SERVE_ROUTES[kind], args=[feed.client_id, decrypt(feed.encrypted_token)])
+
+
+FETCH_FIELDS = {'in': 'last_fetch_at', 'out': 'last_fetch_at', 'preventive': 'preventive_fetch_at', 'dns': 'dns_fetch_at'}
 
 
 @never_cache
 @require_GET
-def serve(request, client_pk, token, outbound=False):
-    """Descarga del firewall: una IP por línea. Vacía si la lista está desactivada o detenida.
+def serve(request, client_pk, token, outbound=False, kind=None):
+    """Descarga del firewall: una IP (o un dominio) por línea. Vacía si la lista está desactivada o detenida.
 
-    La lista de salida usa el mismo token y el mismo freno de emergencia.
+    La lista de salida, la preventiva de Q-Feeds y la de dominios usan el mismo token y el mismo freno de emergencia.
     """
+    from .qfeeds_distribution import servable_dns, servable_preventive
+    kind = kind or ('out' if outbound else 'in')
     feed = BlocklistFeed._base_manager.filter(client_id=client_pk).select_related('client').first()
     digest = _hash(token)
     if feed and feed.previous_token_hash and hmac.compare_digest(feed.previous_token_hash, digest):
@@ -544,8 +565,14 @@ def serve(request, client_pk, token, outbound=False):
     elif not feed or not feed.token_hash or not hmac.compare_digest(feed.token_hash, digest):
         raise Http404
     else:
-        BlocklistFeed._base_manager.filter(pk=feed.pk).update(last_fetch_at=timezone.now())
-        body = ''.join(ip + '\n' for ip in servable(feed, outbound=outbound))
+        BlocklistFeed._base_manager.filter(pk=feed.pk).update(**{FETCH_FIELDS[kind]: timezone.now()})
+        if kind == 'preventive':
+            values = servable_preventive(feed)
+        elif kind == 'dns':
+            values = servable_dns(feed)
+        else:
+            values = servable(feed, outbound=kind == 'out')
+        body = ''.join(value + '\n' for value in values)
     response = HttpResponse(body, content_type='text/plain; charset=utf-8')
     response['X-Content-Type-Options'] = 'nosniff'
     return response
@@ -554,12 +581,33 @@ def serve(request, client_pk, token, outbound=False):
 @never_cache
 @require_GET
 def serve_outbound(request, client_pk, token):
-    return serve(request, client_pk, token, outbound=True)
+    return serve(request, client_pk, token, kind='out')
+
+
+@never_cache
+@require_GET
+def serve_preventive(request, client_pk, token):
+    return serve(request, client_pk, token, kind='preventive')
+
+
+@never_cache
+@require_GET
+def serve_dns(request, client_pk, token):
+    return serve(request, client_pk, token, kind='dns')
+
+
+def plan_kind(plan):
+    """Lista que descarga la tabla de una regla del SOC: 'in', 'out' o 'preventive'."""
+    if plan.template == TEMPLATE_OUT:
+        return 'out'
+    return 'preventive' if plan.template in QFEEDS_TEMPLATES else 'in'
 
 
 def alias_name(plan):
     if plan.template == TEMPLATE_OUT:
         return f'SOC_C2_{plan.pk}'
+    if plan.template in QFEEDS_TEMPLATES:
+        return f'SOC_QFEEDS_{plan.pk}'
     return f'SOC_CROWDSEC_{plan.pk}'
 
 
@@ -670,10 +718,13 @@ def unifi_action(request, client, feed, action):
         return redirect('blocklist_detail', client_pk=client.pk)
     device = get_object_or_404(_unifi_devices(client), pk=_posted_pk(request, 'device'))
     direction = request.POST.get('direction', 'in')
-    if direction not in ('in', 'out'):
+    if direction not in ('in', 'out', 'qfeeds'):
         raise Http404
     if direction == 'out' and action == 'unifi_create' and not feed.outbound_enabled:
         request.unifi_error = 'Activa primero la lista de salida (C2) de este cliente.'
+        return None
+    if direction == 'qfeeds' and action != 'unifi_lists' and not feed.qfeeds_preventive:
+        request.unifi_error = 'Activa primero la lista preventiva de Q-Feeds de este cliente.'
         return None
     try:
         if action == 'unifi_create':
@@ -841,11 +892,16 @@ def detail(request, client_pk):
         if action not in ('stop', 'manual_revoke', 'unifi_unbind', 'unifi_policy_disable') and not mfa_fresh(request):
             return mfa_redirect(request)
         if action == 'settings':
+            from .qfeeds_distribution import PREVENTIVE_LIMIT, parse_domains
             try:
                 parse_allowlist(request.POST.get('allowlist', ''))
+                parse_domains(request.POST.get('dns_allowlist', ''))
                 maximum = int(request.POST.get('max_entries', '2000'))
                 if not 1 <= maximum <= 20000:
                     raise ValueError('El máximo de entradas debe estar entre 1 y 20000.')
+                preventive_max = int(request.POST.get('preventive_max', feed.preventive_max))
+                if not 1 <= preventive_max <= PREVENTIVE_LIMIT:
+                    raise ValueError(f'El máximo de la lista preventiva debe estar entre 1 y {PREVENTIVE_LIMIT}.')
             except ValueError as exc:
                 error = str(exc)
             else:
@@ -859,16 +915,25 @@ def detail(request, client_pk):
                 feed.include_c2_detections = request.POST.get('include_c2_detections') == 'on'
                 feed.include_qfeeds = request.POST.get('include_qfeeds') == 'on'
                 feed.include_qfeeds_c2 = request.POST.get('include_qfeeds_c2') == 'on'
+                preventive_off = feed.qfeeds_preventive and request.POST.get('qfeeds_preventive') != 'on'
+                turned_off = feed.enabled and request.POST.get('enabled') != 'on'
+                feed.qfeeds_preventive = request.POST.get('qfeeds_preventive') == 'on'
+                feed.preventive_max = preventive_max
+                feed.qfeeds_dns = request.POST.get('qfeeds_dns') == 'on'
+                feed.dns_allowlist = request.POST.get('dns_allowlist', '').strip()[:20000]
                 feed.enabled = request.POST.get('enabled') == 'on'
                 feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'include_soc_detections',
                                          'include_repeat_attackers',
                                          'outbound_enabled', 'include_c2_detections', 'include_qfeeds', 'include_qfeeds_c2',
+                                         'qfeeds_preventive', 'preventive_max', 'qfeeds_dns', 'dns_allowlist',
                                          'enabled', 'updated_at'])
                 if feed.enabled and not feed.token_hash:
                     rotate_token(feed)
                 audit('blocklist.settings', client, {'status': 'enabled' if feed.enabled else 'disabled',
                                                      'count': feed.max_entries})
                 refresh_feeds()
+                if preventive_off or turned_off:
+                    sync_unifi(client)  # UniFi no descarga: se vacía ya lo que deja de servirse
                 messages.success(request, 'Configuración guardada y lista recalculada.')
                 return redirect('blocklist_detail', client_pk=client.pk)
         elif action == 'exclude':
@@ -914,6 +979,16 @@ def detail(request, client_pk):
             if result is not None:
                 return result
             error = getattr(request, 'unifi_error', '')
+        elif action in ('plan_q', 'plan_q_out'):
+            from .qfeeds_distribution import create_draft
+            if not request.user.has_perm('core.manage_connections'):
+                return HttpResponseForbidden('Permiso de conexiones requerido.')
+            device = get_object_or_404(_devices(client), pk=_posted_pk(request, 'device'))
+            if not feed.enabled or not feed.token_hash or not feed.qfeeds_preventive:
+                messages.error(request, 'Activa primero la lista del cliente y su lista preventiva de Q-Feeds.')
+                return redirect('blocklist_detail', client_pk=client.pk)
+            plan = create_draft(feed, device, request.user, outbound=action == 'plan_q_out')
+            return redirect('change_detail', pk=plan.pk)
         elif action in ('plan', 'plan_out'):
             if not request.user.has_perm('core.manage_connections'):
                 return HttpResponseForbidden('Permiso de conexiones requerido.')
@@ -933,20 +1008,28 @@ def detail(request, client_pk):
             raise Http404
     feed.refresh_from_db()
     show_url = request.user.has_perm('core.manage_connections')
+    from .qfeeds_distribution import TEMPLATES as Q_TEMPLATES, parse_domains, source_counts
     try:
         parse_allowlist(feed.allowlist)
+        parse_domains(feed.dns_allowlist)
         allowlist_error = ''
     except ValueError as exc:
         allowlist_error = str(exc)
     from .blocklist_efficacy import summary
-    plans = list(ChangePlan.objects.filter(template__in=TEMPLATES, device__site__client=client).select_related('device').order_by('-pk')[:10])
+    plans = list(ChangePlan.objects.filter(template__in=ALL_TEMPLATES, device__site__client=client).select_related('device').order_by('-pk')[:20])
     now = timezone.now()
     warnings = []
     for plan in plans:
         plan.efficacy = summary(plan, now) if plan.status == 'active' else None
-        if plan.efficacy and plan.efficacy['loaded'] == 0 and feed.entries and not feed.stopped:
-            warnings.append(f'{plan.device.name} tiene la regla activa pero su tabla del SOC está vacía: '
+        plan.preventive = plan.template in Q_TEMPLATES
+        published = feed.preventive_count if plan.preventive else len(feed.entries)
+        if plan.efficacy and plan.efficacy['loaded'] == 0 and published and not feed.stopped:
+            warnings.append(f'{plan.device.name} tiene la regla «{plan.title}» activa pero su tabla del SOC está vacía: '
                             'revisa que el firewall descarga la URL de la lista.')
+        elif plan.preventive and plan.efficacy and plan.efficacy['loaded'] and plan.efficacy['loaded'] < published * 0.9:
+            warnings.append(f'{plan.device.name} solo ha cargado {plan.efficacy["loaded"]} de las {published} entradas de la '
+                            'lista preventiva: puede superar el máximo de entradas de tablas del firewall '
+                            '(Firewall › Ajustes › Avanzado). Sube ese máximo o baja el de la lista preventiva.')
     if feed.enabled and feed.generated_at and now - feed.generated_at > FEED_MAX_AGE:
         warnings.append('La lista no se recalcula desde el ' + timezone.localtime(feed.generated_at).strftime('%d/%m %H:%M')
                         + ': se sirve vacía hasta que el trabajo «Listas de bloqueo del SOC» vuelva a funcionar.')
@@ -954,10 +1037,16 @@ def detail(request, client_pk):
         warnings.append('Un firewall sigue usando la URL anterior al cambio de token (última descarga el '
                         + timezone.localtime(feed.previous_token_fetch_at).strftime('%d/%m %H:%M')
                         + '): recibe una lista vacía hasta que se actualice su URL.')
-    if (feed.enabled and any(p.status == 'active' for p in plans)
+    if (feed.enabled and any(p.status == 'active' and not p.preventive for p in plans)
             and (not feed.last_fetch_at or now - feed.last_fetch_at > FETCH_STALE)):
         warnings.append('Hay una regla activa, pero ningún firewall ha descargado la lista en las últimas 2 horas. '
                         'Revisa la conexión del firewall con el SOC.')
+    if (feed.enabled and feed.qfeeds_preventive and any(p.status == 'active' and p.preventive for p in plans)
+            and (not feed.preventive_fetch_at or now - feed.preventive_fetch_at > FETCH_STALE)):
+        warnings.append('Hay una regla preventiva activa, pero ningún firewall ha descargado la lista preventiva en las '
+                        'últimas 2 horas. Revisa la conexión del firewall con el SOC.')
+    if (feed.qfeeds_preventive or feed.qfeeds_dns) and not qfeeds_configured():
+        warnings.append('Q-Feeds no está configurado en el SOC: la lista preventiva y la de dominios se sirven vacías.')
     if feed.include_soc_detections:
         state = WorkerState.objects.filter(name=SOC_STATE).first()
         if state and state.details.get('error'):
@@ -997,4 +1086,8 @@ def detail(request, client_pk):
         'outbound_count': len(feed.outbound_entries),
         'devices': _devices(client), 'plans': plans, 'observation': feed.observation, 'qfeeds_configured': qfeeds_configured(),
         'qfeeds_count': sum(1 for e in feed.entries if e.get('qfeeds_only')),
-        'qfeeds_out_count': sum(1 for e in feed.outbound_entries if e.get('qfeeds_only'))})
+        'qfeeds_out_count': sum(1 for e in feed.outbound_entries if e.get('qfeeds_only')),
+        'sources': source_counts(feed.entries),
+        'url_q': feed_url(feed, kind='preventive') if show_url and feed.enabled and feed.qfeeds_preventive else '',
+        'url_dns': feed_url(feed, kind='dns') if show_url and feed.enabled and feed.qfeeds_dns else '',
+        'preventive_limit': PREVENTIVE_LIMIT_VIEW})

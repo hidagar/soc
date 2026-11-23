@@ -173,7 +173,8 @@ def candidates(device):
     return result
 
 
-NAMES = {'in': 'SOC Bloqueo entrada', 'out': 'SOC Bloqueo salida C2'}
+NAMES = {'in': 'SOC Bloqueo entrada', 'out': 'SOC Bloqueo salida C2', 'qfeeds': 'SOC Bloqueo preventivo Q-Feeds'}
+LABELS = {'in': 'entrada', 'out': 'salida C2', 'qfeeds': 'preventivo Q-Feeds'}
 
 
 def create_list(device, direction):
@@ -199,7 +200,8 @@ def create_list(device, direction):
 
 
 # Zonas del sistema de UniFi por dirección: (origen, destino). La lista va en el lado externo.
-FLOWS = {'in': (('External', 'Internal'), ('External', 'Gateway')), 'out': (('Internal', 'External'),)}
+FLOWS = {'in': (('External', 'Internal'), ('External', 'Gateway')), 'out': (('Internal', 'External'),),
+         'qfeeds': (('External', 'Internal'), ('External', 'Gateway'))}
 
 
 def _data(result):
@@ -234,7 +236,7 @@ def create_policies(binding):
     for source, destination in FLOWS[binding.direction]:
         if source.lower() not in zone_ids or destination.lower() not in zone_ids:
             raise UnifiCloudError(f'No se encuentra la zona «{source}» o «{destination}» en la consola UniFi.')
-        name = f'{PREFIX} Bloqueo {"entrada" if binding.direction == "in" else "salida C2"} {source}→{destination}'
+        name = f'{PREFIX} Bloqueo {LABELS[binding.direction]} {source}→{destination}'
         found = next((p for p in existing if p.get('name') == name), None)
         if not found:
             match = {'type': 'IP_ADDRESS', 'ipAddressFilter': {'type': 'TRAFFIC_MATCHING_LIST', 'matchOpposite': False,
@@ -243,7 +245,7 @@ def create_policies(binding):
                     'action': {'type': 'BLOCK'}, 'loggingEnabled': True, 'ipProtocolScope': scope,
                     'source': {'zoneId': zone_ids[source.lower()]}, 'destination': {'zoneId': zone_ids[destination.lower()]}}
             # La lista va en el extremo externo: origen al entrar, destino al salir.
-            body['source' if binding.direction == 'in' else 'destination']['trafficFilter'] = match
+            body['source' if source == 'External' else 'destination']['trafficFilter'] = match
             call(key, host, f'/v1/sites/{site}/firewall/policies', 'POST', body)
             found = next((p for p in policies(key, host, site) if p.get('name') == name), None)
             if not found:
@@ -426,12 +428,17 @@ def stored_efficacy(binding):
 
 
 def desired(binding, now=None):
-    """IPs que deben estar en la lista UniFi: las que el SOC sirve a ese cliente, solo IPv4 y con tope."""
+    """IPs que deben estar en la lista UniFi: las que el SOC sirve a ese cliente, solo IPv4 y con tope.
+
+    La preventiva de Q-Feeds se recorta a las primeras: las que ya atacaron a algún cliente y las más recientes.
+    """
     from .blocklist import servable
+    from .qfeeds_distribution import servable_preventive
     feed = BlocklistFeed._base_manager.filter(client_id=binding.device.site.client_id).select_related('client').first()
     values = []
     if feed and binding.enabled and binding.device.active:
-        for value in servable(feed, now, outbound=binding.direction == 'out'):
+        served = servable_preventive(feed) if binding.direction == 'qfeeds' else servable(feed, now, outbound=binding.direction == 'out')
+        for value in served:
             if ipaddress.ip_network(value, strict=False).version == 4:
                 values.append(value)
     return sorted(values[:MAX_ITEMS]) or [PLACEHOLDER]

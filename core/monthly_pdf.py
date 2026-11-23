@@ -106,11 +106,19 @@ def render_monthly_pdf(context):
         story.append(p('Bloqueo proactivo del SOC', 'SOCHeading'))
         if proactive.get('inbound'):
             item = proactive['inbound']
+            sources = item.get('sources') or {}
             story.append(p(f"Lista de {item['entries']} direcciones IP maliciosas en {', '.join(item['firewalls'])}."
+                           + (f" De ellas, {sources['crowdsec']} figuran en las listas de CrowdSec y {sources['qfeeds']} en las de Q-Feeds."
+                              if sources.get('qfeeds') else '')
                            + (f" Durante el mes bloqueó {item['packets']} paquetes." if item['measured'] else ' La medición está empezando.')))
         if proactive.get('outbound'):
             item = proactive['outbound']
             story.append(p(f"Bloqueo de salida hacia {item['entries']} destinos asociados a malware o control remoto"
+                           + (f": {item['packets']} paquetes cortados en el mes." if item['measured'] else '.')))
+        if proactive.get('preventive'):
+            item = proactive['preventive']
+            story.append(p(f"Lista preventiva de {item['entries']} direcciones de Q-Feeds, una fuente de inteligencia de amenazas, "
+                           'aunque todavía no hayan atacado a ningún cliente'
                            + (f": {item['packets']} paquetes cortados en el mes." if item['measured'] else '.')))
     story.append(p('Recomendaciones del mes', 'SOCHeading'))
     for index, item in enumerate(context['recommendations'], 1):
