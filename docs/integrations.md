@@ -252,6 +252,48 @@ Se reparte por los mismos medios que el resto de la lista: URL para OPNsense (al
 
 Para que un destino no entre en la lista de ningún cliente, se marca «Sin riesgo» en la revisión de Q-Feeds.
 
+## Antivirus de equipos vía agente Wazuh (23/11/2026)
+
+`core/endpoints.py`, modelos `EndpointAgent` y `EndpointDetection` (migración 0084). La página está en «Cobertura y salud › Antivirus de equipos». PC y servidores Windows de los clientes con el agente Wazuh: el SOC recoge los avisos de **Microsoft Defender**, no instala otro antivirus.
+
+**Entrada.** Los eventos de agentes que no pertenecen a un firewall llegan por la lectura habitual de `alerts.json` (`operations.ingest_events`).
+- Un agente desconocido aparece en «Agentes sin asignar».
+- El SOC lo asigna a un cliente, y opcionalmente a una sede, también por lotes. Hace falta acceso global y el permiso de conexiones.
+- Solo desde ese momento se le atribuyen eventos; los anteriores no cuentan para nadie (invariante 2).
+- Retirarlo cierra el registro; si el identificador vuelve, es un registro nuevo.
+
+**Eventos de Defender** (canal `Microsoft-Windows-Windows Defender/Operational`; reglas oficiales de Wazuh 4.x 62100-62599):
+
+| Eventos | Qué se hace |
+|---|---|
+| 1116, 1006, 1015 | Detección. |
+| 1117, 1007 | Acción tomada: «contenida» si es cuarentena, eliminación o limpieza; «permitida» si es «Allow». |
+| 1118, 1119, 1008 | El antivirus no pudo actuar. |
+| 1151 | Informe de salud: protección en tiempo real, antigüedad de las firmas y del último análisis rápido. Necesita la regla propia `deploy/wazuh/soc_defender_rules.xml` (111200), porque la oficial le da nivel 2 y no llega a `alerts.json`. |
+| 5000, 5001, 5010, 5012 | Protección en tiempo real activada o desactivada, y análisis desactivado. |
+| 2001, 2003, 2004 | Fallo al actualizar firmas o motor. |
+
+La detección y su acción se unen por el identificador de detección de Defender. Sin acción confirmada queda «detectada» (invariante 4). Un resultado peor («permitida», «no pudo actuar») devuelve a la cola una detección ya revisada.
+
+**Estado de cada equipo.** Los equipos asignados aparecen como:
+- **Protegido;**
+- **Sin protección en tiempo real;**
+- **Firmas antiguas:** más de 3 días, o fallo de actualización en 2 días;
+- **Sin informar:** más de 72 horas sin eventos; un PC apagado el fin de semana aparece así;
+- **Sin datos del antivirus:** todavía sin eventos de Defender o sin informe de salud reciente.
+
+**Revisión.** Las detecciones se marcan «Revisada» o se abre una incidencia interna (crítica si se permitió o no se pudo actuar). Se ven también:
+- en la bandeja («Malware en equipos de clientes»);
+- en el menú, con contador, en rojo si hay alguna urgente;
+- en la ficha del cliente («Antivirus de equipos»).
+
+El cliente no ve nada de esto salvo lo que el SOC publique de una incidencia.
+
+**Límites:**
+- Solo `alerts.json`: la recuperación desde el indexador (`reconcile_security`) no incluye estos eventos.
+- Las rutas y usuarios de las detecciones son datos internos.
+- En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus».
+
 ## Reputación propia del SOC (observación)
 
 `core/soc_reputation.py` y la página «Detección e investigación → Reputación propia». Requiere el permiso `manage_operations` y **acceso a todos los clientes**, porque resume ataques a varios de ellos. El SOC usa las detecciones de todos sus clientes para formar su propia lista de IPs atacantes. Esta fase es solo de **observación**: no bloquea ni distribuye nada.

@@ -7,6 +7,7 @@ from . import client_services
 from . import chat_alerts
 from . import vulnerabilities
 from . import customer_requests
+from . import endpoints
 from . import request_attachments
 from . import policy_views
 from . import global_search
@@ -83,6 +84,7 @@ urlpatterns = [
     path('cliente/solicitudes/<int:pk>/',customer_requests.customer_detail,name='customer_request_detail'),
     path('cliente/solicitudes/<int:pk>/adjuntos/<int:attachment>/',request_attachments.customer_download,name='customer_request_attachment'),
     path('operations/requests/',customer_requests.soc_list,name='requests'),
+    path('operations/equipos/',endpoints.overview,name='endpoints'),
     path('operations/policies/',policy_views.overview,name='policies'),
     path('search/',global_search.results,name='search'),
     path('clients/<int:pk>/actividad/',client_timeline.timeline,name='client_timeline'),

@@ -65,6 +65,7 @@ def _staff_groups(user, global_access):
             _item("Cobertura por red", "network_coverage", ["device_coverage", "network_requirements",
                   "advanced_coverage"]),
             _item("Vulnerabilidades", "vulnerabilities"),
+            _item("Antivirus de equipos", "endpoints"),
             _item("Políticas propuestas", "policies"),
             _item("Control de exposición", "exposure_list", ["exposure_detail", "exposure_interfaces",
                   "exposure_recheck", "unifi_policies"]),
@@ -110,10 +111,13 @@ def badges():
                                               device__active=True)
     policies = PolicyProposal.objects.filter(status__in=("proposed", "approved", "not_effective"))
     from .threat_intel import review_queue
+    from .endpoints import badge as endpoint_badge
     destinations = review_queue()
     return {
         # Destinos salientes de las listas de Q-Feeds por revisar; urgente si alguno tuvo tráfico permitido.
         "crowdsec_overview": (len(destinations), any(m.allowed for m in destinations)),
+        # Detecciones del antivirus de los equipos por revisar; urgente si alguna se permitió o no se pudo contener.
+        "endpoints": endpoint_badge(),
         "requests": (requests.count(), requests.filter(urgent=True).exists()),
         "vulnerabilities": (exposures.values("device").distinct().count(), exposures.filter(record__kev_added__isnull=False).exists()),
         "policies": (policies.count(), policies.filter(status="approved").exists()),
@@ -139,6 +143,7 @@ def build_navigation(request, global_access):
             counts = badges()
             if not user.has_perm("core.manage_operations"):
                 counts.pop("crowdsec_overview", None)  # solo quien puede revisarlos
+                counts.pop("endpoints", None)
         except Exception:  # el menú no puede romper una página
             import logging
             logging.getLogger(__name__).exception("No se pudieron calcular los contadores del menú")

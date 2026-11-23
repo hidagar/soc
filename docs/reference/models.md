@@ -149,6 +149,59 @@ Fuente: [core/connectivity_models.py](../../core/connectivity_models.py).
 | `kind` | CharField | max_length=16 |
 | `observed_at` | DateTimeField | db_index=True |
 | `event_key` | CharField | max_length=64; unique=True |
+## EndpointAgent
+
+Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `agent_id` | CharField | max_length=16; db_index=True |
+| `name` | CharField | max_length=120 |
+| `ip` | GenericIPAddressField | null=True; blank=True |
+| `status` | CharField | max_length=10; db_index=True |
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE; null=True; blank=True |
+| `site` | ForeignKey | → 'core.Site'; on_delete=models.SET_NULL; null=True; blank=True |
+| `assigned_at` | DateTimeField | null=True; blank=True |
+| `assigned_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `retired_at` | DateTimeField | null=True; blank=True |
+| `first_seen_at` | DateTimeField |  |
+| `last_seen_at` | DateTimeField |  |
+| `defender_seen_at` | DateTimeField | null=True; blank=True |
+| `health_at` | DateTimeField | null=True; blank=True |
+| `realtime_enabled` | BooleanField | null=True; blank=True |
+| `realtime_changed_at` | DateTimeField | null=True; blank=True |
+| `scanning_disabled_at` | DateTimeField | null=True; blank=True |
+| `signature_age_days` | PositiveIntegerField | null=True; blank=True |
+| `signature_version` | CharField | max_length=40; blank=True |
+| `quick_scan_age_days` | PositiveIntegerField | null=True; blank=True |
+| `update_failed_at` | DateTimeField | null=True; blank=True |
+## EndpointDetection
+
+Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
+
+Ámbito declarado: `'client_scope_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `agent` | ForeignKey | → EndpointAgent; on_delete=models.CASCADE |
+| `client_scope_id` | PositiveBigIntegerField | db_index=True |
+| `detection_key` | CharField | max_length=80 |
+| `observed_at` | DateTimeField | db_index=True |
+| `updated_at` | DateTimeField |  |
+| `threat` | CharField | max_length=200 |
+| `severity` | CharField | max_length=40; blank=True |
+| `category` | CharField | max_length=80; blank=True |
+| `action` | CharField | max_length=12 |
+| `action_name` | CharField | max_length=80; blank=True |
+| `path` | CharField | max_length=400; blank=True |
+| `process` | CharField | max_length=260; blank=True |
+| `user` | CharField | max_length=120; blank=True |
+| `review` | CharField | max_length=10; db_index=True |
+| `reviewed_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `reviewed_at` | DateTimeField | null=True; blank=True |
+| `incident` | ForeignKey | → 'core.Incident'; on_delete=models.SET_NULL; null=True; blank=True |
 ## RunbookStep
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

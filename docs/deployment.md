@@ -108,6 +108,20 @@ Sin esas rutas, el portal responde «Not Found» (su 404) a `/wazuh/…`. Así o
 
 Si ClamAV deja de responder con adjuntos esperando más de 15 minutos, o sus firmas tienen más de 3 días, aparece «Antivirus de adjuntos» en «Salud del SOC». Otro socket se indica con `SOC_PORTAL_CLAMD_SOCKET`.
 
+## Antivirus de equipos: agentes Wazuh con Microsoft Defender
+
+En el gestor de Wazuh del SOC:
+1. `sudo deploy/wazuh/configurar_defender.sh --reglas`: instala la regla del informe de salud de Defender y reinicia `wazuh-manager` solo si `wazuh-analysisd -t` la acepta; si no, deja todo como estaba.
+2. `sudo deploy/wazuh/configurar_defender.sh --grupo CODIGO`, por cliente (el código del portal): crea el grupo de agentes `soc-CODIGO` con su `agent.conf` (canal de Defender, plantilla `deploy/wazuh/agente_defender.conf.example`) y muestra el comando de instalación del agente.
+
+En cada equipo Windows del cliente se instala el agente con `WAZUH_AGENT_GROUP="soc-CODIGO"`. El agente debe alcanzar el gestor del SOC (puertos 1514 y 1515):
+- **Preferible:** por la VPN de la sede con el SOC;
+- **Alternativa:** una publicación limitada a las IP de las sedes.
+
+Si el gestor exige contraseña de alta, se pasa con `WAZUH_REGISTRATION_PASSWORD`; no se copia en el chat ni en el repositorio.
+
+Después, en el portal, «Antivirus de equipos › Agentes sin asignar»: marcar los equipos y asignarlos al cliente. El grupo de Wazuh no asigna nada por sí solo. `--ver` muestra si la regla y los grupos están aplicados.
+
 ## Reversión
 
 Detener escritores/timers y servicios nuevos antes de restaurar código/unidades y base compatible. Retirar archivos nuevos ausentes en versión anterior; no dejar migraciones importándose contra un esquema restaurado. Recargar systemd, regenerar estáticos y arrancar componentes previstos.

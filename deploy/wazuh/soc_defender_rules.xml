@@ -1,0 +1,13 @@
+<!-- Antivirus de equipos (agente Wazuh + Microsoft Defender).
+     Las reglas oficiales de Wazuh 4.x (0600-win-wdefender_rules.xml, 62100-62599) ya generan alertas de
+     detección (1116/1006), acciones (1117), fallos (1118/1119), protección en tiempo real (5000/5001) y
+     fallos de actualización (2001/2003/2004). El informe de salud periódico (1151, regla 62129) tiene
+     nivel 2 y no llega a alerts.json: esta regla lo sube a nivel 3 para que el SOC lea el estado del
+     antivirus (protección en tiempo real, antigüedad de las firmas, último análisis). -->
+<group name="windows,windows_defender,soc_defender,">
+  <rule id="111200" level="3">
+    <if_sid>62129</if_sid>
+    <description>Windows Defender: informe de salud del cliente de protección (SOC)</description>
+    <options>no_full_log</options>
+  </rule>
+</group>

@@ -18,6 +18,7 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 | Activar Q-Feeds en la lista de bloqueo de los clientes | Q-Feeds, 20/11 | Las listas que ya existían la tienen desmarcada. Empezar por un cliente piloto (Pollença): marcar «IPs en listas de Q-Feeds», revisar «Q-Feeds en esta lista» y extender al resto. La lista de salida con Q-Feeds es opcional. |
 | Confirmar los plazos de conservación de los registros operativos | Mantenimiento, 20/11 | Propuestos: avisos por chat 1 año, caídas de Internet 400 días, solicitudes resueltas 2 años, propuestas «Ya no aplica» 180 días, consultas de Q-Feeds 90 días. [Operación](operations.md#conservación-de-datos). |
 | Instalar ClamAV en la VM: `sudo deploy/configurar_antivirus.sh` | Antivirus, 23/11 | Necesita unos 1,5 GB de memoria libre y salida a `database.clamav.net`. Hasta entonces los adjuntos quedan «sin analizar». [Despliegue](deployment.md#antivirus-de-los-adjuntos-clamav). |
+| Antivirus de equipos: preparar Wazuh y los primeros agentes | Antivirus de equipos, 23/11 | `sudo deploy/wazuh/configurar_defender.sh --reglas` y `--grupo CODIGO` por cliente. Decidir cómo llegan los agentes al gestor (VPN de la sede o publicación limitada). Instalar el agente en un equipo propio primero y asignarlo en el portal. [Despliegue](deployment.md#antivirus-de-equipos-agentes-wazuh-con-microsoft-defender). |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -100,6 +101,11 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 
 **Valor para el cliente**
 - Hecho el 13/11: el informe mensual incluye vulnerabilidades, solicitudes y cambios.
+
+### Antivirus de equipos
+- Mostrar al cliente en su portal el estado del antivirus de sus equipos (decidir qué se publica).
+- Avisos urgentes por detecciones «permitidas» o «sin poder actuar», como los de los firewalls.
+- Incluir los eventos de Defender en la recuperación desde el indexador.
 
 ### Ideas propuestas sin empezar
 - Evidencias para NIS2/ENS.

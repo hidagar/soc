@@ -151,6 +151,7 @@ def ingest_events(events, now=None):
     owners, conflicts = source_map()
     OperationalIssue.objects.filter(key__endswith=':source-conflict',active=True).exclude(device__in=conflicts).update(active=False,resolved_at=now,checked_at=now)
     accepted = 0
+    endpoint_cache = {}  # agentes de PC y servidores vistos en este lote (antivirus de equipos)
     for device in conflicts:
         set_issue(f'device:{device.pk}:source-conflict','IP de origen compartida: atribución suspendida',device, severity='critical',now=now)
     for source in events:
@@ -170,11 +171,14 @@ def ingest_events(events, now=None):
             if agent and agent != '000':
                 candidates = list(Device.objects.filter(active=True,log_method='wazuh_agent',wazuh_identifier=agent)[:2])
                 device = candidates[0] if len(candidates) == 1 else None
-        if device is None:
-            continue
         try: stamp = parse_datetime(str(source.get('timestamp') or ''))
         except (ValueError,OverflowError): continue
         if stamp is None or timezone.is_naive(stamp) or stamp > now+timedelta(minutes=5) or stamp < now-timedelta(days=90):
+            continue
+        if device is None:
+            # Agente de un PC o servidor de cliente (no de un firewall): inventario y antivirus de equipos.
+            from .endpoints import observe as observe_endpoint
+            observe_endpoint(source,stamp,now,endpoint_cache)
             continue
         from .source_ownership import owns_at
         if ip(source.get('location')) in owners and not owns_at(ip(source.get('location')),device.site.client_id,stamp):

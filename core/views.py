@@ -289,12 +289,13 @@ def client_detail(request, pk):
     from .models import BlocklistFeed
     evidence = evidence_queryset(client, 7, "", "all")
     from .client_services import ClientServicesForm, can_invite, device_rows, portal_users, status
+    from .endpoints import client_summary as endpoint_summary
     devices = Device.objects.filter(site__client=client).select_related('site', 'health', 'onboarding', 'export_configuration').order_by('site__name', '-active', 'name')
     return render(request, "client_detail.html", {
         "services_form": ClientServicesForm(instance=client), "status": status(client), "service_devices": device_rows(devices),
         "portal_users": portal_users(client), "can_invite": can_invite(request.user),
         "index_latest": client.security_scores.filter(score__isnull=False).first(),
-        "client": client,
+        "client": client, "endpoints": endpoint_summary(client),
         "evidence": {"total": evidence.count(), "allowed": evidence.filter(action="allowed").count()},
         "open_tasks": CustomerTask.objects.filter(incident__client=client, status__in=("pending", "rework", "submitted")).count(),
         "replies": CustomerTask.objects.filter(incident__client=client, status="submitted").count(),

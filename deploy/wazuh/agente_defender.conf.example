@@ -1,0 +1,9 @@
+<!-- Configuración compartida del grupo de agentes de un cliente (/var/ossec/etc/shared/soc-CODIGO/agent.conf).
+     Hace que los agentes de Windows lean el canal de Microsoft Defender, que no viene en su configuración
+     por defecto. La genera deploy/wazuh/configurar_defender.sh con la opción de grupo y el código del cliente. -->
+<agent_config os="Windows">
+  <localfile>
+    <location>Microsoft-Windows-Windows Defender/Operational</location>
+    <log_format>eventchannel</log_format>
+  </localfile>
+</agent_config>
