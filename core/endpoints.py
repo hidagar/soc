@@ -409,7 +409,11 @@ def portal_summary(client, now=None):
     recent = EndpointDetection.objects.filter(client_scope_id=client.pk, observed_at__gte=now - timedelta(days=30)).count()
     protected = sum(1 for d in devices if d['code'] == 'protected')
     attention = sum(1 for d in devices if d['code'] in ('unprotected', 'outdated'))
-    return {'total': len(devices), 'protected': protected, 'attention': attention, 'recent_detections': recent}
+    # Malware que el antivirus permitió o no pudo contener y que el SOC aún no ha revisado.
+    unresolved = EndpointDetection.objects.filter(client_scope_id=client.pk, review='pending',
+                                                  action__in=('allowed', 'failed')).count()
+    return {'total': len(devices), 'protected': protected, 'attention': attention, 'recent_detections': recent,
+            'unresolved_malware': unresolved}
 
 
 def customer_context(client, preview=False, now=None):

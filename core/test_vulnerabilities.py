@@ -174,7 +174,7 @@ class ExposureTests(TestCase):
         StaffAccess.objects.create(user=customer, role='customer').clients.add(self.company)
         self.client.force_login(customer)
         home = self.client.get(reverse('customer_home'))
-        self.assertContains(home, 'Vulnerabilidades pendientes')
+        self.assertContains(home, 'Actualizar un firewall con vulnerabilidades')
         page_ = self.client.get(reverse('customer_vulnerabilities'))
         self.assertContains(page_, 'CVE-2026-44194')
         self.assertContains(page_, 'Actualizamos el martes')

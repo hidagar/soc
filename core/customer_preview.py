@@ -107,6 +107,14 @@ def firewalls(request, pk):
 @login_required
 @never_cache
 @require_GET
+def help_page(request, pk):
+    client = preview_client(request, pk, 'ayuda')
+    return _render(request, 'customer_help.html', _portal_base(client, True, 'help'))
+
+
+@login_required
+@never_cache
+@require_GET
 def endpoints(request, pk):
     from .endpoints import customer_context
     client = preview_client(request, pk, 'equipos')

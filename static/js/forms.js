@@ -28,6 +28,36 @@
     input.setCustomValidity(message);
     if (message) input.reportValidity();
   });
+  // Menú del portal en el móvil: si la página actual queda fuera, se desliza hasta ella.
+  document.addEventListener('DOMContentLoaded', function () {
+    var nav = document.querySelector('.customer-nav'), current = nav && nav.querySelector('[aria-current=page]');
+    if (nav && current && nav.scrollWidth > nav.clientWidth) {
+      nav.scrollLeft = current.offsetLeft - (nav.clientWidth - current.offsetWidth) / 2;
+    }
+  });
+  // Tablas en el móvil: cada fila pasa a ser una tarjeta con el nombre de cada columna, como las tablas
+  // «stacked» (el estilo solo actúa en pantallas estrechas). La primera columna hace de título.
+  // Una tabla puede quedarse como tabla con data-table-keep en su contenedor.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.table-wrap:not(.stacked):not([data-table-keep])').forEach(function (wrap) {
+      var table = wrap.querySelector('table');
+      if (!table || !table.tHead || !table.tHead.rows.length) return;
+      var heads = Array.prototype.map.call(table.tHead.rows[0].cells, function (th) { return th.textContent.trim(); });
+      if (heads.length < 3) return;
+      Array.prototype.forEach.call(table.tBodies, function (body) {
+        Array.prototype.forEach.call(body.rows, function (row) {
+          var index = 0;
+          Array.prototype.forEach.call(row.cells, function (cell) {
+            if (index > 0 && cell.colSpan === 1 && heads[index] && !cell.hasAttribute('data-label')) {
+              cell.setAttribute('data-label', heads[index]);
+            }
+            index += cell.colSpan || 1;
+          });
+        });
+      });
+      wrap.classList.add('stacked');
+    });
+  });
   window.addEventListener('pageshow', function () {
     document.querySelectorAll('button[aria-busy]').forEach(function (button) { button.removeAttribute('aria-busy'); });
     document.querySelectorAll('form[data-sending]').forEach(function (form) { delete form.dataset.sending; });

@@ -51,6 +51,21 @@ Reglas que deben mantenerse al añadir páginas:
 
 Límites: no se ha probado con un lector de pantalla real ni con usuarios; el JavaScript no tiene pruebas unitarias; los textos de 10,5 px del mapa son intencionados (vista de presentación).
 
+## Portal del cliente: de un vistazo (23/11/2026)
+
+El portal lo usan personas sin perfil técnico. Reglas al añadir o cambiar páginas del portal:
+- **El inicio responde primero a dos preguntas:** ¿está todo bien? y ¿tengo que hacer algo?
+  - El bloque «Estado de vuestra seguridad» (`service_development.portal_attention`) dice «Todo en orden» o lista cada cosa pendiente con su enlace: actuaciones, cambios propuestos, solicitudes que esperan respuesta, malware sin eliminar, antivirus sin protección, vulnerabilidades e índice bajo.
+  - Algo nuevo que pida acción al cliente se añade ahí, no como una tarjeta suelta.
+  - Solo con datos que el portal ya publica (invariante 3).
+- **Cifras con frase:** las cifras se acompañan de una frase en lenguaje llano («vuestros firewalls registraron 50 intentos y bloquearon 35»). Un indicador a cero que no aporta («sin saber si se bloquearon») no se muestra.
+- **Ayuda:** «Ayuda» (`/cliente/ayuda/`) explica qué hace el SOC, qué hay en cada página y un glosario. Un término nuevo de cara al cliente se añade al glosario.
+- **Móvil:**
+  - el menú del portal es una línea que se desliza y se centra en la página actual;
+  - toda tabla dentro de `.table-wrap` se convierte en tarjetas en pantallas estrechas (`static/js/forms.js`, con el nombre de cada columna);
+  - una tabla que deba seguir como tabla lleva `data-table-keep` en su contenedor.
+- **Celdas vacías:** solo se ocultan en el móvil; en escritorio descolocaban las columnas de las tablas apiladas.
+
 ## Revisión visual
 
 Login/MFA, lista/detalle, wizard, mapa normal/presentación/sin datos/atrasado, móvil, impresión/PDF y correo según alcance. Documentar qué se comprobó realmente; esta documentación no acredita una nueva revisión visual completa.

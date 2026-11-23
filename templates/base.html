@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Centro SOC{% endblock %} · ib-red empresas</title>
-  <link rel="stylesheet" href="{% static 'css/portal.css' %}?v=20261115-plazos"><link rel="stylesheet" href="{% static 'css/ui.css' %}?v=20261120-adjuntos">
+  <link rel="stylesheet" href="{% static 'css/portal.css' %}?v=20261115-plazos"><link rel="stylesheet" href="{% static 'css/ui.css' %}?v=20261123-portal">
 </head>
 <body>
 {% if user.is_authenticated %}
@@ -38,7 +38,7 @@
   </main>
 </div>
 {% else %}{% block guest %}{% endblock %}{% endif %}
-<script src="{% static 'js/forms.js' %}?v=20261120-adjuntos" defer></script>
+<script src="{% static 'js/forms.js' %}?v=20261123-portal" defer></script>
 {% if user.is_authenticated %}<script src="{% static 'js/sidebar.js' %}?v=20261116-ux" defer></script>{% endif %}
 </body>
 </html>

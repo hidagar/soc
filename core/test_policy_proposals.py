@@ -115,7 +115,7 @@ class PolicyProposalTests(TestCase):
         self.assertContains(portal, 'Limitar el acceso remoto')
         self.assertNotContains(portal, '10.0.0.20')
         self.assertNotContains(portal, 'RDP contabilidad')
-        self.assertContains(self.client.get(reverse('customer_home')), 'pendiente de vuestra decisión')
+        self.assertContains(self.client.get(reverse('customer_home')), 'Decidir sobre un cambio de seguridad propuesto')
         session = self.client.session
         session['soc_mfa_at'] = 0
         session.save()

@@ -13,6 +13,7 @@ from django.http import HttpResponseForbidden, HttpResponse, Http404,JsonRespons
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.cache import never_cache
 from .models import (Client, Device, DeviceObservation, CustomerPublication, SecurityEvidence,
     Incident, IncidentAction, CustomerTask, WeeklyReport, FeedBucket, StaffAccess, ChangePlan)
 from .security import audit
@@ -176,12 +177,44 @@ def customer_home_context(client,preview=False):
     from .customer_requests import open_summary
     from .policy_views import pending_count
     from .endpoints import portal_summary as endpoint_portal_summary
-    return {**_portal_base(client,preview,'home'),'pending_policies':pending_count(client),'open_vulnerabilities':open_count(client),'request_summary':open_summary(client),'index_latest':latest,'connectivity':last_days(client),'security_summary':customer_security_summary(client) if live else None,
+    context={**_portal_base(client,preview,'home'),'pending_policies':pending_count(client),'open_vulnerabilities':open_count(client),'request_summary':open_summary(client),'index_latest':latest,'connectivity':last_days(client),'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
         'endpoint_status':endpoint_portal_summary(client) if client.customer_endpoints_enabled else None,
         'tasks':tasks,'tasks_to_do':[t for t in tasks if t.status in ('pending','rework')],
         'publications':news[:6],'publication_count':news.count(),
         'reports':reports[:3],'report_count':len(reports)}
+    context['attention_items']=portal_attention(context)
+    return context
+
+def portal_attention(context):
+    """Lo que espera al cliente, en una lista con el texto y el enlace de cada cosa (inicio del portal).
+
+    Solo usa datos que el portal ya muestra (invariante 3): actuaciones, cambios propuestos, solicitudes,
+    antivirus de los equipos, vulnerabilidades e índice de seguridad.
+    """
+    links=context['portal'];items=[]
+    def add(count,one,many,detail,url,tone='warn'):
+        if count:items.append({'count':count,'title':one if count==1 else many.format(n=count),'detail':detail,'url':url,'tone':tone})
+    tasks=context['tasks_to_do']
+    add(len(tasks),'Responder a una actuación del SOC','Responder a {n} actuaciones del SOC',
+        'El equipo de seguridad os ha pedido algo concreto.',links['home']+'#actuaciones',
+        'alert' if any(t.status=='rework' for t in tasks) else 'warn')
+    add(context['pending_policies'],'Decidir sobre un cambio de seguridad propuesto','Decidir sobre {n} cambios de seguridad propuestos',
+        'No se aplica nada sin vuestra aprobación.',links['policies'])
+    add(context['request_summary']['waiting'],'Contestar al SOC en una solicitud','Contestar al SOC en {n} solicitudes',
+        'Necesitan vuestra respuesta para continuar.',links['requests'])
+    endpoints=context.get('endpoint_status') or {}
+    add(endpoints.get('unresolved_malware',0),'Revisar un equipo con malware sin eliminar','Revisar {n} equipos con malware sin eliminar',
+        'El antivirus no pudo eliminarlo o se permitió: seguid los pasos del aviso urgente.',links['endpoints'],'alert')
+    add(endpoints.get('attention',0),'Revisar el antivirus de un equipo','Revisar el antivirus de {n} equipos',
+        'Protección desactivada o sin actualizar.',links['endpoints'])
+    add(context['open_vulnerabilities'],'Actualizar un firewall con vulnerabilidades','Actualizar {n} firewalls con vulnerabilidades',
+        'El SOC os ha avisado de fallos de seguridad en su versión.',links['vulnerabilities'],'info')
+    index=context.get('index_latest')
+    if index and index.level not in ('good','fair'):
+        items.append({'count':index.score,'title':'Mejorar el índice de seguridad','detail':'Está por debajo de lo recomendable: mirad qué resta.',
+                      'url':links['index'],'tone':'info'})
+    return items
 
 def portal_monthly(client,preview=False):
     """Informes mensuales publicados; en la vista previa del SOC, sin enlaces (no se abren desde el portal simulado)."""
@@ -445,3 +478,11 @@ def monthly_pdf(context):
         canvas.restoreState()
     buffer=BytesIO();SimpleDocTemplate(buffer,pagesize=A4,rightMargin=48,leftMargin=48,topMargin=48,bottomMargin=48).build(body,onFirstPage=footer,onLaterPages=footer)
     return buffer.getvalue()
+
+
+@login_required
+@never_cache
+def customer_help(request):
+    """Ayuda del portal: qué hace el SOC, qué hay en cada página y qué significa cada término."""
+    client=customer_client(request)
+    return render(request,'customer_help.html',_portal_base(client,False,'help'))

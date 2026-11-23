@@ -55,6 +55,12 @@ Recibe invitación para establecer contraseña. La cuenta pertenece exactamente 
 - El cliente los aprueba o los rechaza con su código de doble factor, y puede dejar un comentario (por ejemplo, la IP de su proveedor).
 - Nada se aplica sin su aprobación, y el historial muestra si se aplicaron y comprobaron.
 
+**Inicio del portal:** arriba, «Estado de vuestra seguridad»:
+- dice si todo está en orden o qué necesita atención (actuaciones, cambios por decidir, solicitudes que esperan respuesta, malware sin eliminar, equipos sin protección, firewalls por actualizar), con un enlace a cada cosa;
+- incluye un botón para pedir algo al SOC.
+
+«Ayuda» explica qué hace el SOC, qué hay en cada página y qué significa cada término.
+
 **Solicitudes al SOC** (portal › «Solicitudes»):
 - Elige qué necesita: consulta, cambio en el firewall o la red, desbloquear algo o sospecha de incidente. Después indica el asunto, la sede (opcional), el detalle y si afecta al trabajo ahora.
 - Sigue la conversación y recibe un correo, sin el texto, cuando el SOC responde.

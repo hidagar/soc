@@ -196,8 +196,9 @@ button[aria-busy=true],.button[aria-busy=true]{opacity:.65;cursor:progress;point
 /* Casillas y radios: toda la etiqueta es zona de toque */
 label:has(>input[type=checkbox]),label:has(>input[type=radio]){display:inline-flex;align-items:center;gap:8px;min-height:32px;cursor:pointer}
 input[type=checkbox],input[type=radio]{width:18px;height:18px;accent-color:#0B612D;flex-shrink:0}
-/* Tablas apiladas: una celda vacía no deja una etiqueta suelta */
-.stacked td:empty{display:none}
+/* Tablas apiladas (solo en el móvil): una celda vacía no deja una etiqueta suelta. En escritorio no se oculta:
+   descolocaría las columnas. */
+@media(max-width:700px){.stacked td:empty{display:none}}
 /* Textos mínimos legibles */
 .steps li,.steps span,.wizard-steps li,.wizard-steps span,ol.progress li,ol.progress span{font-size:11.5px}
 @media(max-width:700px){
@@ -235,3 +236,35 @@ td[data-label="Revisión"]{min-width:150px}
 label.attachments{display:block;margin:10px 0}
 label.attachments input[type=file]{padding:8px}
 label.attachments small{display:block;color:#566779;margin-top:4px}
+
+/* Portal del cliente: estado de un vistazo, ayuda y menú en el móvil */
+.status-hero{border-left:6px solid #176647}
+.status-hero.status-warn{border-left-color:#c77b2a}
+.status-head{display:flex;gap:16px;align-items:flex-start}
+.status-head h2{margin:2px 0 6px;font-size:21px}
+.status-mark{flex:0 0 auto;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-size:24px;font-weight:800;background:#e4f6ef;color:#176647}
+.status-warn .status-mark{background:#fff0df;color:#8a4b08}
+.status-hero .attention{margin:16px 0 4px}
+.status-hero .actions{margin-top:16px}
+.attention .info .count{background:#e8f1fb;color:#376b9f}
+.attention .go{margin-left:auto;font-weight:700;color:#0B612D;white-space:nowrap}
+.help-urgent{border-left:6px solid #b33642;background:#fffafa}
+.help-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.help-list{margin:0;padding-left:20px;display:grid;gap:8px;line-height:1.55}
+.help-terms{margin:0;display:grid;grid-template-columns:minmax(140px,auto) 1fr;gap:10px 18px;line-height:1.55}
+.help-terms dt{font-weight:700}
+.help-terms dd{margin:0;color:#3b4d5c}
+.help-columns{grid-template-columns:minmax(170px,auto) 1fr}
+@media(max-width:900px){.help-grid{grid-template-columns:1fr}}
+@media(max-width:700px){
+  .help-terms,.help-columns{grid-template-columns:1fr;gap:2px}
+  .help-terms dd{margin-bottom:10px}
+  /* Menú del portal en una línea que se desliza, en vez de cuatro filas de enlaces. */
+  .customer-nav{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .customer-nav::-webkit-scrollbar{display:none}
+  .customer-nav a,.customer-nav form,.customer-nav .pill{flex:0 0 auto;scroll-snap-align:start}
+  .status-head{gap:12px}
+  .status-mark{width:38px;height:38px;font-size:20px}
+  .attention .go{display:none}
+}
+.plain-summary{font-size:15px;line-height:1.6;background:white;border:1px solid #e3e9ee;border-radius:12px;padding:14px 18px;margin:0 0 20px}
