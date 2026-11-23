@@ -97,6 +97,17 @@ Sin esas rutas, el portal responde «Not Found» (su 404) a `/wazuh/…`. Así o
   - `--ver` muestra qué bloques las incluyen.
 - **Instalación nueva:** copiar `deploy/nginx/soc-wazuh-rutas.conf.example` a `/etc/nginx/snippets/soc-wazuh-rutas.conf`, poner el valor de `SOC_WAZUH_PROXY_KEY` y dejar el archivo con permisos 0600. El bloque que genera `install.sh` ya lo incluye si existe.
 
+## Antivirus de los adjuntos (ClamAV)
+
+`sudo deploy/configurar_antivirus.sh`:
+1. Comprueba la memoria libre; `clamd` necesita unos 1,5 GB.
+2. Instala `clamav-daemon` y `clamav-freshclam` y espera a la primera descarga de firmas. Necesita salida a `database.clamav.net`.
+3. Arranca el demonio y prueba que detecta el archivo de prueba EICAR por el socket que usa el portal (`/run/clamav/clamd.ctl`).
+
+`--ver` muestra servicios, socket y fecha de las firmas; `--probar` repite la prueba EICAR. El trabajo «Antivirus de adjuntos» (cada minuto) empieza a analizar solo, también los adjuntos anteriores. No hace falta reiniciar el portal ni tocar Nginx.
+
+Si ClamAV deja de responder con adjuntos esperando más de 15 minutos, o sus firmas tienen más de 3 días, aparece «Antivirus de adjuntos» en «Salud del SOC». Otro socket se indica con `SOC_PORTAL_CLAMD_SOCKET`.
+
 ## Reversión
 
 Detener escritores/timers y servicios nuevos antes de restaurar código/unidades y base compatible. Retirar archivos nuevos ausentes en versión anterior; no dejar migraciones importándose contra un esquema restaurado. Recargar systemd, regenerar estáticos y arrancar componentes previstos.

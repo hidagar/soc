@@ -77,8 +77,11 @@ class CustomerRequestAttachment(models.Model):
 
     Se guarda cifrado en la base (bóveda del SOC) y se borra con su mensaje y su solicitud. Hereda la
     visibilidad del mensaje: el adjunto de una nota interna no lo ve nunca el cliente (invariante 3).
-    No se analiza con un antivirus: el SOC lo abre con precaución.
+    El trabajo `attachment_scan` lo analiza con ClamAV (ver `core/antivirus.py`); con una amenaza, el cliente
+    no puede descargarlo y el SOC solo como muestra, confirmándolo.
     """
+    SCAN = [('pending', 'En análisis'), ('clean', 'Sin amenazas'), ('infected', 'Amenaza detectada'),
+            ('unscanned', 'Sin analizar: antivirus no instalado')]
     entry = models.ForeignKey(CustomerRequestEntry, on_delete=models.CASCADE, related_name='attachments')
     name = models.CharField(max_length=160)
     content_type = models.CharField(max_length=80)
@@ -87,6 +90,10 @@ class CustomerRequestAttachment(models.Model):
     encrypted_data = models.BinaryField(editable=False)
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
     created_at = models.DateTimeField(default=timezone.now)
+    scan_status = models.CharField(max_length=12, choices=SCAN, default='pending', db_index=True)
+    scan_result = models.CharField(max_length=200, blank=True)  # firma detectada (ClamAV)
+    scan_engine = models.CharField(max_length=120, blank=True)  # versión y base de firmas usadas
+    scanned_at = models.DateTimeField(null=True, blank=True)
     objects = ScopedManager()
     customer_lookup = 'entry__request__client_id'
 

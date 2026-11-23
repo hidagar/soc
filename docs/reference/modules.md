@@ -11,6 +11,7 @@ La descripción procede del docstring cuando existe. Los nombres de símbolos ay
 | [core/admin.py](../../core/admin.py) | `ClientAdmin`, `SiteAdmin`, `DeviceAdmin`, `IncidentAdmin`, `WeeklyReportAdmin` |
 | [core/advanced_coverage.py](../../core/advanced_coverage.py) | Readonly capabilities, with complete paginated reads and explicit gaps. — `collect_unifi`, `snapshot` |
 | [core/advanced_views.py](../../core/advanced_views.py) | `revision`, `ReviewForm`, `advanced` |
+| [core/antivirus.py](../../core/antivirus.py) | Antivirus de los adjuntos de las solicitudes: ClamAV (`clamd`) en la propia VM, por su socket local. — `AntivirusError`, `socket_path`, `configured`, `version`, `signatures_date`, `scan`, `scan_pending` |
 | [core/apps.py](../../core/apps.py) | `CoreConfig` |
 | [core/asn.py](../../core/asn.py) | Local ASN lookups. Only the root worker downloads the public monthly dataset. — `database_path`, `values`, `database_stamp`, `lookup`, `update_database` |
 | [core/asset_context.py](../../core/asset_context.py) | Current configuration context, never proof of historical NAT or infection. — `address`, `port`, `flow_projection`, `digest`, `interface_projection`, `xml_flag`, `network_specs`, `port_specs`, `endpoint`, `configuration_projection`, `collect`, `refresh`, `refresh_due`, `contains`, … (ver archivo) |

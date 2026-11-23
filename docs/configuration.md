@@ -48,6 +48,7 @@ Los servicios leen el entorno, normalmente mediante `EnvironmentFile=/etc/soc-po
 | SOC_PORTAL_QFEEDS_KEY | Clave de API del portal de Q-Feeds | Opcional; activa la inteligencia Q-Feeds (descarga de listas, sin enviar IPs). Secreto: solo en el archivo protegido. Ver [integraciones](integrations.md#inteligencia-q-feeds-fase-1). |
 | SOC_PORTAL_QFEEDS_FEEDS | Listas separadas por comas | Opcional; por defecto `malware_ip,malware_domains`. Solo se descargan las incluidas en la licencia. |
 | SOC_PORTAL_ATTACHMENTS_MAX_MB | Número (MB) | Tamaño total de los adjuntos de un mensaje de una solicitud; 1,8 por defecto, para caber en `client_max_body_size 2m` de Nginx. Subirlo exige subir también ese límite en los dos bloques del portal. |
+| SOC_PORTAL_CLAMD_SOCKET | Ruta | Socket de `clamd` para analizar los adjuntos; por defecto `/run/clamav/clamd.ctl`. Si se indica y no responde, se avisa en «Salud del SOC». [Despliegue](deployment.md#antivirus-de-los-adjuntos-clamav). |
 | SOC_PORTAL_CROWDSEC_AUTO_SUBSCRIBE | Entero (0–50) | Listas que el SOC puede suscribir por su cuenta; 0 = solo recomendar. |
 | SOC_PORTAL_CROWDSEC_CTI_PER_RUN | Entero (1–20) | Consultas CTI por ejecución del trabajo, cada 15 minutos (2 por defecto). Subirlo solo si CrowdSec no responde 429. |
 | SOC_PORTAL_CROWDSEC_MONTHLY_LIMIT | Entero | Cupo CTI mensual del plan; vacío o 0 = sin tope mensual propio (solo el diario). |

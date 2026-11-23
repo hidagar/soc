@@ -16,6 +16,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_ALLOWED_HOSTS` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PORTAL_ATTACHMENTS_MAX_MB` | [core/request_attachments.py](../../core/request_attachments.py) |
 | `SOC_PORTAL_AUDIT_ANCHOR_EMAIL` | [core/audit_anchor.py](../../core/audit_anchor.py) |
+| `SOC_PORTAL_CLAMD_SOCKET` | [core/antivirus.py](../../core/antivirus.py) |
 | `SOC_PORTAL_CROWDSEC_CTI_PER_RUN` | [core/reputation.py](../../core/reputation.py) |
 | `SOC_PORTAL_CROWDSEC_DAILY_LIMIT` | [core/reputation.py](../../core/reputation.py) |
 | `SOC_PORTAL_CROWDSEC_ENGINE_ID` | [core/crowdsec_catalog.py](../../core/crowdsec_catalog.py) |

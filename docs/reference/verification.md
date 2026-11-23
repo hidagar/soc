@@ -11,6 +11,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_access_onboarding.py](../../core/test_access_onboarding.py) | 20 |
 | [core/test_action_tracking.py](../../core/test_action_tracking.py) | 8 |
 | [core/test_advanced_expansion.py](../../core/test_advanced_expansion.py) | 6 |
+| [core/test_antivirus.py](../../core/test_antivirus.py) | 5 |
 | [core/test_asn.py](../../core/test_asn.py) | 5 |
 | [core/test_asset_context.py](../../core/test_asset_context.py) | 15 |
 | [core/test_audit_anchor.py](../../core/test_audit_anchor.py) | 9 |
@@ -211,3 +212,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0080_qfeeds_como_crowdsec.py](../../core/migrations/0080_qfeeds_como_crowdsec.py)
 - [core/migrations/0081_recordatorio_politicas.py](../../core/migrations/0081_recordatorio_politicas.py)
 - [core/migrations/0082_adjuntos_solicitudes.py](../../core/migrations/0082_adjuntos_solicitudes.py)
+- [core/migrations/0083_antivirus_adjuntos.py](../../core/migrations/0083_antivirus_adjuntos.py)

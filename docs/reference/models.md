@@ -1379,6 +1379,10 @@ Fuente: [core/request_models.py](../../core/request_models.py).
 | `encrypted_data` | BinaryField |  |
 | `uploaded_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True |
 | `created_at` | DateTimeField |  |
+| `scan_status` | CharField | max_length=12; db_index=True |
+| `scan_result` | CharField | max_length=200; blank=True |
+| `scan_engine` | CharField | max_length=120; blank=True |
+| `scanned_at` | DateTimeField | null=True; blank=True |
 ## SecurityScore
 
 Fuente: [core/score_models.py](../../core/score_models.py).

@@ -29,6 +29,7 @@ JOBS={
     'crowdsec_lists':(300,'Listas de CrowdSec'),
     'blocklist_efficacy':(3600,'Eficacia de las reglas de bloqueo'),
     'threat_intel':(900,'Inteligencia Q-Feeds'),
+    'attachment_scan':(60,'Antivirus de adjuntos'),
     'qfeeds_lookup':(60,'Consultas de contexto Q-Feeds'),
     'soc_reputation':(3600,'Reputación propia del SOC'),
     'security_score':(3600,'Índice de seguridad'),
@@ -168,6 +169,9 @@ def execute(name):
     if name=='crowdsec_lists':
         from .crowdsec_catalog import refresh as refresh_lists
         return refresh_lists()
+    if name=='attachment_scan':
+        from .antivirus import scan_pending
+        return scan_pending()
     if name=='qfeeds_lookup':
         from .threat_intel import process_lookups
         return process_lookups()

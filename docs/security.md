@@ -69,7 +69,7 @@ Adjuntos de las solicitudes (`core/request_attachments.py`):
 - **Almacenamiento:** cifrados en la base con la bóveda del SOC; se borran con su solicitud.
 - **Visibilidad:** heredan la del mensaje; el cliente no puede descargar los de una nota interna, ni siquiera conociendo su número (invariante 3).
 - **Descarga:** siempre como archivo (`application/octet-stream`, `attachment`, `nosniff`, CSP `sandbox`, sin caché). Las del SOC quedan en la auditoría.
-- **Sin antivirus:** pendiente de integrar ClamAV en la VM.
+- **Antivirus:** ClamAV en la propia VM (`core/antivirus.py`, trabajo `attachment_scan`). El archivo descifrado va al socket local de `clamd`; no sale del servidor. Con una amenaza, el cliente no puede descargarlo (403), el SOC solo como muestra (`?muestra=1`, con confirmación y auditoría), y se añade una nota interna en la solicitud. Sin ClamAV instalado, los adjuntos quedan «sin analizar» y se analizan cuando lo esté. «Sin amenazas» no garantiza que un archivo sea inofensivo.
 
 Vuelta tras el MFA: al pedir el código, la sesión guarda a dónde volver (la página pedida o, tras una acción, la página desde la que se envió, según `Referer`). Solo se aceptan rutas del propio portal del mismo host, nunca las de MFA, login o logout; un cliente solo vuelve a `/cliente/`. Las acciones no se repiten solas.
 

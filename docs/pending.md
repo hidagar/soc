@@ -17,6 +17,7 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 | Contratar el plan de pago de Q-Feeds para el SOC (plan A) | Q-Feeds, 20/11 | Q-Feeds confirmó el 20/11 que el uso central cabe en el plan normal. Antes de elegir entre Plus y Premium: mirar «Evolución» unos días y probar Premium 7 días (cambiando `SOC_PORTAL_QFEEDS_KEY`). Tras contratar, añadir a `SOC_PORTAL_QFEEDS_FEEDS` las listas nuevas que muestre «Listas que ofrece tu licencia». |
 | Activar Q-Feeds en la lista de bloqueo de los clientes | Q-Feeds, 20/11 | Las listas que ya existían la tienen desmarcada. Empezar por un cliente piloto (Pollença): marcar «IPs en listas de Q-Feeds», revisar «Q-Feeds en esta lista» y extender al resto. La lista de salida con Q-Feeds es opcional. |
 | Confirmar los plazos de conservación de los registros operativos | Mantenimiento, 20/11 | Propuestos: avisos por chat 1 año, caídas de Internet 400 días, solicitudes resueltas 2 años, propuestas «Ya no aplica» 180 días, consultas de Q-Feeds 90 días. [Operación](operations.md#conservación-de-datos). |
+| Instalar ClamAV en la VM: `sudo deploy/configurar_antivirus.sh` | Antivirus, 23/11 | Necesita unos 1,5 GB de memoria libre y salida a `database.clamav.net`. Hasta entonces los adjuntos quedan «sin analizar». [Despliegue](deployment.md#antivirus-de-los-adjuntos-clamav). |
 | «Correo de operaciones» activo en «Copias y recuperación» | 11/11 | Para recibir las solicitudes y las decisiones de los clientes. |
 | Comprobar si algún equipo usa firma SSH `ssh-rsa` (SHA-1) antes de subir `paramiko` a 5.x | Auditoría 11/11 | Las páginas de conexión SSH y de copias SFTP lo avisan al obtener la huella. Si ninguno lo usa, la subida es segura. |
 | Ejecutar `sudo deploy/configurar_registros.sh` | Auditoría 29/10 | Registros de Nginx y gunicorn sin URL secretas. [Despliegue](deployment.md#registros-sin-secretos-de-url). |
@@ -49,7 +50,7 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 
 ### Solicitudes de clientes
 - Hecho el 13/11: plazos de primera respuesta y resolución, con horario laboral. Faltan plazos propios por cliente.
-- Hecho el 20/11: adjuntos en las solicitudes. Falta analizarlos con un antivirus (ClamAV en la VM) antes de que el SOC los descargue.
+- Hecho el 20/11: adjuntos en las solicitudes. Hecho el 23/11: análisis con ClamAV en la VM.
 
 ### Vulnerabilidades
 - UniFi Network Application, si se obtiene su versión.

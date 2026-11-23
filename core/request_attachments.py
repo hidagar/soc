@@ -8,7 +8,8 @@
 - Se guardan cifrados en la base con la bóveda del SOC y se borran con su solicitud (conservación).
 - La descarga siempre es un archivo (nunca se abre en el navegador), con la cabecera del tipo genérico,
   `nosniff` y sin caché. El cliente solo descarga los de su solicitud y nunca los de notas internas.
-- No hay antivirus: el SOC los abre con precaución, en un equipo de análisis si el cliente sospecha.
+- Antivirus: ClamAV los analiza en segundo plano (`core/antivirus.py`). Con una amenaza, el cliente no puede
+  descargarlo y el SOC solo como muestra, confirmándolo (queda en la auditoría).
 """
 import hashlib
 import os
@@ -17,7 +18,7 @@ import unicodedata
 from urllib.parse import quote
 
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
@@ -137,6 +138,8 @@ def customer_download(request, pk, attachment):
                              entry__request_id=pk, entry__request__client=client)
     if item.entry.kind == 'internal':
         raise Http404  # invariante 3: lo interno no existe para el cliente
+    if item.scan_status == 'infected':
+        return HttpResponseForbidden('El antivirus ha bloqueado este archivo. El equipo SOC ya está avisado.')
     return _download(item)
 
 
@@ -146,5 +149,10 @@ def customer_download(request, pk, attachment):
 def soc_download(request, pk, attachment):
     item = get_object_or_404(CustomerRequestAttachment.objects.select_related('entry__request'), pk=attachment,
                              entry__request_id=pk)
+    if item.scan_status == 'infected':
+        if request.GET.get('muestra') != '1':
+            return HttpResponseForbidden('Archivo con malware: descárgalo solo como muestra, desde el enlace de la conversación.')
+        audit('request.attachment_download', item.entry.request, {'count': 1, 'reason': 'muestra con malware'})
+        return _download(item)
     audit('request.attachment_download', item.entry.request, {'count': 1})
     return _download(item)

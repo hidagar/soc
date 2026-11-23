@@ -85,7 +85,7 @@ class RequestAttachmentTests(TestCase):
         shared = CustomerRequestAttachment.objects.get(name='guia.pdf')
         page = self.client.get(reverse('request_detail', args=[req.pk]))
         self.assertContains(page, 'analisis.pdf')
-        self.assertContains(page, 'no pasan por un antivirus')
+        self.assertContains(page, 'ClamAV analiza los adjuntos')
         self.assertEqual(self.client.get(reverse('request_attachment', args=[req.pk, internal.pk])).content, PDF)
         self.assertTrue(AuditEvent.objects.filter(action='request.attachment_download').exists())
         self.client.force_login(self.customer)
