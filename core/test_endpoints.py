@@ -299,3 +299,81 @@ class EndpointUrgentAlertTests(TestCase):
                       self.now + timedelta(hours=3))
         [urgent] = self.alerts()
         self.assertEqual(urgent.status, 'expired')
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
+class EndpointReconciliationTests(TestCase):
+    """Recuperación de eventos de Defender desde el indexador (invariante 5 y sin duplicados)."""
+
+    def setUp(self):
+        from .models import WorkerState
+        self.now = timezone.now()
+        self.company = Client.objects.create(name='Talleres Ejemplo', code='te', urgent_alerts_enabled=True,
+                                             urgent_email='it@te.test')
+        ingest_events([alert('1150', stamp=self.now - timedelta(hours=5), ident='seed')], self.now)
+        EndpointAgent.objects.update(status='assigned', client=self.company, assigned_at=self.now - timedelta(hours=4))
+        self.state = lambda: WorkerState.objects.filter(name=endpoints.RECONCILE_STATE).first()
+
+    def hit(self, event_id, eventdata=None, minutes=30, ident='x', agent='003'):
+        source = alert(event_id, eventdata, agent=agent, stamp=self.now - timedelta(minutes=minutes), ident=ident)
+        return {'_index': 'wazuh-alerts-4.x-2026.11.23', '_id': ident, '_source': source,
+                'sort': [source['timestamp'], ident, 'wazuh-alerts-4.x-2026.11.23']}
+
+    def run_with(self, *responses, **kwargs):
+        from unittest import mock
+        replies = list(responses)
+        with mock.patch('core.reporting.indexer_authorization', return_value='Basic x'), \
+                mock.patch('core.reporting._search', side_effect=lambda body, auth: replies.pop(0)) as search:
+            count = endpoints.reconcile(self.now, **kwargs)
+        return count, search
+
+    @staticmethod
+    def page(*hits):
+        return {'timed_out': False, '_shards': {'failed': 0}, 'hits': {'hits': list(hits)}}
+
+    def test_missing_detection_and_its_alert_are_recovered_once(self):
+        from .models import UrgentAlert
+        page = self.page(self.hit('1116', detected(), ident='a'), self.hit('1118', detected(), minutes=29, ident='b'))
+        count, search = self.run_with(page)
+        body = search.call_args.args[0]
+        self.assertIn({'term': {'data.win.system.channel': endpoints.CHANNEL}}, body['query']['bool']['filter'])
+        self.assertEqual(count, 2)
+        row = EndpointDetection.objects.get()
+        self.assertEqual(row.action, 'failed')
+        self.assertIn('completed_until', self.state().details)
+        self.assertEqual(UrgentAlert.objects.get().status, 'pending')  # 29 min: todavía a tiempo
+        # La siguiente ventana vuelve a ver los mismos eventos por el solape: nada se duplica.
+        EndpointAgent.objects.update(name='PC-CONTA-01')
+        self.run_with(page)
+        self.assertEqual((EndpointDetection.objects.count(), UrgentAlert.objects.count()), (1, 1))
+
+    def test_incomplete_answer_keeps_the_cursor_and_raises_an_issue(self):
+        from .models import OperationalIssue
+        self.run_with(self.page())
+        before = dict(self.state().details)
+        broken = {'timed_out': True, '_shards': {'failed': 0}, 'hits': {'hits': [self.hit('1116', detected())]}}
+        self.run_with(broken)
+        self.assertEqual(self.state().details, before)  # invariante 5
+        self.assertFalse(EndpointDetection.objects.exists())
+        self.assertTrue(OperationalIssue.objects.filter(key=endpoints.RECONCILE_ISSUE, active=True).exists())
+        self.run_with(self.page())
+        self.assertFalse(OperationalIssue.objects.filter(key=endpoints.RECONCILE_ISSUE, active=True).exists())
+
+    def test_pages_resume_with_a_stable_cursor(self):
+        first = self.page(self.hit('1116', detected(), ident='a'))
+        second = self.page()
+        self.run_with(first, second, page_size=1)
+        self.assertEqual(EndpointDetection.objects.count(), 1)
+        self.assertIn('completed_until', self.state().details)
+
+    def test_firewall_agents_are_left_to_the_firewall_reconciliation(self):
+        site = Site.objects.create(client=self.company, name='Palma', code='palma')
+        Device.objects.create(site=site, name='FW', vendor='opnsense', log_method='wazuh_agent', wazuh_identifier='007')
+        self.run_with(self.page(self.hit('1116', detected(), agent='007')))
+        self.assertFalse(EndpointAgent.objects.filter(agent_id='007').exists())
+
+    def test_a_late_old_event_does_not_undo_a_newer_state(self):
+        self.run_with(self.page(self.hit('5000', minutes=10, ident='on'), self.hit('5010', minutes=60, ident='old-off')))
+        agent = EndpointAgent.objects.get()
+        self.assertTrue(agent.realtime_enabled)
+        self.assertIsNone(agent.scanning_disabled_at)

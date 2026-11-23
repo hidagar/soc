@@ -295,7 +295,12 @@ El cliente recibe un aviso urgente cuando una detección queda «permitida» o e
 Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el usuario.
 
 **Límites:**
-- Solo `alerts.json`: la recuperación desde el indexador (`reconcile_security`) no incluye estos eventos.
+- **Recuperación desde el indexador** (trabajo `endpoint_reconciliation`, cada 5 minutos): recupera los eventos de Defender que no llegaron por `alerts.json` (rotación, parada del lector).
+  - Ventana fija con 10 minutos de solape y cursor propio; la primera vez, las últimas 24 horas.
+  - Con una respuesta incompleta del indexador no avanza el cursor (invariante 5) y abre `platform:endpoint-reconciliation` en «Salud del SOC».
+  - Procesar dos veces un evento no duplica nada, y un evento antiguo no pisa un estado posterior.
+  - Un aviso urgente de algo que llega con más de 2 horas queda caducado, sin enviarse.
+  - Los agentes de firewalls quedan para la recuperación de los firewalls.
 - Las rutas y usuarios de las detecciones son datos internos.
 - En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus».
 

@@ -50,7 +50,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_durable_operations.py](../../core/test_durable_operations.py) | 22 |
 | [core/test_email_auth.py](../../core/test_email_auth.py) | 6 |
 | [core/test_endpoint_portal.py](../../core/test_endpoint_portal.py) | 4 |
-| [core/test_endpoints.py](../../core/test_endpoints.py) | 16 |
+| [core/test_endpoints.py](../../core/test_endpoints.py) | 21 |
 | [core/test_event_contract.py](../../core/test_event_contract.py) | 16 |
 | [core/test_exposure.py](../../core/test_exposure.py) | 13 |
 | [core/test_exposure_context.py](../../core/test_exposure_context.py) | 8 |

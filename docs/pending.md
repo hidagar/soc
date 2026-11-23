@@ -105,7 +105,7 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 ### Antivirus de equipos
 - Hecho el 23/11: estado del antivirus en el portal del cliente (opción por cliente).
 - Hecho el 23/11: avisos urgentes al cliente por detecciones «permitidas» o «sin poder actuar».
-- Incluir los eventos de Defender en la recuperación desde el indexador.
+- Hecho el 23/11: recuperación de los eventos de Defender desde el indexador.
 
 ### Ideas propuestas sin empezar
 - Evidencias para NIS2/ENS.

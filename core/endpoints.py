@@ -169,9 +169,13 @@ def _defender(endpoint, event_id, fields, stamp, now, source):
         if event_id == RTP_ON:
             updates['scanning_disabled_at'] = None
     elif event_id in SCAN_OFF:
-        updates['scanning_disabled_at'] = stamp
+        # Un evento antiguo que llega tarde (recuperación) no pisa una reactivación posterior.
+        if (not endpoint.realtime_changed_at or stamp >= endpoint.realtime_changed_at) and (
+                not endpoint.scanning_disabled_at or stamp > endpoint.scanning_disabled_at):
+            updates['scanning_disabled_at'] = stamp
     elif event_id in UPDATE_FAILED:
-        updates['update_failed_at'] = stamp
+        if not endpoint.update_failed_at or stamp > endpoint.update_failed_at:
+            updates['update_failed_at'] = stamp
     elif event_id in DETECTED | ACTED | FAILED:
         _detection(endpoint, event_id, fields, stamp, now, source)
     if updates:
@@ -434,3 +438,88 @@ def customer_view(request):
     if not client.customer_endpoints_enabled:
         raise Http404
     return render(request, 'customer_endpoints.html', customer_context(client))
+
+
+
+# --- Recuperación desde el indexador -----------------------------------------------------------
+
+RECONCILE_STATE = 'endpoint-reconciliation'
+RECONCILE_ISSUE = 'platform:endpoint-reconciliation'
+USEFUL_EVENTS = sorted(DETECTED | ACTED | FAILED | SCAN_OFF | UPDATE_FAILED | {HEALTH, RTP_ON, RTP_OFF})
+
+
+def reconcile(now=None, pages=3, page_size=200, initial_days=1):
+    """Trabajo `endpoint_reconciliation`: recupera del indexador los eventos de Defender que no llegaron por
+    `alerts.json` (rotación, parada del lector). Ventana fija con 10 minutos de solape y cursor propio.
+
+    Invariante 5: con una respuesta incompleta del indexador no se avanza el cursor. Volver a procesar un
+    evento ya visto no duplica nada (detecciones por identificador, estado por fecha, avisos por detección;
+    un aviso de algo antiguo queda caducado sin enviarse).
+    """
+    import json
+    from django.db.models import F
+    from django.utils.dateparse import parse_datetime
+    from .indexer_results import complete
+    from .models import Device, OperationalIssue, WorkerState
+    from .operations import set_issue
+    from .reporting import _search, indexer_authorization
+    now = now or timezone.now()
+    state, _ = WorkerState.objects.get_or_create(name=RECONCILE_STATE)
+    state.last_run_at = now
+    state.save(update_fields=['last_run_at'])
+    details = dict(state.details)
+    if not details.get('end'):
+        previous = parse_datetime(details.get('completed_until', ''))
+        start = (previous - timedelta(minutes=10)) if previous else now - timedelta(days=initial_days)
+        start = max(start, now - timedelta(days=90))
+        details = {'start': start.isoformat(), 'end': (now - timedelta(minutes=1)).isoformat()}
+    firewall_agents = set(Device.objects.filter(log_method='wazuh_agent').exclude(wazuh_identifier='')
+                          .values_list('wazuh_identifier', flat=True))
+    recovered = 0
+    try:
+        authorization = indexer_authorization()
+        for _ in range(pages):
+            body = {'size': page_size, 'track_total_hits': False,
+                    'query': {'bool': {'filter': [
+                        {'term': {'data.win.system.channel': CHANNEL}},
+                        {'terms': {'data.win.system.eventID': USEFUL_EVENTS}},
+                        {'range': {'timestamp': {'gte': details['start'], 'lt': details['end']}}}],
+                        'must_not': [{'term': {'agent.id': '000'}}]}},
+                    'sort': [{'timestamp': 'asc'}, {'id': {'order': 'asc', 'unmapped_type': 'keyword'}}, {'_index': 'asc'}],
+                    '_source': ['id', 'timestamp', 'agent', 'rule', 'data']}
+            if details.get('after'):
+                body['search_after'] = details['after']
+            result = complete(_search(body, authorization))
+            hits = result.get('hits', {}).get('hits')
+            if not isinstance(hits, list) or any(not isinstance(h, dict) or not isinstance(h.get('_source'), dict) for h in hits):
+                raise ValueError('Respuesta del indexador incompleta.')
+            if hits and (not all(h['_source'].get('id') for h in hits) or len(hits[-1].get('sort') or []) != 3):
+                raise ValueError('Falta una identidad estable para reanudar.')
+            with transaction.atomic():
+                WorkerState.objects.filter(pk=state.pk).update(offset=F('offset'))  # reserva el escritor (SQLite)
+                cache = {}
+                for hit in hits:
+                    source = hit['_source']
+                    agent = source.get('agent') if isinstance(source.get('agent'), dict) else {}
+                    if str(agent.get('id') or '') in firewall_agents:
+                        continue  # agente de un firewall: lo trata la recuperación de los firewalls
+                    stamp = parse_datetime(str(source.get('timestamp') or ''))
+                    if stamp is None or timezone.is_naive(stamp) or stamp > now + timedelta(minutes=5):
+                        continue
+                    recovered += int(observe(source, stamp, now, cache))
+                if len(hits) < page_size:
+                    details = {'completed_until': details['end']}
+                    state.last_success_at = now
+                else:
+                    details['after'] = hits[-1]['sort']
+                state.details = json.loads(json.dumps(details))
+                state.error = ''
+                state.save()
+            if 'completed_until' in details:
+                break
+        OperationalIssue.objects.filter(key=RECONCILE_ISSUE, active=True).update(active=False, resolved_at=now)
+    except Exception:
+        state.error = 'No terminó la recuperación de los eventos del antivirus. Revisar el acceso al indexador; el cursor se conserva.'
+        state.save(update_fields=['error'])
+        set_issue(RECONCILE_ISSUE, 'Recuperación del antivirus de equipos pendiente', details=state.error, now=now)
+    return recovered
