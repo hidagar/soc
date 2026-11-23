@@ -287,7 +287,7 @@ La detección y su acción se unen por el identificador de detección de Defende
 - en el menú, con contador, en rojo si hay alguna urgente;
 - en la ficha del cliente («Antivirus de equipos»).
 
-El cliente no ve nada de esto salvo lo que el SOC publique de una incidencia.
+El cliente recibe un aviso urgente cuando una detección queda «permitida» o el antivirus «no pudo actuar», si tiene los avisos urgentes activos ([correo y avisos](reports-and-mail.md#avisos-urgentes-del-antivirus-de-los-equipos)). Fuera de eso solo ve lo que el SOC publique de una incidencia.
 
 **Límites:**
 - Solo `alerts.json`: la recuperación desde el indexador (`reconcile_security`) no incluye estos eventos.

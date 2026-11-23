@@ -232,3 +232,70 @@ class EndpointRetentionTests(TestCase):
         self.assertFalse(EndpointAgent.objects.filter(pk__in=[stale.pk, retired.pk]).exists())
         self.assertEqual(list(EndpointDetection.objects.values_list('pk', flat=True)), [pending.pk])
         self.assertFalse(EndpointDetection.objects.filter(pk=old.pk).exists())
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
+class EndpointUrgentAlertTests(TestCase):
+    """Aviso urgente al cliente cuando una detección queda permitida o el antivirus no pudo actuar."""
+
+    def setUp(self):
+        self.now = timezone.now()
+        self.company = Client.objects.create(name='Talleres Ejemplo', code='te', urgent_alerts_enabled=True,
+                                             urgent_email='it@te.test')
+        self.site = Site.objects.create(client=self.company, name='Palma', code='palma')
+        ingest_events([alert('1150', stamp=self.now - timedelta(minutes=5), ident='seed')], self.now)
+        EndpointAgent.objects.update(status='assigned', client=self.company, site=self.site,
+                                     assigned_at=self.now - timedelta(minutes=1))
+
+    def alerts(self):
+        from .models import UrgentAlert
+        return list(UrgentAlert.objects.all())
+
+    def test_contained_detections_do_not_alert_but_failed_ones_do_once(self):
+        ingest_events([alert('1116', detected(), ident='a'),
+                       alert('1117', detected(actionName='Quarantine'), ident='b', stamp=self.now + timedelta(seconds=3))],
+                      self.now)
+        self.assertEqual(self.alerts(), [])
+        other = detected(**{'detection ID': '{AAAA}'})
+        ingest_events([alert('1116', other, ident='c'), alert('1118', other, ident='d', stamp=self.now + timedelta(seconds=5)),
+                       alert('1119', other, ident='e', stamp=self.now + timedelta(seconds=8))], self.now)
+        [urgent] = self.alerts()
+        self.assertEqual((urgent.kind, urgent.action, urgent.asset_name, urgent.site_name, urgent.signature, urgent.status),
+                         ('endpoint_malware', 'failed', 'PC-CONTA-01', 'Palma', 'Trojan:Win32/Wacatac.B!ml', 'pending'))
+        self.assertEqual(urgent.source_ip, '10.0.0.25')
+        self.assertNotIn('Downloads', str(urgent.interpretation))  # sin la ruta del archivo
+        self.assertNotIn('ana', str(urgent.interpretation))  # ni el usuario
+
+    def test_allowed_by_the_user_alerts_and_the_message_explains_it(self):
+        from unittest import mock
+        from . import chat_alerts
+        from .models import MailSettings
+        from .urgent_alerts import deliver_pending
+        ingest_events([alert('1117', detected(actionName='Allow'), ident='a')], self.now)
+        [urgent] = self.alerts()
+        self.assertEqual(urgent.action, 'allowed')
+        MailSettings.objects.update_or_create(pk=1, defaults={'enabled': True, 'last_test_ok': True})
+        with mock.patch('core.urgent_alerts.send_customer_email', return_value='m1') as send:
+            self.assertEqual(deliver_pending(self.now), 1)
+        subject, plain, html = send.call_args.args[1:4]
+        self.assertIn('PC-CONTA-01', subject)
+        self.assertIn('Malware permitido en un equipo', plain)
+        self.assertIn('Resultado del antivirus: permitida', plain)
+        self.assertIn('Amenaza: Trojan:Win32/Wacatac.B!ml', plain)
+        self.assertNotIn('Acción del firewall', plain + html)
+        self.assertNotIn('Downloads', plain + html)
+        text = chat_alerts.telegram_text(urgent)
+        self.assertIn('Resultado del antivirus: permitida', text)
+        self.assertIn('Amenaza: Trojan:Win32/Wacatac.B!ml', text)
+
+    def test_no_alert_without_urgent_alerts_or_before_the_assignment(self):
+        Client.objects.filter(pk=self.company.pk).update(urgent_alerts_enabled=False)
+        ingest_events([alert('1118', detected(), ident='a')], self.now)
+        self.assertEqual(self.alerts(), [])
+        self.assertEqual(EndpointDetection.objects.count(), 1)  # el SOC la ve igual en su cola
+
+    def test_late_events_are_recorded_as_expired(self):
+        ingest_events([alert('1118', detected(), ident='a', stamp=self.now)],
+                      self.now + timedelta(hours=3))
+        [urgent] = self.alerts()
+        self.assertEqual(urgent.status, 'expired')

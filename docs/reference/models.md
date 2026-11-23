@@ -632,7 +632,7 @@ Fuente: [core/models.py](../../core/models.py).
 | `status` | CharField | max_length=16; db_index=True |
 | `observed_at` | DateTimeField |  |
 | `created_at` | DateTimeField |  |
-| `source_ip` | GenericIPAddressField |  |
+| `source_ip` | GenericIPAddressField | null=True; blank=True |
 | `external_ip` | GenericIPAddressField | null=True; blank=True |
 | `destination_ip` | GenericIPAddressField | null=True; blank=True |
 | `destination_port` | CharField | max_length=16; blank=True |

@@ -104,7 +104,7 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 
 ### Antivirus de equipos
 - Mostrar al cliente en su portal el estado del antivirus de sus equipos (decidir qué se publica).
-- Avisos urgentes por detecciones «permitidas» o «sin poder actuar», como los de los firewalls.
+- Hecho el 23/11: avisos urgentes al cliente por detecciones «permitidas» o «sin poder actuar».
 - Incluir los eventos de Defender en la recuperación desde el indexador.
 
 ### Ideas propuestas sin empezar

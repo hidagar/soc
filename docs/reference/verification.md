@@ -49,7 +49,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_device_mac.py](../../core/test_device_mac.py) | 7 |
 | [core/test_durable_operations.py](../../core/test_durable_operations.py) | 22 |
 | [core/test_email_auth.py](../../core/test_email_auth.py) | 6 |
-| [core/test_endpoints.py](../../core/test_endpoints.py) | 12 |
+| [core/test_endpoints.py](../../core/test_endpoints.py) | 16 |
 | [core/test_event_contract.py](../../core/test_event_contract.py) | 16 |
 | [core/test_exposure.py](../../core/test_exposure.py) | 13 |
 | [core/test_exposure_context.py](../../core/test_exposure_context.py) | 8 |
@@ -215,3 +215,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0082_adjuntos_solicitudes.py](../../core/migrations/0082_adjuntos_solicitudes.py)
 - [core/migrations/0083_antivirus_adjuntos.py](../../core/migrations/0083_antivirus_adjuntos.py)
 - [core/migrations/0084_antivirus_equipos.py](../../core/migrations/0084_antivirus_equipos.py)
+- [core/migrations/0085_aviso_urgente_equipos.py](../../core/migrations/0085_aviso_urgente_equipos.py)

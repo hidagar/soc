@@ -41,6 +41,13 @@ Desde el 13/11/2026 el informe mensual añade la sección «Trabajo del SOC con 
 
 Solo cuenta lo que el cliente ya ve en su portal (invariante 3): avisos publicados, sus propias solicitudes y los cambios ofrecidos. La sección se congela con la versión publicada; los informes anteriores no cambian.
 
+### Avisos urgentes del antivirus de los equipos
+
+Tipo «Malware en un equipo» (`endpoint_malware`). Se crea al llegar el evento de Defender cuando una detección queda **permitida** (por el usuario o por una exclusión) o el antivirus **no pudo actuar**. Solo se crea si el equipo está asignado al cliente y el cliente tiene activados los avisos urgentes. Ver [antivirus de equipos](integrations.md#antivirus-de-equipos-vía-agente-wazuh-23112026).
+- **Envío:** sale por correo y por Teams o Telegram como los de los firewalls: agrupación de repetidos en 1 hora, caducidad a las 2 horas, sin reenvío si la entrega es dudosa (invariante 6) y acuse del SOC en «Avisos urgentes».
+- **Qué lleva:** equipo, sede, hora, amenaza, gravedad de Defender y resultado del antivirus, con pasos para el cliente. **No** lleva la ruta del archivo, el proceso ni el usuario, que siguen siendo datos internos del SOC.
+- **Cuántos:** como mucho uno por detección. Las detecciones contenidas (cuarentena, eliminación) no generan aviso; se revisan en la cola del SOC.
+
 ### Avisos urgentes por Teams y Telegram
 
 Los avisos urgentes pueden llegar también a un canal de Microsoft Teams o a un grupo de Telegram del cliente (`core/chat_alerts.py`). El correo sigue saliendo igual; el chat es una copia con el mismo contenido (`urgent_alerts.content`): qué ha pasado, equipo, origen, acción del firewall y qué hacer. Las URL del registro se desactivan (`hxxp://`) y los corchetes se cambian para que no haya enlaces pulsables.

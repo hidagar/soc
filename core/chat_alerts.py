@@ -136,9 +136,9 @@ def facts(alert, info):
     if alert.external_ip:
         rows.append(('Origen observado', alert.external_ip))
     if alert.signature:
-        rows.append(('Registro', alert.signature))
+        rows.append((info.get('signature_title', 'Registro'), alert.signature))
     if alert.action:
-        rows.append(('Acción del firewall', info['action_label']))
+        rows.append((info.get('action_title', 'Acción del firewall'), info['action_label']))
     return [(k, _defang(v)) for k, v in rows]
 
 

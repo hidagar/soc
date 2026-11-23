@@ -244,6 +244,21 @@ def content(alert):
             "Comprobar qué línea WAN se interrumpió y si entró la conexión de respaldo.",
             "Si hubo impacto o se repite, abrir incidencia con el operador y registrar la duración.",
         ]
+    elif alert.kind == UrgentAlert.Kind.ENDPOINT_MALWARE:
+        allowed = alert.action == "allowed"
+        headline = "Malware permitido en un equipo" if allowed else "Malware que el antivirus no ha podido contener"
+        meaning = ("Microsoft Defender detectó software malicioso en el equipo y "
+                   + ("se permitió (por decisión del usuario o por una exclusión). " if allowed
+                      else "no pudo ponerlo en cuarentena ni eliminarlo. ")
+                   + "El archivo puede seguir en el equipo. Esto no confirma que se haya ejecutado ni que el equipo esté comprometido.")
+        actions = [
+            "Desconectar el equipo de la red (cable y wifi) si no se puede comprobar ahora, sin apagarlo.",
+            "No volver a abrir el archivo ni permitirlo en el antivirus; ejecutar un análisis completo con Defender.",
+            "Avisar al SOC si el usuario abrió un adjunto, un enlace o un programa a esa hora: el equipo SOC tiene el detalle.",
+        ]
+        return {"alert": alert, "client": client, "headline": headline, "meaning": meaning, "actions": actions,
+                "action_label": "permitida" if allowed else "no pudo actuar", "action_title": "Resultado del antivirus",
+                "signature_title": "Amenaza"}
     else:
         headline = "Evento de seguridad prioritario"
         meaning = "La política del SOC considera prioritario revisar este evento. El nivel Wazuh, la acción del motor y el impacto deben comprobarse en la evidencia."
@@ -256,7 +271,7 @@ def content(alert):
         actions.insert(0,recommendation(alert.interpretation))
     action_label = {"allowed": "permitida", "blocked": "bloqueada"}.get(alert.action, "sin confirmar")
     return {"alert": alert, "client": client, "headline": headline, "meaning": meaning,
-            "actions": actions, "action_label": action_label}
+            "actions": actions, "action_label": action_label, "action_title": "Acción del firewall", "signature_title": "Registro"}
 
 
 def _message(alert):

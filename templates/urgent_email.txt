@@ -9,10 +9,10 @@ QUÉ HA PASADO
 Equipo: {{ alert.asset_name }}{% if alert.destination_ip %} ({{ alert.destination_ip }}){% endif %}.
 {% if alert.destination_port %}Puerto de destino: {{ alert.destination_port }}.
 {% endif %}{% if alert.external_ip %}IP de origen observada: {{ alert.external_ip }}.
-{% endif %}{% if alert.signature %}Registro: {{ alert.signature }}.
-{% endif %}{% if alert.action %}Acción informada por el firewall: {{ action_label }}.
+{% endif %}{% if alert.signature %}{{ signature_title }}: {{ alert.signature }}.
+{% endif %}{% if alert.action %}{{ action_title }}: {{ action_label }}.
 {% endif %}
-Nivel Wazuh: {{ alert.rule_level }}. Prioridad SOC: {{ alert.interpretation.priority_label|default:"por revisar" }}.
+{% if alert.rule_level %}Nivel Wazuh: {{ alert.rule_level }}. {% endif %}Prioridad SOC: {{ alert.interpretation.priority_label|default:"por revisar" }}.
 {% if alert.interpretation.vendor_severity %}Severidad del fabricante: {{ alert.interpretation.vendor_severity }}.
 {% endif %}
 QUÉ HACER AHORA

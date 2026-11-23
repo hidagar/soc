@@ -125,6 +125,7 @@ class UrgentAlert(models.Model):
         SECURITY_ALLOWED = "security_allowed", "Seguridad permitida"
         SECURITY_CRITICAL = "security_critical", "Seguridad crítica"
         AVAILABILITY = "availability", "Caída de Internet"
+        ENDPOINT_MALWARE = "endpoint_malware", "Malware en un equipo"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pendiente"
@@ -142,7 +143,7 @@ class UrgentAlert(models.Model):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING, db_index=True)
     observed_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
-    source_ip = models.GenericIPAddressField()
+    source_ip = models.GenericIPAddressField(null=True, blank=True)  # fuente del firewall; vacío en avisos de equipos
     external_ip = models.GenericIPAddressField(null=True, blank=True)
     destination_ip = models.GenericIPAddressField(null=True, blank=True)
     destination_port = models.CharField(max_length=16, blank=True)

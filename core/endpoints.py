@@ -12,7 +12,10 @@
     2001/2003/2004: fallo al actualizar firmas o motor.
 - Estado por equipo: protegido, sin protección en tiempo real, firmas antiguas, sin informar o sin datos
   del antivirus. Las detecciones se revisan («Revisada» o «Abrir incidencia») en «Antivirus de equipos» y en
-  la bandeja de trabajo. Nada de esto llega al cliente salvo lo que el SOC publique de una incidencia.
+  la bandeja de trabajo.
+- Aviso urgente al cliente (correo, Teams o Telegram, como los de los firewalls) cuando una detección queda
+  «permitida» o «no pudo actuar», si tiene los avisos urgentes activos. Lleva equipo, sede, hora, amenaza,
+  gravedad y resultado; nunca la ruta del archivo ni el usuario, que son datos internos (invariante 3).
 """
 import hashlib
 import ipaddress
@@ -121,6 +124,36 @@ def observe(source, stamp, now, cache):
     return True
 
 
+def _queue_urgent(endpoint, row, level, now):
+    """Aviso urgente para una detección permitida o que el antivirus no pudo contener (como mucho uno por detección)."""
+    import json
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+    from .models import UrgentAlert
+    from .urgent_alerts import MAX_AGE
+    client = endpoint.client
+    if client is None or not client.active or not client.urgent_alerts_enabled:
+        return
+    recipient = client.urgent_email or client.report_email
+    try:
+        validate_email(recipient)
+    except ValidationError:
+        return
+    uid = hashlib.sha256(f'endpoint\x00{endpoint.pk}\x00{row.detection_key}'.encode()).hexdigest()
+    fingerprint = hashlib.sha256(json.dumps([client.pk, 'endpoint', endpoint.agent_id, row.threat, row.action],
+                                            ensure_ascii=False).encode()).hexdigest()
+    UrgentAlert._base_manager.get_or_create(event_uid=uid, defaults={
+        'client': client, 'fingerprint': fingerprint, 'kind': UrgentAlert.Kind.ENDPOINT_MALWARE,
+        'status': UrgentAlert.Status.EXPIRED if now - row.observed_at > MAX_AGE else UrgentAlert.Status.PENDING,
+        'observed_at': row.observed_at, 'source_ip': endpoint.ip, 'site_name': _clean(endpoint.site.name if endpoint.site else '', 160),
+        'asset_name': _clean(endpoint.name, 160), 'signature': _clean(row.threat, 240), 'action': row.action,
+        'rule_level': max(0, min(level, 65535)), 'recipient': recipient,
+        # Solo lo que puede ver el cliente: sin ruta, proceso ni usuario.
+        'interpretation': {'engine': 'defender', 'event_family': 'malware', 'soc_priority': 'critical',
+                           'priority_label': 'Crítica', 'vendor_severity': _clean(row.severity, 40),
+                           'category': _clean(row.category, 80)}})
+
+
 def _defender(endpoint, event_id, fields, stamp, now, source):
     manager = EndpointAgent._base_manager.filter(pk=endpoint.pk)
     updates = {'defender_seen_at': stamp} if not endpoint.defender_seen_at or stamp > endpoint.defender_seen_at else {}
@@ -166,8 +199,11 @@ def _detection(endpoint, event_id, fields, stamp, now, source):
                 'severity': _clean(fields.get('severityname'), 40), 'category': _clean(fields.get('categoryname'), 80),
                 'action': action, 'action_name': action_name, 'path': _clean(fields.get('path'), 400),
                 'process': _clean(fields.get('processname'), 260), 'user': _clean(fields.get('detectionuser'), 120)}
+    level = _number((source.get('rule') or {}).get('level') if isinstance(source.get('rule'), dict) else 0) or 0
     row, created = EndpointDetection._base_manager.get_or_create(agent=endpoint, detection_key=key, defaults=defaults)
     if created:
+        if row.urgent:
+            _queue_urgent(endpoint, row, level, now)
         return
     # Mismo identificador: la acción posterior completa la detección. Un fallo o un «permitido» no se rebaja.
     rank = {'detected': 0, 'contained': 1, 'allowed': 2, 'failed': 3}
@@ -182,6 +218,9 @@ def _detection(endpoint, event_id, fields, stamp, now, source):
     if stamp < row.observed_at:
         changes['observed_at'] = stamp
     EndpointDetection._base_manager.filter(pk=row.pk).update(**changes)
+    if changes.get('action') in ('allowed', 'failed'):
+        row.action = changes['action']
+        _queue_urgent(endpoint, row, level, now)
 
 
 def state(endpoint, now=None):
