@@ -16,6 +16,7 @@ class Client(models.Model):
     report_email = models.EmailField("Correo para informes semanales", blank=True)
     weekly_reports_enabled = models.BooleanField("Enviar informe semanal automáticamente", default=False)
     customer_live_map_enabled = models.BooleanField('Mostrar mapa agregado en el portal del cliente',default=False)
+    customer_endpoints_enabled = models.BooleanField('Mostrar el antivirus de los equipos en el portal del cliente',default=False)
     customer_portal_detail_enabled = models.BooleanField('Mostrar firewalls y detecciones en el portal del cliente',default=False,
         help_text='El cliente verá el estado de sus firewalls y sus detecciones: firma, categoría, acción, IPs y país. Nunca notas internas ni recomendaciones del SOC.')
     urgent_email = models.EmailField("Correo para avisos urgentes", blank=True)

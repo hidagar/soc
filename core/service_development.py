@@ -175,8 +175,10 @@ def customer_home_context(client,preview=False):
     from .vulnerabilities import open_count
     from .customer_requests import open_summary
     from .policy_views import pending_count
+    from .endpoints import portal_summary as endpoint_portal_summary
     return {**_portal_base(client,preview,'home'),'pending_policies':pending_count(client),'open_vulnerabilities':open_count(client),'request_summary':open_summary(client),'index_latest':latest,'connectivity':last_days(client),'security_summary':customer_security_summary(client) if live else None,
         'firewall_status':firewall_rows(client) if client.customer_portal_detail_enabled else None,
+        'endpoint_status':endpoint_portal_summary(client) if client.customer_endpoints_enabled else None,
         'tasks':tasks,'tasks_to_do':[t for t in tasks if t.status in ('pending','rework')],
         'publications':news[:6],'publication_count':news.count(),
         'reports':reports[:3],'report_count':len(reports)}

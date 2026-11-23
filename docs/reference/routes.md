@@ -42,6 +42,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `incidents/<int:pk>/claim/` | `claim_incident` | `work_queue.claim_incident` |
 | `cliente/mapa/` | `customer_map` | `service.customer_map` |
 | `cliente/firewalls/` | `customer_firewalls` | `customer_portal.firewalls` |
+| `cliente/equipos/` | `customer_endpoints` | `endpoints.customer_view` |
 | `cliente/informes/` | `customer_reports` | `service.customer_reports` |
 | `cliente/actuaciones/` | `customer_tasks` | `service.customer_tasks` |
 | `cliente/indice/` | `customer_index` | `service.customer_index` |
@@ -61,6 +62,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `operations/vulnerabilities/` | `vulnerabilities` | `vulnerabilities.overview` |
 | `clients/<int:pk>/customer-view/` | `customer_preview` | `customer_preview.home` |
 | `clients/<int:pk>/customer-view/firewalls/` | `customer_preview_firewalls` | `customer_preview.firewalls` |
+| `clients/<int:pk>/customer-view/equipos/` | `customer_preview_endpoints` | `customer_preview.endpoints` |
 | `clients/<int:pk>/customer-view/detections/` | `customer_preview_detections` | `customer_preview.detections` |
 | `clients/<int:pk>/customer-view/map/` | `customer_preview_map` | `customer_preview.threat_map` |
 | `clients/<int:pk>/customer-view/map/data/` | `customer_preview_map_data` | `customer_preview.map_data` |

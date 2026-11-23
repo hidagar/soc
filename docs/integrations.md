@@ -287,7 +287,12 @@ La detección y su acción se unen por el identificador de detección de Defende
 - en el menú, con contador, en rojo si hay alguna urgente;
 - en la ficha del cliente («Antivirus de equipos»).
 
-El cliente recibe un aviso urgente cuando una detección queda «permitida» o el antivirus «no pudo actuar», si tiene los avisos urgentes activos ([correo y avisos](reports-and-mail.md#avisos-urgentes-del-antivirus-de-los-equipos)). Fuera de eso solo ve lo que el SOC publique de una incidencia.
+El cliente recibe un aviso urgente cuando una detección queda «permitida» o el antivirus «no pudo actuar», si tiene los avisos urgentes activos ([correo y avisos](reports-and-mail.md#avisos-urgentes-del-antivirus-de-los-equipos)). Con la opción «Portal: antivirus de equipos» del cliente (`customer_endpoints_enabled`, desactivada por defecto), su portal muestra «Equipos». Es una proyección explícita (`endpoints.customer_context`, invariante 3), con los mismos datos en la vista previa del SOC:
+- **Resumen:** equipos vigilados, protegidos, que necesitan revisión y detecciones de los últimos 30 días; también en el inicio del portal.
+- **Por equipo:** nombre, sede, estado en lenguaje del cliente, antigüedad de las firmas y último informe del antivirus.
+- **Detecciones de 90 días:** fecha, equipo, amenaza, gravedad y resultado.
+
+Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el usuario.
 
 **Límites:**
 - Solo `alerts.json`: la recuperación desde el indexador (`reconcile_security`) no incluye estos eventos.

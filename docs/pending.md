@@ -103,7 +103,7 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 - Hecho el 13/11: el informe mensual incluye vulnerabilidades, solicitudes y cambios.
 
 ### Antivirus de equipos
-- Mostrar al cliente en su portal el estado del antivirus de sus equipos (decidir qué se publica).
+- Hecho el 23/11: estado del antivirus en el portal del cliente (opción por cliente).
 - Hecho el 23/11: avisos urgentes al cliente por detecciones «permitidas» o «sin poder actuar».
 - Incluir los eventos de Defender en la recuperación desde el indexador.
 

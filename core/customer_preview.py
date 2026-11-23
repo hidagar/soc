@@ -107,6 +107,17 @@ def firewalls(request, pk):
 @login_required
 @never_cache
 @require_GET
+def endpoints(request, pk):
+    from .endpoints import customer_context
+    client = preview_client(request, pk, 'equipos')
+    if not client.customer_endpoints_enabled:
+        raise Http404
+    return _render(request, 'customer_endpoints.html', customer_context(client, preview=True))
+
+
+@login_required
+@never_cache
+@require_GET
 def detections(request, pk):
     client = preview_client(request, pk, 'detecciones')
     if not client.customer_portal_detail_enabled:

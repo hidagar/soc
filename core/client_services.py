@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 from .models import Client
 from .security import audit, mfa_redirect
 
-COMMUNICATION_FIELDS = ['customer_portal_detail_enabled', 'customer_live_map_enabled', 'weekly_reports_enabled', 'report_email',
+COMMUNICATION_FIELDS = ['customer_portal_detail_enabled', 'customer_live_map_enabled', 'customer_endpoints_enabled', 'weekly_reports_enabled', 'report_email',
                         'monthly_reports_enabled', 'monthly_email', 'urgent_alerts_enabled', 'urgent_email',
                         'urgent_availability_enabled', 'task_notices_enabled', 'task_email',
                         'vulnerability_notices_enabled', 'vulnerability_email']

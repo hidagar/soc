@@ -370,3 +370,67 @@ def badge():
     rows = EndpointDetection.objects.filter(review='pending').aggregate(
         total=Count('id'), urgent=Count('id', filter=Q(action__in=('allowed', 'failed'))))
     return rows['total'] or 0, bool(rows['urgent'])
+
+
+# --- Portal del cliente (proyección explícita, invariante 3) ------------------------------------
+
+PORTAL_STATES = {
+    'protected': ('Protegido', 'ok'),
+    'unprotected': ('Protección en tiempo real desactivada', 'attention'),
+    'outdated': ('Antivirus sin actualizar', 'attention'),
+    'silent': ('Sin noticias del equipo', 'pending'),
+    'unknown': ('Pendiente de datos del antivirus', 'pending'),
+}
+PORTAL_RESULTS = {'detected': 'Detectada; el SOC la revisa', 'contained': 'Contenida por el antivirus',
+                  'allowed': 'Permitida en el equipo', 'failed': 'El antivirus no pudo actuar'}
+PORTAL_DAYS = 90
+
+
+def _portal_devices(client, now):
+    rows = []
+    for agent in EndpointAgent.objects.filter(client=client, status='assigned').select_related('site').order_by('name'):
+        code = state(agent, now)[0]
+        label, tone = PORTAL_STATES[code]
+        rows.append({'name': agent.name, 'site': agent.site.name if agent.site else '', 'state': label, 'tone': tone,
+                     'code': code, 'signature_age_days': agent.signature_age_days, 'health_at': agent.health_at,
+                     'last_seen_at': agent.last_seen_at})
+    rows.sort(key=lambda r: (r['code'] == 'protected', r['name']))
+    return rows
+
+
+def portal_summary(client, now=None):
+    """Para el inicio del portal: equipos, protegidos, que necesitan revisión y detecciones recientes."""
+    now = now or timezone.now()
+    devices = _portal_devices(client, now)
+    recent = EndpointDetection.objects.filter(client_scope_id=client.pk, observed_at__gte=now - timedelta(days=30)).count()
+    protected = sum(1 for d in devices if d['code'] == 'protected')
+    attention = sum(1 for d in devices if d['code'] in ('unprotected', 'outdated'))
+    return {'total': len(devices), 'protected': protected, 'attention': attention, 'recent_detections': recent}
+
+
+def customer_context(client, preview=False, now=None):
+    """Lo que ve el cliente: sin identificador de agente, IP, ruta, proceso ni usuario."""
+    from .service_development import _portal_base
+    now = now or timezone.now()
+    devices = _portal_devices(client, now)
+    names = {a.pk: (a.name, a.site.name if a.site else '') for a in
+             EndpointAgent.objects.filter(client=client).select_related('site')}
+    detections = []
+    for row in EndpointDetection.objects.filter(client_scope_id=client.pk, observed_at__gte=now - timedelta(days=PORTAL_DAYS)
+                                                ).order_by('-observed_at')[:200]:
+        name, site = names.get(row.agent_id, ('Equipo retirado', ''))
+        detections.append({'observed_at': row.observed_at, 'device': name, 'site': site, 'threat': row.threat,
+                           'severity': row.severity, 'result': PORTAL_RESULTS[row.action], 'urgent': row.urgent})
+    return {**_portal_base(client, preview, 'endpoints'), 'devices': devices, 'detections': detections,
+            'summary': portal_summary(client, now), 'portal_days': PORTAL_DAYS}
+
+
+@login_required
+@never_cache
+def customer_view(request):
+    from django.http import Http404
+    from .service_development import customer_client
+    client = customer_client(request)
+    if not client.customer_endpoints_enabled:
+        raise Http404
+    return render(request, 'customer_endpoints.html', customer_context(client))
