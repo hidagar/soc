@@ -504,3 +504,90 @@ class CapabilityTests(TestCase):
         page = self.client.get(reverse('vendor_capabilities'))
         for name in ('OPNsense', 'UniFi', 'Hillstone', 'Grandstream GCC', 'Bloqueo de dominios por DNS', 'Por comprobar'):
             self.assertContains(page, name)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False, SOC_PUBLIC_ORIGIN='https://soc.example.test')
+class DnsMeasurementTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.ready()
+        self.qfeed = self.feed(qfeeds_preventive=False, dns_count=1)
+        OpnsenseConnection.objects.create(device=self.device, api_url='https://fw.example.test', encrypted_api_key='x',
+                                          encrypted_api_secret='x')
+        Device.objects.filter(pk=self.device.pk).update(management_method='api')
+        self.plan = ChangePlan.objects.create(device=self.device, template=qd.DNS_TEMPLATE, title=qd.DNS_TITLE, status='active',
+                                              parameters={'client': self.company.pk},
+                                              remote_objects=[{'kind': 'dnsbl', 'uuid': 'soc-uuid', 'rule': {'description': 'x'}}])
+        self.stats = {'enabled': '1', 'top': {
+            'malo.example.com': {'total': 7, 'blocklist': 'Custom', 'latest_policy_uuid': 'soc-uuid'},
+            'anuncios.example.net': {'total': 50, 'blocklist': 'ag', 'latest_policy_uuid': 'operador-uuid'}}}
+
+    def fake(self, connection, path, payload=None, method=None):
+        if path == '/api/unbound/overview/is_enabled':
+            return {'enabled': self.stats['enabled']}
+        if path.startswith('/api/unbound/overview/totals/'):
+            return {'total': 900, 'blocked': {'total': 57}, 'top_blocked': self.stats['top']}
+        raise AssertionError(path)
+
+    def measure(self, now):
+        from .blocklist_efficacy import refresh
+        with mock.patch.object(change_control, 'api', side_effect=self.fake):
+            refresh(now)
+
+    def test_only_the_soc_list_counts_and_growth_is_accumulated(self):
+        from .blocklist_efficacy import summary
+        self.measure(self.now)  # primera lectura: punto de partida
+        self.stats['top']['malo.example.com']['total'] = 12
+        self.measure(self.now + timedelta(minutes=1))
+        data = summary(self.plan, self.now + timedelta(minutes=1))
+        self.assertEqual((data['today'], data['total']), (5, 5), 'solo la lista del SOC, no la del operador')
+        self.assertEqual(data['top'], [{'domain': 'malo.example.com', 'queries': 12}])
+        # El firewall descarta consultas antiguas: la cifra baja y no resta.
+        self.stats['top']['malo.example.com']['total'] = 3
+        self.measure(self.now + timedelta(minutes=2))
+        self.stats['top']['malo.example.com']['total'] = 4
+        self.measure(self.now + timedelta(minutes=3))
+        self.assertEqual(summary(self.plan, self.now + timedelta(minutes=3))['total'], 6)
+
+    def test_disabled_statistics_or_api_errors_keep_the_data_and_say_why(self):
+        from .blocklist_efficacy import summary
+        self.measure(self.now)
+        self.stats['enabled'] = '0'
+        self.measure(self.now + timedelta(minutes=1))
+        data = summary(self.plan, self.now + timedelta(minutes=1))
+        self.assertIn('Informes › Ajustes', data['error'])
+        self.assertEqual(data['total'], 0)
+        with mock.patch.object(change_control, 'api', side_effect=ValueError('respuesta del proveedor')):
+            from .blocklist_efficacy import measure_dns
+            self.assertFalse(measure_dns(self.plan, self.now))
+        data = summary(self.plan, self.now)
+        self.assertEqual(data['error'], 'No se pudieron leer las estadísticas de Unbound por API.')
+
+    def test_customer_sees_blocked_queries_without_domains(self):
+        from .models import Client
+        self.measure(self.now)
+        self.stats['top']['malo.example.com']['total'] = 19
+        self.measure(self.now + timedelta(minutes=1))
+        data = client_protection(self.company, now=self.now + timedelta(minutes=1))
+        self.assertEqual({k: data['dns'][k] for k in ('entries', 'queries', 'measured')}, {'entries': 1, 'queries': 12, 'measured': True})
+        Client.objects.filter(pk=self.company.pk).update(customer_portal_detail_enabled=True)
+        customer = get_user_model().objects.create_user('cliente')
+        StaffAccess.objects.create(user=customer, role='customer').clients.add(self.company)
+        self.client.force_login(customer)
+        page = self.client.get(reverse('customer_firewalls'))
+        self.assertContains(page, '<strong>12</strong> consultas')
+        self.assertContains(page, 'no significa que un equipo esté infectado')
+        self.assertNotContains(page, 'malo.example.com')
+        BlocklistFeed.objects.filter(pk=self.qfeed.pk).update(qfeeds_dns=False)
+        self.assertNotIn('dns', client_protection(self.company, now=self.now) or {})
+
+    def test_soc_pages_show_the_dns_measurement(self):
+        self.measure(self.now)
+        self.stats['top']['malo.example.com']['total'] = 9
+        self.measure(self.now + timedelta(minutes=1))
+        login(self, 'manage_operations', 'manage_connections')
+        page = self.client.get(reverse('blocklist_detail', args=[self.company.pk]))
+        self.assertContains(page, 'Consultas DNS bloqueadas hoy')
+        self.assertContains(page, 'malo.example.com (9)')
+        page = self.client.get(reverse('blocklist_qfeeds'))
+        self.assertContains(page, 'DNS: <strong>2</strong> consultas')

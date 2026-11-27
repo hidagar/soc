@@ -36,7 +36,8 @@ MATRIX = {
         'preventive': ('auto', 'Alias por URL y reglas propias de entrada y salida (API). Sin API: ' + _URL_GUIDE),
         'dns': ('auto', 'Lista de bloqueo propia en Unbound con el control de cambios (OPNsense 25.7 o posterior y API). '
                         'En versiones anteriores o sin API: URL de dominios añadida a mano en Unbound.'),
-        'measure': ('auto', 'Contadores de cada regla del SOC y entradas cargadas, cada hora. El DNS aún no se mide.'),
+        'measure': ('auto', 'Contadores de cada regla del SOC y entradas cargadas, cada hora. DNS: consultas que bloqueó la '
+                            'lista del SOC según las estadísticas de Unbound (25.7, con la recogida local activada).'),
         'policy': ('auto', 'Reglas con punto de restauración, confirmación y reversión.'),
     },
     'unifi': {

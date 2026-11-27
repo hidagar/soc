@@ -375,7 +375,7 @@ def status_rows(clients, now=None):
     clients = list(clients)
     feeds = {f.client_id: f for f in BlocklistFeed.objects.filter(client__in=clients)}
     plans = {}
-    for plan in ChangePlan._base_manager.filter(device__site__client__in=clients, template__in=MAIN + TEMPLATES,
+    for plan in ChangePlan._base_manager.filter(device__site__client__in=clients, template__in=MAIN + TEMPLATES + (DNS_TEMPLATE,),
                                                 device__active=True).select_related('device__site'):
         plans.setdefault(plan.device.site.client_id, []).append(plan)
     unifi = {}
@@ -391,6 +391,7 @@ def status_rows(clients, now=None):
         own = plans.get(client.pk, [])
         active_main = [p for p in own if p.template in MAIN and p.status == 'active']
         active_q = [p for p in own if p.template in TEMPLATES and p.status == 'active']
+        active_dns = [p for p in own if p.template == DNS_TEMPLATE and p.status == 'active']
         pending_q = [p for p in own if p.template in TEMPLATES and p.status not in ('active', 'rolled_back', 'failed')]
         bindings = unifi.get(client.pk, [])
         rows.append({
@@ -399,7 +400,8 @@ def status_rows(clients, now=None):
             'out_qfeeds': sum(1 for e in feed.outbound_entries if 'qfeeds' in entry_sources(e)) if feed else 0,
             'rules_main': len(active_main), 'rules_q': len(active_q), 'rules_q_pending': len(pending_q),
             'unifi_q': sum(1 for b in bindings if b.policies_enabled), 'unifi_q_pending': sum(1 for b in bindings if not b.policies_enabled),
-            'week_main': _week(active_main, now), 'week_q': _week(active_q, now),
+            'week_main': _week(active_main, now), 'week_q': _week(active_q, now), 'week_dns': _week(active_dns, now),
+            'rules_dns': len(active_dns),
             'vendors': sorted(devices.get(client.pk, set())),
         })
     return rows

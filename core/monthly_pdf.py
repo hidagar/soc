@@ -115,6 +115,11 @@ def render_monthly_pdf(context):
             item = proactive['outbound']
             story.append(p(f"Bloqueo de salida hacia {item['entries']} destinos asociados a malware o control remoto"
                            + (f": {item['packets']} paquetes cortados en el mes." if item['measured'] else '.')))
+        if proactive.get('dns'):
+            item = proactive['dns']
+            story.append(p(f"El DNS de {', '.join(item['firewalls'])} impide resolver {item['entries']} dominios maliciosos de Q-Feeds"
+                           + (f": {item['queries']} consultas bloqueadas en el mes." if item['measured'] else '.')
+                           + ' Una consulta bloqueada no significa que un equipo esté infectado.'))
         if proactive.get('preventive'):
             item = proactive['preventive']
             story.append(p(f"Lista preventiva de {item['entries']} direcciones de Q-Feeds, una fuente de inteligencia de amenazas, "

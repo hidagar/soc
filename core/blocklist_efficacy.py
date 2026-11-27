@@ -21,6 +21,8 @@ from .models import ChangePlan, WorkerState
 
 PREFIX = 'blocklist-efficacy:'
 HISTORY_DAYS = 35
+DNS_TOP = 5000  # dominios bloqueados que se piden a Unbound; más allá, la cifra se queda corta (nunca exagera)
+DNS_TOP_SHOWN = 10
 
 
 def state_name(plan):
@@ -115,15 +117,84 @@ def measure(plan, now=None):
     return result
 
 
+def accumulate_dns(details, count, now):
+    """Unbound da lo bloqueado en la ventana que guarda (días); se acumula por diferencias.
+
+    Cuando el firewall descarta consultas antiguas la cifra baja: se toma como cero nuevo, no como negativo.
+    Así la medida puede quedarse corta, pero nunca cuenta dos veces lo mismo.
+    """
+    previous = details.get('window')
+    delta = 0 if previous is None else max(0, count - previous)
+    day = timezone.localtime(now).date().isoformat()
+    history = dict(details.get('history') or {})
+    history[day] = history.get(day, 0) + delta
+    cutoff = (timezone.localtime(now).date() - timedelta(days=HISTORY_DAYS)).isoformat()
+    return {**details, 'window': count, 'checked_at': now.isoformat(), 'error': '',
+            'since': details.get('since') or now.isoformat(), 'total_queries': details.get('total_queries', 0) + delta,
+            'history': {d: v for d, v in history.items() if d >= cutoff}}
+
+
+def dns_blocked(totals, uuids):
+    """(consultas bloqueadas por las listas del SOC, dominios más bloqueados, recortado) de `overview/totals`.
+
+    Unbound agrupa por dominio y anota la última política que lo bloqueó (`latest_policy_uuid`). None si la
+    respuesta no tiene esa forma (versión sin estadísticas por política).
+    """
+    top = totals.get('top_blocked') if isinstance(totals, dict) else None
+    if not isinstance(top, dict):
+        return None
+    count, domains = 0, []
+    for domain, row in top.items():
+        if not isinstance(row, dict) or str(row.get('latest_policy_uuid') or '') not in uuids:
+            continue
+        hits = _int(row.get('total')) or 0
+        count += hits
+        domains.append((hits, str(domain)[:253]))
+    domains.sort(key=lambda item: (-item[0], item[1]))
+    return count, [{'domain': d, 'queries': n} for n, d in domains[:DNS_TOP_SHOWN]], len(top) >= DNS_TOP
+
+
+def measure_dns(plan, now=None):
+    """Consultas que bloqueó la lista DNS del SOC según las estadísticas de Unbound. True si se midió."""
+    from .change_control import api
+    now = now or timezone.now()
+    state = WorkerState.objects.filter(name=state_name(plan)).first()
+    details = dict(state.details) if state else {}
+    uuids = {o['uuid'] for o in plan.remote_objects if o.get('kind') == 'dnsbl'}
+    result, error = None, ''
+    try:
+        connection = plan.device.opnsense_api
+        enabled = api(connection, '/api/unbound/overview/is_enabled').get('enabled')
+        if str(enabled) != '1':
+            error = ('Las estadísticas de Unbound están desactivadas: activa la recogida local en «Informes › Ajustes» '
+                     '(Unbound DNS) para medir lo que bloquea la lista del SOC.')
+        else:
+            result = dns_blocked(api(connection, f'/api/unbound/overview/totals/{DNS_TOP}'), uuids)
+    except Exception:
+        error = 'No se pudieron leer las estadísticas de Unbound por API.'
+    if result is None:
+        details.update(error=error or 'Unbound no informa de qué lista bloqueó cada dominio (¿OPNsense anterior a 25.7?).',
+                       error_at=now.isoformat())
+    else:
+        details = accumulate_dns(details, result[0], now)
+        details.update(top=result[1], truncated=result[2])
+    with transaction.atomic():
+        WorkerState.reserve(state_name(plan))
+        WorkerState.objects.filter(name=state_name(plan)).update(details=details)
+    return result is not None
+
+
 def refresh(now=None):
-    """Trabajo `blocklist_efficacy`: mide cada regla de bloqueo del SOC activa en un OPNsense por API."""
+    """Trabajo `blocklist_efficacy`: mide cada regla de bloqueo del SOC activa en un OPNsense por API, y sus listas DNS."""
     from .blocklist import ALL_TEMPLATES
+    from .qfeeds_distribution import DNS_TEMPLATE
     now = now or timezone.now()
     measured = 0
-    plans = ChangePlan._base_manager.filter(template__in=ALL_TEMPLATES, status='active', device__vendor='opnsense',
-                                            device__management_method='api', device__active=True).select_related('device')
+    plans = ChangePlan._base_manager.filter(template__in=ALL_TEMPLATES + (DNS_TEMPLATE,), status='active',
+                                            device__vendor='opnsense', device__management_method='api',
+                                            device__active=True).select_related('device')
     for plan in plans:
-        measured += int(measure(plan, now))
+        measured += int(measure_dns(plan, now) if plan.template == DNS_TEMPLATE else measure(plan, now))
     from .unifi_blocklist import measure_efficacy
     return measured + measure_efficacy(now)
 
@@ -141,16 +212,19 @@ def summary(plan, now=None):
     def days(n):
         return sum(v for d, v in history.items() if d >= (today - timedelta(days=n - 1)).isoformat())
     return {'today': history.get(today.isoformat(), 0), 'week': days(7), 'month': days(30),
-            'total': details.get('total_packets', 0), 'since': parse_datetime(details.get('since') or ''),
+            'total': details.get('total_packets', details.get('total_queries', 0)),
+            'since': parse_datetime(details.get('since') or ''),
             'checked_at': parse_datetime(details.get('checked_at') or ''), 'loaded': details.get('loaded_entries'),
-            'error': details.get('error', ''), 'resets': details.get('resets', 0)}
+            'error': details.get('error', ''), 'resets': details.get('resets', 0),
+            'top': details.get('top') or [], 'truncated': details.get('truncated', False)}
 
 
 def client_protection(client, first_day=None, last_day=None, now=None):
     """Proyección para el cliente (invariante 3): solo cifras agregadas de las reglas activas del SOC.
 
     IPs en sus listas y paquetes bloqueados en el periodo (por defecto, los últimos 7 días), por lista:
-    `inbound` (lista del SOC), `outbound` (salida C2) y `preventive` (Q-Feeds preventiva). La de entrada
+    `inbound` (lista del SOC), `outbound` (salida C2), `preventive` (Q-Feeds preventiva) y `dns` (consultas
+    bloqueadas por la lista DNS del SOC en Unbound, con `queries` en lugar de paquetes). La de entrada
     añade `sources`: cuántas de sus IPs confirman CrowdSec y cuántas Q-Feeds. Nunca IPs, motivos, bloqueos
     manuales ni errores internos. None si no hay ninguna regla activa con la lista publicada. `measured`
     es False hasta que haya una lectura de los contadores.
@@ -193,6 +267,20 @@ def client_protection(client, first_day=None, last_day=None, now=None):
         if state and state.details.get('checked_at'):
             item['measured'] = True
             item['packets'] += sum(v for d, v in history.items() if first_day.isoformat() <= d <= last_day.isoformat())
+    # Listas DNS del SOC en Unbound: consultas bloqueadas, no paquetes.
+    from .qfeeds_distribution import DNS_TEMPLATE
+    if feed.qfeeds_dns:
+        for plan in ChangePlan._base_manager.filter(template=DNS_TEMPLATE, status='active', device__site__client=client,
+                                                    device__active=True).select_related('device').order_by('device__name'):
+            item = result.setdefault('dns', {'entries': feed.dns_count, 'queries': 0, 'firewalls': [], 'measured': False,
+                                             'measuring': True})
+            if plan.device.name not in item['firewalls']:
+                item['firewalls'].append(plan.device.name)
+            state = WorkerState.objects.filter(name=state_name(plan)).first()
+            if state and state.details.get('checked_at'):
+                item['measured'] = True
+                item['queries'] += sum(v for d, v in (state.details.get('history') or {}).items()
+                                       if first_day.isoformat() <= d <= last_day.isoformat())
     # Consolas UniFi con la lista escrita por el SOC y sus políticas de bloqueo activas (no se presume
     # protección por una política hecha a mano que el SOC no ve). UniFi no ofrece contadores por regla.
     from .models import UnifiBlocklistBinding
