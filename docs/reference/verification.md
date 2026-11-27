@@ -84,6 +84,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_policy_changes.py](../../core/test_policy_changes.py) | 6 |
 | [core/test_policy_proposals.py](../../core/test_policy_proposals.py) | 10 |
 | [core/test_portal_friendly.py](../../core/test_portal_friendly.py) | 5 |
+| [core/test_propagation.py](../../core/test_propagation.py) | 8 |
 | [core/test_protection.py](../../core/test_protection.py) | 14 |
 | [core/test_public_panel.py](../../core/test_public_panel.py) | 3 |
 | [core/test_qfeeds_api.py](../../core/test_qfeeds_api.py) | 10 |

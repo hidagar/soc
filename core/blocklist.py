@@ -76,7 +76,8 @@ SOC_STATE = 'soc-detections'
 SOC_STALE = timedelta(hours=1)  # si el motor no responde, la última lectura vale una hora
 SOC_LIMIT = 5000
 TITLE = 'Bloqueo CrowdSec del SOC'
-VERSION = '1.0'
+VERSION = '1.1'  # 1.1: tabla por URL cada ~15 min (antes ~1 h); ver core/template_updates.py
+URL_UPDATEFREQ = '0.01'  # días: ~14 minutos
 
 
 def qfeeds_configured():
@@ -667,14 +668,14 @@ def alias_name(plan):
 def plan_preview(device):
     """Vista previa de la plantilla: tabla de IPs descargada del SOC y regla de bloqueo de entrada en WAN."""
     return {'profile': TITLE, 'version': VERSION, 'networks': [], 'interface': 'wan',
-            'alias': {'type': 'urltable', 'updatefreq': '0.04', 'description': 'Lista de bloqueo del SOC (CrowdSec)'},
+            'alias': {'type': 'urltable', 'updatefreq': URL_UPDATEFREQ, 'description': 'Lista de bloqueo del SOC (CrowdSec)'},
             'rules': [{'enabled': '0', 'sequence': '1', 'action': 'block', 'quick': '1', 'interface': 'wan',
                        'direction': 'in', 'ipprotocol': 'inet46', 'protocol': 'any', 'source_net': 'Lista del SOC',
                        'destination_net': 'any', 'destination_port': '', 'log': '1'}],
             'checks': ['Revisar en «Listas de bloqueo» la observación: qué habría bloqueado y si incluye algún proveedor o socio.',
                        'Completar las excepciones del cliente (oficinas remotas, proveedores, servicios en la nube) antes de activar.',
                        'La regla bloquea conexiones entrantes en WAN desde las IPs de la lista; no afecta al tráfico saliente.',
-                       'El firewall debe poder descargar la URL del SOC por HTTPS; la tabla se actualiza aproximadamente cada hora.',
+                       'El firewall debe poder descargar la URL del SOC por HTTPS; la tabla se actualiza aproximadamente cada 15 minutos.',
                        'Freno de emergencia: detener la lista en el SOC vacía la tabla en la siguiente descarga; revertir la regla la retira.'],
             'zenarmor': [], 'suricata': []}
 
@@ -682,7 +683,7 @@ def plan_preview(device):
 def plan_preview_outbound(device):
     """Plantilla de salida: tabla de destinos del SOC y regla que bloquea conexiones salientes hacia ellos."""
     return {'profile': TITLE_OUT, 'version': VERSION, 'networks': [], 'interface': 'wan',
-            'alias': {'type': 'urltable', 'updatefreq': '0.04', 'description': 'Lista de salida del SOC (C2)'},
+            'alias': {'type': 'urltable', 'updatefreq': URL_UPDATEFREQ, 'description': 'Lista de salida del SOC (C2)'},
             'rules': [{'enabled': '0', 'sequence': '1', 'action': 'block', 'quick': '1', 'interface': 'wan',
                        'direction': 'out', 'ipprotocol': 'inet46', 'protocol': 'any', 'source_net': 'any',
                        'destination_net': 'Lista de salida del SOC', 'destination_port': '', 'log': '1'}],
@@ -1001,7 +1002,10 @@ def overview(request):
     rows = [{'client': c, 'feed': feeds.get(c.pk), 'blocked_week': blocked.get(c.pk)}
             for c in Client.objects.filter(active=True).order_by('name')]
     shared = ManualBlock._base_manager.filter(client=None, revoked_at=None, expires_at__gt=now).select_related('created_by')
-    return render(request, 'blocklists.html', {'rows': rows, 'shared_blocks': shared})
+    from .propagation import overview_rows
+    propagation, propagation_at = overview_rows(now)
+    return render(request, 'blocklists.html', {'rows': rows, 'shared_blocks': shared, 'propagation': propagation,
+                                               'propagation_at': propagation_at})
 
 
 @login_required

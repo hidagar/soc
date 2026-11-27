@@ -47,9 +47,10 @@ TITLE = 'Bloqueo preventivo Q-Feeds del SOC'
 TITLE_OUT = 'Bloqueo preventivo de salida Q-Feeds del SOC'
 DNS_TEMPLATE = 'qfeeds_dns'
 DNS_TITLE = 'Bloqueo DNS Q-Feeds del SOC'
-DNS_CACHE_TTL = 3600  # segundos que Unbound reutiliza la lista descargada antes de pedirla de nuevo
+DNS_CACHE_TTL = 900  # segundos que Unbound reutiliza la lista descargada antes de pedirla de nuevo (1.1; antes 3600)
+URL_UPDATEFREQ = '0.01'  # días: ~14 minutos (versión 1.1)
 DNS_CONFIRM_MINUTES = 10  # el DNS no corta la gestión del firewall: hay tiempo para probar antes de confirmar
-VERSION = '1.0'
+VERSION = '1.1'  # 1.1: tabla por URL cada ~15 min y copia de la lista DNS de 15 min (antes ~1 h)
 # Lo que se puede activar o desactivar a la vez en varios clientes.
 OPTIONS = (
     ('include_qfeeds', 'Atacantes que figuran en Q-Feeds (lista de entrada)'),
@@ -305,13 +306,13 @@ def plan_preview(device, outbound=False):
               'socios y servicios en la nube y añadirlos a las excepciones antes de activar.',
               'Si la lista supera el máximo de entradas de tablas del firewall (Firewall › Ajustes › Avanzado), OPNsense '
               'no la carga: comprobar «IPs cargadas» tras la primera medición y ajustar el máximo de la lista preventiva.',
-              'El firewall descarga la URL del SOC por HTTPS; la tabla se actualiza aproximadamente cada hora.',
+              'El firewall descarga la URL del SOC por HTTPS; la tabla se actualiza aproximadamente cada 15 minutos.',
               'Freno de emergencia: detener la lista en el SOC vacía también esta tabla; revertir la regla la retira.']
     if outbound:
         checks.insert(1, 'Bloquea conexiones salientes hacia las IPs de la lista: un servidor compartido puede alojar '
                          'también servicios legítimos. Empezar por la regla de entrada.')
     return {'profile': TITLE_OUT if outbound else TITLE, 'version': VERSION, 'networks': [], 'interface': 'wan',
-            'alias': {'type': 'urltable', 'updatefreq': '0.04', 'description': 'Lista preventiva del SOC (Q-Feeds)'},
+            'alias': {'type': 'urltable', 'updatefreq': URL_UPDATEFREQ, 'description': 'Lista preventiva del SOC (Q-Feeds)'},
             'rules': [rule], 'checks': checks, 'zenarmor': [], 'suricata': []}
 
 
@@ -324,8 +325,8 @@ def dns_plan_preview(device):
                        'Añadir antes a «Dominios que nunca se bloquean» los dominios de proveedores y servicios que el cliente necesita.',
                        'Requiere OPNsense 25.7 o posterior con Unbound activo. En versiones anteriores la lista se añade a mano.',
                        f'Tras activarla, probar que un dominio habitual resuelve y confirmar en {DNS_CONFIRM_MINUTES} minutos; si no se confirma, se desactiva sola.',
-                       'Unbound vuelve a descargar la lista al aplicar los cambios y cuando caduca su copia (1 hora). Para '
-                       'refrescarla sin esperar a un cambio, programar «Actualizar listas de bloqueo DNS» en Sistema › Ajustes › Cron.',
+                       'Unbound vuelve a descargar la lista al aplicar los cambios si su copia tiene más de 15 minutos. El SOC '
+                       'pide esa recarga cuando la lista cambia (trabajo «Propagación a los firewalls»).',
                        'Freno de emergencia: detener la lista en el SOC la vacía en la siguiente descarga; revertir retira la lista de Unbound.'],
             'zenarmor': [], 'suricata': []}
 

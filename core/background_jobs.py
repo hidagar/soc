@@ -26,6 +26,7 @@ JOBS={
     'housekeeping':(3600,'Conservación y limpieza'),
     'reputation':(900,'Reputación CrowdSec'),
     'blocklists':(900,'Listas de bloqueo del SOC'),
+    'propagation':(300,'Propagación a los firewalls'),
     'crowdsec_lists':(300,'Listas de CrowdSec'),
     'blocklist_efficacy':(3600,'Eficacia de las reglas de bloqueo'),
     'threat_intel':(900,'Inteligencia Q-Feeds'),
@@ -164,6 +165,9 @@ def execute(name):
         count=refresh_feeds()
         sync_all()  # UniFi no descarga por URL: el SOC escribe la lista en cada consola vinculada
         return count
+    if name=='propagation':
+        from .propagation import propagate
+        return propagate()
     if name=='blocklist_efficacy':
         from .blocklist_efficacy import refresh as measure_rules
         return measure_rules()

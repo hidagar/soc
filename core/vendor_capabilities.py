@@ -82,7 +82,7 @@ UNKNOWN = ('pending', 'Fabricante sin adaptador: comprobar qué admite antes de 
 _FETCH = 'Al guardar, el firewall descarga la lista; en esta página aparece la descarga desde la IP del equipo.'
 GUIDES = {
     ('opnsense', 'blocklist'): ['Firewall › Aliases: crear un alias de tipo «URL Table (IPs)» con la URL de la lista de entrada '
-                                'y actualización cada hora.',
+                                'y actualización cada 15 minutos (0.01 días).',
                                 'Firewall › Rules › WAN: regla «Block» con origen ese alias, registrada, por encima de las que permiten tráfico.', _FETCH],
     ('opnsense', 'blocklist_out'): ['Firewall › Aliases: alias «URL Table (IPs)» con la URL de la lista de salida.',
                                     'Firewall › Rules › WAN: regla «Block» de salida con destino ese alias.', _FETCH],

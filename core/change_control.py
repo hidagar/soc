@@ -223,6 +223,74 @@ def enable_dnsbl(plan):
             plan.status='needs_review'; plan.result='No se pudo confirmar la retirada de la lista DNS. Revisar «Unbound DNS › Listas de bloqueo» en la consola.'; plan.save()
 
 
+UPDATE_PATHS={'alias':('/api/firewall/alias/get_item/','/api/firewall/alias/set_item/','alias','/api/firewall/alias/reconfigure'),
+    'dnsbl':('/api/unbound/settings/get_dnsbl/','/api/unbound/settings/set_dnsbl/','blocklist','/api/unbound/service/dnsbl')}
+
+
+def _plain(value):
+    """Valor simple de un campo de OPNsense (los de opciones vienen como {clave: {value, selected}})."""
+    if isinstance(value,dict):
+        return next((k for k,v in value.items() if isinstance(v,dict) and str(v.get('selected'))=='1'),'')
+    return '' if value is None else str(value)
+
+
+def stage_update(plan,c):
+    """Actualización de plantilla: anota el valor actual de cada ajuste en los objetos propios de la regla original."""
+    target=ChangePlan.objects.filter(pk=plan.parameters.get('plan'),device=plan.device,status='active').first()
+    if not target: raise ValueError('La propuesta original ya no está activa en este equipo.')
+    info=plan.preview.get('update') or {}
+    kind=info.get('kind')
+    if kind not in UPDATE_PATHS or not info.get('changes'): raise ValueError('Actualización no válida.')
+    get,_,root,_=UPDATE_PATHS[kind]
+    objects=[o for o in target.remote_objects if o.get('kind')==kind]
+    if not objects: raise ValueError('La propuesta original no tiene el objeto que actualizar.')
+    plan.remote_objects=[]
+    for obj in objects:
+        current=api(c,get+obj['uuid']).get(root,{})
+        if current.get('description')!=obj['rule']['description']: raise ValueError('El objeto cambió de propietario; intervención manual requerida.')
+        for field,value in info['changes'].items():
+            plan.remote_objects.append({'kind':'update','target':kind,'uuid':obj['uuid'],'field':field,'value':str(value),
+                'previous':_plain(current.get(field)),'rule':{'description':obj['rule']['description']}})
+    plan.save(update_fields=['remote_objects'])
+
+
+def _set_update(plan,c,use_previous):
+    """Escribe los valores nuevos (o los anteriores, al revertir), aplica y comprueba. Solo objetos propios."""
+    applied=set()
+    for obj in [o for o in plan.remote_objects if o.get('kind')=='update']:
+        get,put,root,apply_path=UPDATE_PATHS[obj['target']]
+        current=api(c,get+obj['uuid']).get(root,{})
+        if current.get('description')!=obj['rule']['description']: raise ValueError('El objeto cambió de propietario; intervención manual requerida.')
+        value=obj['previous'] if use_previous else obj['value']
+        if api(c,put+obj['uuid'],{root:{obj['field']:value}}).get('result')!='saved': raise ValueError('Cambio rechazado.')
+        applied.add(apply_path)
+    for apply_path in sorted(applied):
+        if not completed(api(c,apply_path,{})): raise ValueError('El firewall no confirmó la aplicación.')
+    for obj in [o for o in plan.remote_objects if o.get('kind')=='update']:
+        get,_,root,_=UPDATE_PATHS[obj['target']]
+        if _plain(api(c,get+obj['uuid']).get(root,{}).get(obj['field']))!=(obj['previous'] if use_previous else obj['value']):
+            raise ValueError('Verificación de la actualización fallida.')
+
+
+def enable_update(plan):
+    from datetime import timedelta
+    from .template_updates import CONFIRM_MINUTES
+    c=plan.device.opnsense_api
+    plan.status='applying'; plan.save(update_fields=['status'])
+    try:
+        plan.confirmation_deadline=timezone.now()+timedelta(minutes=CONFIRM_MINUTES)
+        plan.save(update_fields=['confirmation_deadline'])
+        _set_update(plan,c,use_previous=False)
+        api(c,'/api/core/system/status')
+        plan.status='awaiting_confirmation'
+        plan.result=f'Ajustes actualizados. Comprueba que el firewall sigue descargando la lista y confirma en {CONFIRM_MINUTES} minutos o se revertirán.'
+        plan.save(); audit('change.awaiting_confirmation',plan)
+    except Exception:
+        try: rollback(plan)
+        except Exception:
+            plan.status='needs_review'; plan.result='No se pudo confirmar la vuelta a los valores anteriores. Revisar el objeto en la consola.'; plan.save()
+
+
 def stage(plan):
     if plan.device.vendor != Device.Vendor.OPNSENSE or plan.device.management_method!='api':
         plan.status='manual'; plan.result='Guía preparada. Este equipo requiere aplicar y verificar la plantilla desde su consola.'; plan.save(); return
@@ -235,6 +303,12 @@ def stage(plan):
         from .blocklist import ALL_TEMPLATES,alias_name
         from . import policy_changes
         from .qfeeds_distribution import DNS_TEMPLATE
+        from .template_updates import UPDATE_TEMPLATE
+        if plan.template==UPDATE_TEMPLATE:
+            stage_update(plan,c)
+            plan.status='staged'; plan.result='Valores actuales anotados. La actualización solo cambia los ajustes indicados.'
+            audit('change.staged',plan,{'count':len(plan.remote_objects),'template':plan.template})
+            plan.save(); return
         if plan.template==DNS_TEMPLATE:
             try:
                 stage_dnsbl(plan,c)
@@ -284,6 +358,14 @@ def stage(plan):
 
 def rollback(plan,delete=False):
     c=plan.device.opnsense_api
+    from .template_updates import UPDATE_TEMPLATE,mark_applied
+    if plan.template==UPDATE_TEMPLATE:
+        # Una actualización no crea objetos: revertir es volver a los valores anotados al prepararla.
+        if any(o.get('kind')=='update' for o in plan.remote_objects): _set_update(plan,c,use_previous=True)
+        if plan.status in ('active','rollback_queued') and plan.parameters.get('from'): mark_applied(plan,plan.parameters['from'])
+        plan.status='rolled_back'; plan.result='Valores anteriores restaurados.'; plan.save()
+        audit('change.rollback',plan)
+        return
     # Las reglas antes que el alias: OPNsense no borra un alias en uso.
     for obj in sorted(plan.remote_objects,key=lambda o:o.get('kind')=='alias'):
         kind=obj.get('kind','firewall')
@@ -337,8 +419,11 @@ def rollback(plan,delete=False):
 def enable(plan):
     """Native savepoint limits interruption; worker must confirm inside native rollback window."""
     from .qfeeds_distribution import DNS_TEMPLATE
+    from .template_updates import UPDATE_TEMPLATE
     if plan.template==DNS_TEMPLATE:
         return enable_dnsbl(plan)
+    if plan.template==UPDATE_TEMPLATE:
+        return enable_update(plan)
     c=plan.device.opnsense_api
     baseline=json.loads(decrypt(plan.encrypted_backup))
     current=snapshot(c)
@@ -404,6 +489,8 @@ def process_queue():
                         response=api(c,'/api/firewall/filter/cancel_rollback/'+plan.rollback_revision,{})
                         if not completed(response): raise ValueError('Confirmación rechazada.')
                     plan.status='active'; plan.confirmation_deadline=None; plan.result='Pruebas confirmadas por el aprobador y acceso de gestión verificado.'; plan.save(); audit('change.applied',plan)
+                    from .template_updates import UPDATE_TEMPLATE,mark_applied
+                    if plan.template==UPDATE_TEMPLATE: mark_applied(plan,plan.parameters.get('to'))
             elif plan.status=='applying':
                 # Interrupted activation never resumes automatically.
                 rollback(plan)
