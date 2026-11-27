@@ -269,6 +269,14 @@ Para que un destino no entre en la lista de ningún cliente, se marca «Sin ries
 - en versiones anteriores (la lista de bloqueo era un bloque común que el SOC no toca), sin API o en otros equipos que admitan listas de dominios por URL, se añade la URL **a mano** («Servicios › Unbound DNS › Listas de bloqueo»). El plan queda en «Configuración manual» con esa indicación;
 - Unbound descarga la lista al aplicar y al caducar su copia; para refrescarla sin cambios, programar «Actualizar listas de bloqueo DNS» en el cron de OPNsense.
 
+**Dominios en UniFi** (28/11/2026). UniFi no tiene listas de dominios ni descarga listas por URL, pero la API oficial de Network 10.1 permite políticas de cortafuegos cuyo destino es una lista de dominios (`trafficFilter` `DOMAIN` con `domainFilter` `DOMAINS`, comprobado en su especificación OpenAPI 10.1.84). En «Bloqueo en UniFi», «Dominios Q-Feeds»:
+- crea la política del SOC «SOC Bloqueo dominios Q-Feeds Internal→External», **desactivada**, con los 1.000 dominios más recientes de la lista del cliente (sin sus excepciones). No crea ninguna traffic matching list. Activarla, ponerla la primera y retirarla funcionan como en las listas de IPs;
+- el trabajo de las listas UniFi (cada 15 minutos) reescribe los dominios solo si cambian y los verifica leyendo la política. Solo toca políticas «SOC…» cuyo identificador guardó;
+- con la lista detenida o vacía deja un único dominio reservado que nunca resuelve (`soc-sin-dominios.invalid`), porque la API exige al menos uno;
+- bloquea las conexiones a esos dominios, no la consulta DNS, y UniFi no da contadores: no se mide. Al cliente solo se le indica cuántos dominios se bloquean y en qué equipo.
+
+No validado aún en una consola real: el tope de 1.000 dominios es prudente porque la API no fija un máximo.
+
 **Medición del DNS** (28/11/2026). Cada hora, el trabajo «Eficacia de las reglas de bloqueo» lee las estadísticas de Unbound de cada lista DNS activa del SOC (`/api/unbound/overview/totals/5000`, OPNsense 25.7). Así se mide:
 - solo cuentan los dominios cuya última política de bloqueo es la lista del SOC (`latest_policy_uuid`), no las listas del operador;
 - Unbound guarda una ventana de varios días: se acumula por diferencias, y cuando la cifra baja porque el firewall descarta consultas antiguas no resta. La medida puede quedarse corta (también si hay más de 5.000 dominios bloqueados), pero nunca cuenta dos veces;
@@ -371,7 +379,7 @@ Criterio acordado con el usuario el 27/11/2026: cada función del SOC es común 
 | Registros y detecciones | Automático | Automático | Guiado | Guiado |
 | Lista de bloqueo de entrada y salida | Automático (guiado sin API) | Automático | Por comprobar | Por comprobar |
 | Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada, 4.000 IPv4 | Por comprobar | Por comprobar |
-| Dominios por DNS | Automático (25.7 y API; guiado si no) | Por comprobar | Por comprobar | Por comprobar |
+| Bloqueo de dominios | Automático (25.7 y API; guiado si no) | Parcial: política por dominios, 1.000, sin medición | Por comprobar | Por comprobar |
 | Medición de lo bloqueado | Automático (DNS: consultas, 25.7) | Parcial: indicio por detecciones | Por comprobar | Por comprobar |
 | Cambios de política | Automático | Guiado | Guiado | Guiado |
 

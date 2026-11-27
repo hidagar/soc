@@ -718,8 +718,10 @@ def unifi_action(request, client, feed, action):
         return redirect('blocklist_detail', client_pk=client.pk)
     device = get_object_or_404(_unifi_devices(client), pk=_posted_pk(request, 'device'))
     direction = request.POST.get('direction', 'in')
-    if direction not in ('in', 'out', 'qfeeds'):
+    if direction not in ('in', 'out', 'qfeeds', 'dns'):
         raise Http404
+    if direction == 'dns':
+        return unifi_create_domains(request, client, feed, device) if action == 'unifi_create' else _unifi_dns_only(request)
     if direction == 'out' and action == 'unifi_create' and not feed.outbound_enabled:
         request.unifi_error = 'Activa primero la lista de salida (C2) de este cliente.'
         return None
@@ -775,6 +777,47 @@ def unifi_action(request, client, feed, action):
     audit('blocklist.unifi_policy_create', client, {'status': direction, 'count': len(created)})
     messages.success(request, f'Lista «{chosen["name"]}» creada con las IPs del SOC y {len(created)} política(s) de bloqueo '
                               'creadas DESACTIVADAS en UniFi. Revisa el orden de las políticas en UniFi y pulsa «Activar».')
+    return redirect('blocklist_detail', client_pk=client.pk)
+
+
+def _unifi_dns_only(request):
+    request.unifi_error = 'Los dominios no van en una lista de UniFi sino en la política del SOC: usa «Crear lista y política».'
+    return None
+
+
+def unifi_create_domains(request, client, feed, device):
+    """Dominios de Q-Feeds en UniFi: una política de bloqueo por dominios del SOC, creada DESACTIVADA.
+
+    UniFi no tiene listas de dominios: los dominios van dentro de la política (filtro de destino DOMAINS).
+    El trabajo de las listas UniFi los mantiene al día como el resto.
+    """
+    from .models import UnifiBlocklistBinding
+    from .unifi_blocklist import DNS, NAMES, create_policies, default_site, sync
+    from .unifi_cloud import UnifiCloudError, decrypt_api_key
+    if not feed.qfeeds_dns:
+        request.unifi_error = 'Activa primero los dominios de Q-Feeds para el DNS de este cliente.'
+        return None
+    binding = UnifiBlocklistBinding.objects.filter(device=device, direction=DNS).first()
+    try:
+        if not binding:
+            connection = device.unifi_cloud
+            site = default_site(decrypt_api_key(connection.encrypted_api_key), connection.remote_host_id)
+            binding = UnifiBlocklistBinding.objects.create(device=device, direction=DNS, site_id=site, list_id='',
+                                                           list_name=NAMES[DNS], item_format='domains', enabled=True)
+            audit('blocklist.unifi_create', client, {'status': DNS})
+        created = binding.policies or create_policies(binding)
+    except UnifiCloudError as exc:
+        request.unifi_error = f'No se pudo crear la política de dominios en UniFi: {exc}'
+        return None
+    UnifiBlocklistBinding.objects.filter(pk=binding.pk).update(policies=created)
+    binding.refresh_from_db()
+    audit('blocklist.unifi_policy_create', client, {'status': DNS, 'count': len(created)})
+    if not sync(binding, force=True):
+        messages.error(request, 'Política creada, pero la escritura de los dominios falló. Revisa el error en esta página.')
+        return redirect('blocklist_detail', client_pk=client.pk)
+    binding.refresh_from_db()
+    messages.success(request, f'Política de bloqueo por dominios creada DESACTIVADA en UniFi con {binding.pushed_count} dominios. '
+                              'Revisa su orden en UniFi y pulsa «Activar».')
     return redirect('blocklist_detail', client_pk=client.pk)
 
 

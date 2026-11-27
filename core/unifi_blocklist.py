@@ -28,6 +28,11 @@ from .unifi_cloud import UnifiCloudError, _NoRedirect, decrypt_api_key
 PREFIX = 'SOC'
 PLACEHOLDER = '192.0.2.1'  # TEST-NET-1 (RFC 5737): no corresponde a ningún equipo real
 MAX_ITEMS = 4000
+# Dominios: la política de UniFi lleva los dominios dentro (filtro de destino DOMAINS, API de Network 10.1).
+# La API no fija un máximo; se limita a los más recientes para no cargar la puerta de enlace.
+DNS = 'dns'
+DNS_MAX_ITEMS = 1000
+DNS_PLACEHOLDER = 'soc-sin-dominios.invalid'  # .invalid (RFC 6761) nunca resuelve: la política no bloquea nada real
 UUID = re.compile(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z')
 
 
@@ -173,8 +178,9 @@ def candidates(device):
     return result
 
 
-NAMES = {'in': 'SOC Bloqueo entrada', 'out': 'SOC Bloqueo salida C2', 'qfeeds': 'SOC Bloqueo preventivo Q-Feeds'}
-LABELS = {'in': 'entrada', 'out': 'salida C2', 'qfeeds': 'preventivo Q-Feeds'}
+NAMES = {'in': 'SOC Bloqueo entrada', 'out': 'SOC Bloqueo salida C2', 'qfeeds': 'SOC Bloqueo preventivo Q-Feeds',
+         DNS: 'SOC Bloqueo dominios Q-Feeds'}
+LABELS = {'in': 'entrada', 'out': 'salida C2', 'qfeeds': 'preventivo Q-Feeds', DNS: 'dominios Q-Feeds'}
 
 
 def create_list(device, direction):
@@ -201,7 +207,7 @@ def create_list(device, direction):
 
 # Zonas del sistema de UniFi por dirección: (origen, destino). La lista va en el lado externo.
 FLOWS = {'in': (('External', 'Internal'), ('External', 'Gateway')), 'out': (('Internal', 'External'),),
-         'qfeeds': (('External', 'Internal'), ('External', 'Gateway'))}
+         'qfeeds': (('External', 'Internal'), ('External', 'Gateway')), DNS: (('Internal', 'External'),)}
 
 
 def _data(result):
@@ -239,8 +245,9 @@ def create_policies(binding):
         name = f'{PREFIX} Bloqueo {LABELS[binding.direction]} {source}→{destination}'
         found = next((p for p in existing if p.get('name') == name), None)
         if not found:
-            match = {'type': 'IP_ADDRESS', 'ipAddressFilter': {'type': 'TRAFFIC_MATCHING_LIST', 'matchOpposite': False,
-                                                               'trafficMatchingListId': _uuid(binding.list_id)}}
+            match = domain_match(desired(binding)) if binding.direction == DNS else {
+                'type': 'IP_ADDRESS', 'ipAddressFilter': {'type': 'TRAFFIC_MATCHING_LIST', 'matchOpposite': False,
+                                                          'trafficMatchingListId': _uuid(binding.list_id)}}
             body = {'enabled': False, 'name': name, 'description': 'Gestionada por el SOC de ib-red: no editar a mano.',
                     'action': {'type': 'BLOCK'}, 'loggingEnabled': True, 'ipProtocolScope': scope,
                     'source': {'zoneId': zone_ids[source.lower()]}, 'destination': {'zoneId': zone_ids[destination.lower()]}}
@@ -254,6 +261,17 @@ def create_policies(binding):
             raise UnifiCloudError(f'La política «{name}» ya existe y está activa: revísala en UniFi.')
         created.append({'id': _uuid(found.get('id')), 'name': name})
     return created
+
+
+def domain_match(domains):
+    """Filtro de destino por dominios de una política de UniFi (esquema de la API de Network 10.1)."""
+    return {'type': 'DOMAIN', 'domainFilter': {'type': 'DOMAINS', 'domains': list(domains)}}
+
+
+def policy_domains(policy):
+    flt = ((policy.get('destination') or {}).get('trafficFilter') or {})
+    domains = (flt.get('domainFilter') or {}).get('domains') if flt.get('type') == 'DOMAIN' else None
+    return sorted(str(d).lower() for d in domains) if isinstance(domains, list) else None
 
 
 def _own_policy(key, host, site, policy):
@@ -358,8 +376,8 @@ def efficacy(binding, now=None):
     from .models import SecurityEvidence
     now = now or timezone.now()
     since = binding.policies_enabled_at
-    if not binding.policies_enabled or not since:
-        return None
+    if not binding.policies_enabled or not since or binding.direction == DNS:
+        return None  # las detecciones no guardan dominios: no hay indicio que calcular
     start = max(since, now - timedelta(days=7))
     values = [v for v in desired(binding, now) if v != PLACEHOLDER]
     singles = [v for v in values if '/' not in v]
@@ -433,9 +451,13 @@ def desired(binding, now=None):
     La preventiva de Q-Feeds se recorta a las primeras: las que ya atacaron a algún cliente y las más recientes.
     """
     from .blocklist import servable
-    from .qfeeds_distribution import servable_preventive
+    from .qfeeds_distribution import servable_dns, servable_preventive
     feed = BlocklistFeed._base_manager.filter(client_id=binding.device.site.client_id).select_related('client').first()
     values = []
+    if binding.direction == DNS:
+        # Los más recientes primero (orden de la lista del SOC), con tope.
+        domains = servable_dns(feed)[:DNS_MAX_ITEMS] if feed and binding.enabled and binding.device.active else []
+        return sorted(domains) or [DNS_PLACEHOLDER]
     if feed and binding.enabled and binding.device.active:
         served = servable_preventive(feed) if binding.direction == 'qfeeds' else servable(feed, now, outbound=binding.direction == 'out')
         for value in served:
@@ -444,12 +466,37 @@ def desired(binding, now=None):
     return sorted(values[:MAX_ITEMS]) or [PLACEHOLDER]
 
 
+def sync_domains(binding, values, now):
+    """Dominios: se escriben en las políticas del SOC (no hay lista aparte) y se verifican leyendo de nuevo."""
+    connection = binding.device.unifi_cloud
+    key = decrypt_api_key(connection.encrypted_api_key)
+    host, site = connection.remote_host_id, _uuid(binding.site_id)
+    for policy in binding.policies:
+        current = _own_policy(key, host, site, policy)
+        body = {k: v for k, v in current.items() if k not in ('id', 'metadata', 'index')}
+        body['destination'] = {**(current.get('destination') or {}), 'trafficFilter': domain_match(values)}
+        path = f'/v1/sites/{site}/firewall/policies/{_uuid(policy["id"])}'
+        call(key, host, path, 'PUT', body)
+        if policy_domains(_data(call(key, host, path))) != sorted(values):
+            raise UnifiCloudError('UniFi no confirmó los dominios escritos; se reintentará.')
+
+
 def sync(binding, now=None, force=False):
     """Escribe la lista si cambió y la verifica. Devuelve True si quedó al día."""
     now = now or timezone.now()
     values = desired(binding, now)
     target = fingerprint(values)
     if target == binding.pushed_fingerprint and not force and not binding.error:
+        return True
+    if binding.direction == DNS:
+        placeholder = values == [DNS_PLACEHOLDER]
+        try:
+            sync_domains(binding, values, now)
+        except UnifiCloudError as exc:
+            UnifiBlocklistBinding._base_manager.filter(pk=binding.pk).update(error=str(exc)[:240], error_at=binding.error_at or now)
+            return False
+        UnifiBlocklistBinding._base_manager.filter(pk=binding.pk).update(
+            pushed_fingerprint=target, pushed_count=0 if placeholder else len(values), synced_at=now, error='', error_at=None)
         return True
     connection = binding.device.unifi_cloud
     path = f'/v1/sites/{_uuid(binding.site_id)}/traffic-matching-lists/{_uuid(binding.list_id)}'

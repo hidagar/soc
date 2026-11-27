@@ -379,7 +379,7 @@ def status_rows(clients, now=None):
                                                 device__active=True).select_related('device__site'):
         plans.setdefault(plan.device.site.client_id, []).append(plan)
     unifi = {}
-    for binding in UnifiBlocklistBinding._base_manager.filter(device__site__client__in=clients, direction='qfeeds',
+    for binding in UnifiBlocklistBinding._base_manager.filter(device__site__client__in=clients, direction__in=('qfeeds', 'dns'),
                                                               device__active=True).select_related('device__site'):
         unifi.setdefault(binding.device.site.client_id, []).append(binding)
     devices = {}
@@ -399,7 +399,10 @@ def status_rows(clients, now=None):
             'sources': source_counts(feed.entries) if feed else None,
             'out_qfeeds': sum(1 for e in feed.outbound_entries if 'qfeeds' in entry_sources(e)) if feed else 0,
             'rules_main': len(active_main), 'rules_q': len(active_q), 'rules_q_pending': len(pending_q),
-            'unifi_q': sum(1 for b in bindings if b.policies_enabled), 'unifi_q_pending': sum(1 for b in bindings if not b.policies_enabled),
+            'unifi_q': sum(1 for b in bindings if b.direction == 'qfeeds' and b.policies_enabled),
+            'unifi_q_pending': sum(1 for b in bindings if b.direction == 'qfeeds' and not b.policies_enabled),
+            'unifi_dns': sum(1 for b in bindings if b.direction == 'dns' and b.policies_enabled),
+            'unifi_dns_pending': sum(1 for b in bindings if b.direction == 'dns' and not b.policies_enabled),
             'week_main': _week(active_main, now), 'week_q': _week(active_q, now), 'week_dns': _week(active_dns, now),
             'rules_dns': len(active_dns),
             'vendors': sorted(devices.get(client.pk, set())),

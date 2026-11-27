@@ -115,6 +115,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_threat_intel_review.py](../../core/test_threat_intel_review.py) | 7 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 11 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
+| [core/test_unifi_dominios.py](../../core/test_unifi_dominios.py) | 6 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
 | [core/test_unifi_zone_scope.py](../../core/test_unifi_zone_scope.py) | 18 |
 | [core/test_ux.py](../../core/test_ux.py) | 4 |
@@ -221,3 +222,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0085_aviso_urgente_equipos.py](../../core/migrations/0085_aviso_urgente_equipos.py)
 - [core/migrations/0086_portal_antivirus.py](../../core/migrations/0086_portal_antivirus.py)
 - [core/migrations/0087_qfeeds_clientes.py](../../core/migrations/0087_qfeeds_clientes.py)
+- [core/migrations/0088_unifi_dominios.py](../../core/migrations/0088_unifi_dominios.py)

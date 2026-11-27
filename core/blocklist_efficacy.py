@@ -287,6 +287,15 @@ def client_protection(client, first_day=None, last_day=None, now=None):
     for binding in UnifiBlocklistBinding._base_manager.filter(device__site__client=client, device__active=True, enabled=True,
                                                               synced_at__isnull=False, error='',
                                                               policies_enabled=True).select_related('device'):
+        if binding.direction == 'dns':
+            # Política de dominios del SOC en UniFi: sin contadores; se cuentan los dominios escritos.
+            if not feed.qfeeds_dns:
+                continue
+            item = result.setdefault('dns', {'entries': binding.pushed_count, 'queries': 0, 'firewalls': [], 'measured': False,
+                                             'measuring': False})
+            if binding.device.name not in item['firewalls']:
+                item['firewalls'].append(binding.device.name)
+            continue
         key = keys.get(binding.direction)
         if not key or not available[key]:
             continue
