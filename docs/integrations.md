@@ -404,6 +404,7 @@ Todo lo que se basa en los registros (detecciones, incidencias, avisos, informes
   - Disponibilidad: si se pone un DNS alternativo público, la sede sigue resolviendo si el SOC no responde, pero sin la lista en ese momento.
   - Medición: el trabajo `soc-dns` cuenta en el diario de Unbound las consultas bloqueadas de cada cliente, con un cursor que solo avanza si la lectura terminó. Se muestra en la lista del cliente y al cliente (portal e informes) como consultas bloqueadas.
   - Sirve también para cualquier otra sede con la VPN de sedes cuyo firewall no tenga listas DNS. No validado aún con un GCC real.
+  - Piloto (30/11/2026): la lista del cliente muestra una comprobación paso a paso, actualizada por `soc-dns`: DNS del SOC instalado, Unbound responde (`unbound-control status`), lista de dominios cargada (`unbound-control list_auth_zones`, con su número de dominios), sede conectada a la VPN y primer bloqueo visto desde una sede. Si en el diario aparecen bloqueos del SOC con un formato de `rpz-log` que no se reconoce, lo avisa en lugar de contar cero.
 
 ## Archivos
 

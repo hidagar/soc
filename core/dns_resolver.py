@@ -138,16 +138,36 @@ def apply(conf, zones):
 
 
 def count_blocked(lines, names):
-    """Consultas bloqueadas por zona en líneas del diario de Unbound (`rpz: applied [soc-cN] …`)."""
+    """Consultas bloqueadas por zona en líneas del diario de Unbound (`rpz: applied [soc-cN] …`).
+
+    `_rpz_other` cuenta líneas de RPZ que no encajan con ese formato: si hay bloqueos que no se reconocen,
+    el formato del diario no es el esperado y la página del cliente lo avisa (no se inventa un cero).
+    """
     counts = {name: 0 for name in names}
+    other = 0
     for line in lines:
-        if 'rpz: applied' not in line:
+        if 'rpz:' not in line:
             continue
-        for name in names:
-            if f'[{name}]' in line:
-                counts[name] += 1
-                break
+        if 'rpz: applied' in line and any(f'[{name}]' in line for name in names):
+            counts[next(name for name in names if f'[{name}]' in line)] += 1
+        elif 'soc-c' in line:
+            other += 1
+    counts['_rpz_other'] = other
     return counts
+
+
+def unbound_health(zones):
+    """(Unbound responde, zonas RPZ cargadas o None si no se pueden listar) con comandos fijos de unbound-control."""
+    try:
+        _run(['unbound-control', 'status'], timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return False, None
+    try:
+        output = _run(['unbound-control', 'list_auth_zones'], timeout=15).stdout
+    except (OSError, subprocess.SubprocessError):
+        return True, None
+    loaded = sorted({line.split()[0].rstrip('.') for line in output.splitlines() if line.strip().startswith('soc-c')})
+    return True, loaded
 
 
 def read_journal(cursor):
@@ -172,6 +192,8 @@ def record(counts, now):
         history[day] = history.get(day, 0) + blocked
         details.update(history=history, checked_at=now.isoformat(), since=details.get('since') or now.isoformat(),
                        total_queries=details.get('total_queries', 0) + blocked)
+        if blocked:
+            details['last_block_at'] = now.isoformat()
         with transaction.atomic():
             WorkerState.reserve(name)
             WorkerState.objects.filter(name=name).update(details=details)
@@ -194,6 +216,8 @@ def synchronize(now=None):
                 details.update(digest=digest, applied_at=now.isoformat(), clients=len(zones))
         except (OSError, subprocess.SubprocessError):
             details['error'] = 'Unbound no aceptó la configuración del SOC; se mantiene la anterior. Revisar `unbound-checkconf`.'
+        details['zone_domains'] = {path.stem: text.count(' CNAME .') for path, text in zones.items()}
+        details['unbound_ok'], details['loaded_zones'] = unbound_health(zones)
         names = {zone_name(feed): feed.client_id for feed, _, _ in served()}
         try:
             lines, cursor = read_journal(details.get('cursor'))
@@ -201,8 +225,13 @@ def synchronize(now=None):
             details['journal_error'] = 'No se pudo leer el diario de Unbound; el recuento se reanudará desde el mismo punto.'
         else:
             counts = count_blocked(lines, names)
+            other = counts.pop('_rpz_other')
             record({names[name]: n for name, n in counts.items()}, now)
             details.update(cursor=cursor, journal_error='')
+            if other:
+                details['format_warning'] = (f'{other} línea(s) de bloqueo del SOC en el diario de Unbound con un formato que no se '
+                                             'reconoce: el recuento puede quedarse corto. Revisar el formato de rpz-log.')
+                details['format_warning_at'] = now.isoformat()
     with transaction.atomic():
         WorkerState.reserve(STATE)
         WorkerState.objects.filter(name=STATE).update(details=details)
@@ -224,9 +253,29 @@ def client_status(feed):
     today = timezone.localdate()
     week = sum(v for d, v in history.items() if d >= (today - timedelta(days=6)).isoformat())
     general = status()
+    name = zone_name(feed)
+    loaded = general.get('loaded_zones')
+    connected = [p for p in peers if p.enabled and p.status == 'connected']
+    last_block = parse_datetime(state.details.get('last_block_at') or '') if state else None
+    # Lista de comprobación del piloto: True correcto, False fallo, None aún sin dato.
+    checks = [
+        ('DNS del SOC instalado en la VM', bool(general.get('configured')),
+         '' if general.get('configured') else 'sudo deploy/configurar_dns_soc.sh --instalar'),
+        ('Unbound responde', general.get('unbound_ok') if general.get('configured') else None,
+         'Revisar «systemctl status unbound» en la VM.' if general.get('unbound_ok') is False else ''),
+        ('Lista de dominios cargada en Unbound', (name in loaded) if isinstance(loaded, list) and general.get('configured') else None,
+         f"{general.get('zone_domains', {}).get(name, 0)} dominios" if isinstance(loaded, list) and name in loaded else
+         'Se carga en la siguiente pasada del trabajo soc-dns (15 minutos).'),
+        ('Sede conectada a la VPN', bool(connected) if peers else False,
+         ', '.join(p.site.name for p in connected) if connected else 'Conectar la VPN de sedes desde el firewall.'),
+        ('Bloqueo visto desde una sede', True if last_block else None,
+         timezone.localtime(last_block).strftime('%d/%m/%Y %H:%M') if last_block else
+         'Probar desde un PC de la sede un dominio de la lista (nslookup): debe dar «Non-existent domain».'),
+    ]
     return {'peers': peers, 'configured': bool(general.get('configured')), 'error': general.get('error', ''),
             'applied_at': parse_datetime(general.get('applied_at') or ''), 'week': week if state else None,
-            'address': ADDRESS}
+            'address': ADDRESS, 'checks': checks, 'format_warning': general.get('format_warning', ''),
+            'journal_error': general.get('journal_error', '')}
 
 
 def blocked_between(client_id, first_day, last_day):

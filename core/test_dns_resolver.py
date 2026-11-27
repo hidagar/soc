@@ -163,3 +163,60 @@ class PageTests(Base):
         self.sync(timezone.now())
         page = self.client.get(reverse('blocklist_detail', args=[self.company.pk]))
         self.assertNotContains(page, 'deploy/configurar_dns_soc.sh --instalar')
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False, SOC_PUBLIC_ORIGIN='https://soc.example.test')
+class PilotChecksTests(Base):
+    def fake_run(self, args, **kwargs):
+        if args == ['unbound-control', 'list_auth_zones']:
+            self.commands.append(args)
+            return subprocess.CompletedProcess(args, 0, stdout=self.auth_zones, stderr='')
+        return super().fake_run(args, **kwargs)
+
+    auth_zones = ''
+
+    def checks(self):
+        return {label: (ok, detail) for label, ok, detail in dns_resolver.client_status(self.feed)['checks']}
+
+    def test_checklist_follows_each_step_of_the_pilot(self):
+        checks = self.checks()
+        self.assertEqual(checks['DNS del SOC instalado en la VM'][0], False)
+        self.assertIn('configurar_dns_soc.sh', checks['DNS del SOC instalado en la VM'][1])
+        (self.conf / 'soc-base.conf').write_text('server:\n')
+        self.sync()
+        checks = self.checks()
+        self.assertEqual(checks['Unbound responde'][0], True)
+        self.assertEqual(checks['Lista de dominios cargada en Unbound'][0], False, 'Unbound no la lista todavía')
+        name = f'soc-c{self.company.pk}'
+        self.auth_zones = f'{name}.\tserial 1\n'
+        self.sync()
+        checks = self.checks()
+        self.assertEqual(checks['Lista de dominios cargada en Unbound'], (True, '2 dominios'))
+        self.assertEqual(checks['Sede conectada a la VPN'], (True, 'Inca'))
+        self.assertIsNone(checks['Bloqueo visto desde una sede'][0])
+        self.journal = f'info: rpz: applied [{name}] malo.example.com. nxdomain 10.255.251.5@1 malo.example.com. A IN\n-- cursor: c9\n'
+        self.sync()
+        self.assertTrue(self.checks()['Bloqueo visto desde una sede'][0])
+
+    def test_unknown_log_format_is_reported_instead_of_counting_zero(self):
+        (self.conf / 'soc-base.conf').write_text('server:\n')
+        self.journal = f'info: rpz: blocked soc-c{self.company.pk} malo.example.com\n-- cursor: c3\n'
+        details = self.sync()
+        self.assertIn('formato que no se reconoce', details['format_warning'])
+        from django.contrib.auth import get_user_model
+        admin = get_user_model().objects.create_superuser('admin', 'a@example.test', 'x')
+        self.client.force_login(admin)
+        page = self.client.get(reverse('blocklist_detail', args=[self.company.pk]))
+        self.assertContains(page, 'formato que no se reconoce')
+        self.assertContains(page, 'Lista de dominios cargada en Unbound')
+
+    def test_unbound_down_is_a_failed_check(self):
+        (self.conf / 'soc-base.conf').write_text('server:\n')
+
+        def down(args, **kwargs):
+            if args == ['unbound-control', 'status']:
+                raise subprocess.CalledProcessError(1, args)
+            return self.fake_run(args, **kwargs)
+        with mock.patch.object(dns_resolver.subprocess, 'run', side_effect=down):
+            dns_resolver.synchronize()
+        self.assertEqual(self.checks()['Unbound responde'][0], False)
