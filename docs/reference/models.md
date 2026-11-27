@@ -438,6 +438,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `dns_count` | PositiveIntegerField |  |
 | `dns_fetch_at` | DateTimeField | null=True; blank=True |
 | `outbound_entries` | JSONField | blank=True |
+| `fetch_sources` | JSONField | blank=True |
 | `allowlist` | TextField | blank=True |
 | `max_entries` | PositiveIntegerField |  |
 | `token_hash` | CharField | max_length=64; blank=True |

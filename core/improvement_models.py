@@ -222,6 +222,8 @@ class BlocklistFeed(models.Model):
     dns_count=models.PositiveIntegerField(default=0)
     dns_fetch_at=models.DateTimeField(null=True,blank=True)
     outbound_entries=models.JSONField(default=list,blank=True)
+    # Quién descarga cada lista: {lista: {IP: fecha ISO}}, como mucho 10 IP por lista. Comprueba el modo guiado.
+    fetch_sources=models.JSONField(default=dict,blank=True)
     allowlist=models.TextField('Excepciones (nunca bloquear)',blank=True,help_text='Una IP o red CIDR por línea: proveedores, socios, oficinas remotas.')
     max_entries=models.PositiveIntegerField('Máximo de entradas',default=2000)
     token_hash=models.CharField(max_length=64,blank=True)

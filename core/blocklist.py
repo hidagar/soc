@@ -544,6 +544,58 @@ def feed_url(feed, outbound=False, kind=None):
     return origin() + reverse(SERVE_ROUTES[kind], args=[feed.client_id, decrypt(feed.encrypted_token)])
 
 
+FETCH_SOURCES_PER_LIST = 10
+
+
+def record_source(feed, kind, request):
+    """Anota desde qué IP se descarga cada lista (las 10 más recientes): sirve para comprobar el modo guiado.
+
+    Es la IP pública del firewall del cliente, dato del propio cliente; solo lo ve el SOC.
+    """
+    from .security import client_ip
+    sources = {k: dict(v) for k, v in (feed.fetch_sources or {}).items() if isinstance(v, dict)}
+    ip = client_ip(request)
+    if not ip:
+        return sources
+    items = sources.setdefault(kind, {})
+    items[ip] = timezone.now().isoformat()
+    sources[kind] = dict(sorted(items.items(), key=lambda item: item[1], reverse=True)[:FETCH_SOURCES_PER_LIST])
+    return sources
+
+
+FETCH_LABELS = {'in': 'Lista de entrada', 'out': 'Lista de salida (C2)', 'preventive': 'Lista preventiva', 'dns': 'Dominios'}
+
+
+def device_addresses(client):
+    """{IP: [equipos]} con las IP conocidas de los equipos del cliente: origen de sus registros, gestión y canal seguro."""
+    from .models import ExportConfiguration, SecureLogChannel
+    result = {}
+
+    def add(value, name):
+        try:
+            result.setdefault(str(ipaddress.ip_address((value or '').strip())), set()).add(name)
+        except ValueError:
+            pass
+    for device in Device.objects.filter(site__client=client, active=True):
+        add(device.management_address, device.name)
+    for ip, name in ExportConfiguration._base_manager.filter(device__site__client=client).values_list('source_ip', 'device__name'):
+        add(ip, name)
+    for ip, name in SecureLogChannel._base_manager.filter(device__site__client=client).values_list('last_transport_ip', 'device__name'):
+        add(ip, name)
+    return {ip: sorted(names) for ip, names in result.items()}
+
+
+def fetch_rows(feed):
+    """Descargas por lista e IP, con el equipo del cliente al que corresponde esa IP (si se conoce)."""
+    from django.utils.dateparse import parse_datetime
+    known = device_addresses(feed.client)
+    rows = []
+    for kind, label in FETCH_LABELS.items():
+        for ip, at in sorted((feed.fetch_sources or {}).get(kind, {}).items(), key=lambda item: item[1], reverse=True):
+            rows.append({'kind': kind, 'label': label, 'ip': ip, 'at': parse_datetime(at), 'devices': known.get(ip, [])})
+    return rows
+
+
 FETCH_FIELDS = {'in': 'last_fetch_at', 'out': 'last_fetch_at', 'preventive': 'preventive_fetch_at', 'dns': 'dns_fetch_at'}
 
 
@@ -565,7 +617,8 @@ def serve(request, client_pk, token, outbound=False, kind=None):
     elif not feed or not feed.token_hash or not hmac.compare_digest(feed.token_hash, digest):
         raise Http404
     else:
-        BlocklistFeed._base_manager.filter(pk=feed.pk).update(**{FETCH_FIELDS[kind]: timezone.now()})
+        BlocklistFeed._base_manager.filter(pk=feed.pk).update(**{FETCH_FIELDS[kind]: timezone.now(),
+                                                                  'fetch_sources': record_source(feed, kind, request)})
         if kind == 'preventive':
             values = servable_preventive(feed)
         elif kind == 'dns':
@@ -852,13 +905,29 @@ def exclude_entry(request, client, feed):
 
 
 def capability_rows(client, feed):
-    """Cómo llega cada lista de Q-Feeds a cada equipo del cliente: automático, guiado o por comprobar."""
+    """Cómo llega cada lista a cada equipo del cliente (automático, guiado o por comprobar) y si su descarga
+    desde ese equipo está comprobada."""
     from .vendor_capabilities import device_rows
-    if not (feed.enabled and (feed.qfeeds_preventive or feed.qfeeds_dns)):
+    if not feed.enabled:
         return {}
     devices = list(Device.objects.filter(site__client=client, active=True).select_related('site').order_by('name'))
-    return {'preventive': device_rows(devices, 'preventive') if feed.qfeeds_preventive else [],
-            'dns': device_rows(devices, 'dns') if feed.qfeeds_dns else []}
+    fetched = {}
+    for row in fetch_rows(feed):
+        for name in row['devices']:
+            key = (row['kind'], name)
+            fetched[key] = max(fetched.get(key) or row['at'], row['at'])
+    lists = {'blocklist': 'in', 'blocklist_out': 'out', 'preventive': 'preventive', 'dns': 'dns'}
+    wanted = {'blocklist': True, 'blocklist_out': feed.outbound_enabled, 'preventive': feed.qfeeds_preventive,
+              'dns': feed.qfeeds_dns}
+    result = {}
+    for feature, kind in lists.items():
+        if not wanted[feature]:
+            continue
+        rows = device_rows(devices, feature)
+        for row in rows:
+            row['fetched_at'] = fetched.get((kind, row['device'].name))
+        result[feature] = rows
+    return result
 
 
 def global_access(user):
@@ -1156,4 +1225,4 @@ def detail(request, client_pk):
         'url_q': feed_url(feed, kind='preventive') if show_url and feed.enabled and feed.qfeeds_preventive else '',
         'url_dns': feed_url(feed, kind='dns') if show_url and feed.enabled and feed.qfeeds_dns else '',
         'preventive_limit': PREVENTIVE_LIMIT_VIEW,
-        'capability_rows': capability_rows(client, feed)})
+        'capability_rows': capability_rows(client, feed), 'fetch_rows': fetch_rows(feed)})

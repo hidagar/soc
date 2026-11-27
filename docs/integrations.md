@@ -377,13 +377,21 @@ Criterio acordado con el usuario el 27/11/2026: cada función del SOC es común 
 | Función | OPNsense | UniFi | Hillstone | Grandstream GCC |
 |---|---|---|---|---|
 | Registros y detecciones | Automático | Automático | Guiado | Guiado |
-| Lista de bloqueo de entrada y salida | Automático (guiado sin API) | Automático | Por comprobar | Por comprobar |
-| Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada, 4.000 IPv4 | Por comprobar | Por comprobar |
+| Lista de bloqueo de entrada y salida | Automático (guiado sin API) | Automático | Guiado: filtrado perimetral (entrada) y lista dinámica externa (salida) | Por comprobar |
+| Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada, 4.000 IPv4 | Guiado | Por comprobar |
 | Bloqueo de dominios | Automático (25.7 y API; guiado si no) | Parcial: política por dominios, 1.000, sin medición | Por comprobar | Por comprobar |
 | Medición de lo bloqueado | Automático (DNS: consultas, 25.7) | Parcial: indicio por detecciones | Por comprobar | Por comprobar |
 | Cambios de política | Automático | Guiado | Guiado | Guiado |
 
 Todo lo que se basa en los registros (detecciones, incidencias, avisos, informes, portal, índice) y el antivirus de los equipos (agente Wazuh) es igual para todos los fabricantes.
+
+**Modo guiado comprobado** (28/11/2026). Cada descarga de una lista (entrada, salida, preventiva o dominios) anota la IP que la pide (`BlocklistFeed.fetch_sources`, las 10 más recientes por lista, con la IP real detrás del Nginx local). La lista del cliente la asocia al equipo cuya IP de gestión, origen de registros o canal seguro coincide, y muestra por equipo «Descarga comprobada» o «Aún no consta ninguna descarga». Una IP sin asociar puede ser otra salida a Internet del cliente o alguien con la URL: si no se reconoce, se genera un token nuevo. Los equipos en modo guiado muestran los pasos («Cómo configurarlo»).
+
+**Hillstone (StoneOS)**, según la documentación pública del fabricante (28/11/2026):
+- 5.5R9: la lista negra del filtrado perimetral (Perimeter Traffic Filtering) se puede importar de una fuente externa por HTTPS o FTP. Se usa para la lista de entrada y la preventiva (guiado). El filtrado perimetral de reputación IP necesita su licencia; falta confirmar si la lista propia también.
+- 5.5R12: External Dynamic List, una lista de IPs en un servidor referenciada en el destino de una política. Se usa para la lista de salida y la preventiva de salida (guiado).
+- La API REST (5.5R10) puede consultar libretas de direcciones y políticas, importar y exportar políticas y direcciones, borrar contadores de aciertos y gestionar la lista de bloqueo del módulo antibotnet; las rutas exactas están en la «RESTful API User Guide», que se descarga desde el propio equipo. Sin esa guía no se escribe nada en Hillstone por API: dominios y medición siguen «por comprobar».
+- Formato servido: una IP o red por línea. Por validar en un equipo real.
 
 ## Archivos
 

@@ -52,12 +52,16 @@ MATRIX = {
     },
     'hillstone': {
         'logs': ('guided', 'Syslog configurado con la guía y comprobado al recibir registros.'),
-        'blocklist': ('pending', 'Hoy solo hay lectura por REST (StoneOS). Comprobar si admite listas de IPs por URL o '
-                                 'escritura de libretas de direcciones antes de ofrecerlo.'),
-        'blocklist_out': ('pending', 'Igual que la de entrada.'),
-        'preventive': ('pending', 'Igual que la de entrada.'),
-        'dns': ('pending', 'Comprobar si StoneOS admite listas de dominios propias.'),
-        'measure': ('pending', 'Comprobar contadores de política por REST.'),
+        'blocklist': ('guided', 'Lista negra del filtrado perimetral (Perimeter Traffic Filtering) importada de una fuente '
+                                'externa por HTTPS con la URL del SOC (StoneOS 5.5R9 o posterior; puede requerir la licencia '
+                                'de reputación IP). La descarga desde el equipo se comprueba en el SOC.'),
+        'blocklist_out': ('guided', 'Lista dinámica externa (External Dynamic List) en el destino de una política de bloqueo '
+                                    '(StoneOS 5.5R12 o posterior). La descarga desde el equipo se comprueba en el SOC.'),
+        'preventive': ('guided', 'Como la lista de entrada (filtrado perimetral) o la de salida (lista dinámica externa), '
+                                 'con la URL de la lista preventiva.'),
+        'dns': ('pending', 'La API REST de StoneOS 5.5R10 gestiona la lista de bloqueo del módulo antibotnet, que podría '
+                           'servir para dominios; falta su guía REST (se descarga desde el propio equipo) y la licencia.'),
+        'measure': ('pending', 'StoneOS cuenta los aciertos de cada política; falta la guía REST para leerlos desde el SOC.'),
         'policy': ('guided', 'Guía preparada; se aplica desde la consola del equipo.'),
     },
     'grandstream_gcc': {
@@ -72,6 +76,26 @@ MATRIX = {
     },
 }
 UNKNOWN = ('pending', 'Fabricante sin adaptador: comprobar qué admite antes de ofrecerlo.')
+# Pasos del modo guiado. Los nombres de menú van como los muestra el fabricante; se validan en un equipo real.
+_FETCH = 'Al guardar, el firewall descarga la lista; en esta página aparece la descarga desde la IP del equipo.'
+GUIDES = {
+    ('opnsense', 'blocklist'): ['Firewall › Aliases: crear un alias de tipo «URL Table (IPs)» con la URL de la lista de entrada '
+                                'y actualización cada hora.',
+                                'Firewall › Rules › WAN: regla «Block» con origen ese alias, registrada, por encima de las que permiten tráfico.', _FETCH],
+    ('opnsense', 'blocklist_out'): ['Firewall › Aliases: alias «URL Table (IPs)» con la URL de la lista de salida.',
+                                    'Firewall › Rules › WAN: regla «Block» de salida con destino ese alias.', _FETCH],
+    ('opnsense', 'preventive'): ['Firewall › Aliases: alias «URL Table (IPs)» con la URL de la lista preventiva (comprobar el máximo '
+                                 'de entradas de tablas en Firewall › Settings › Advanced).',
+                                 'Firewall › Rules › WAN: regla «Block» con origen ese alias.', _FETCH],
+    ('opnsense', 'dns'): ['Services › Unbound DNS › Blocklist: añadir la URL de dominios como lista propia y aplicar.', _FETCH],
+    ('hillstone', 'blocklist'): ['Perimeter Traffic Filtering: activar la lista negra definida por el usuario e importar sus miembros '
+                                 'desde una fuente externa por HTTPS con la URL de la lista de entrada.',
+                                 'Formato: una IP o red por línea. Si StoneOS no acepta el certificado del SOC, importar su CA.', _FETCH],
+    ('hillstone', 'blocklist_out'): ['Crear una External Dynamic List con la URL de la lista de salida.',
+                                     'Política de bloqueo de la zona interna a la externa con esa lista como destino, por encima de las de permiso.', _FETCH],
+    ('hillstone', 'preventive'): ['Entrada: importar la URL de la lista preventiva en la lista negra del Perimeter Traffic Filtering.',
+                                  'Salida (opcional): External Dynamic List con la misma URL en el destino de una política de bloqueo.', _FETCH],
+}
 
 
 def capability(vendor, feature):
@@ -103,7 +127,8 @@ def device_rows(devices, feature):
     rows = []
     for device in devices:
         mode, note = for_device(device, feature)
-        rows.append({'device': device, 'mode': mode, 'label': MODES[mode], 'note': note})
+        steps = GUIDES.get((device.vendor, feature), []) if mode == 'guided' else []
+        rows.append({'device': device, 'mode': mode, 'label': MODES[mode], 'note': note, 'steps': steps})
     return rows
 
 
