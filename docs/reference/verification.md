@@ -69,7 +69,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_interface_topology.py](../../core/test_interface_topology.py) | 12 |
 | [core/test_investigation.py](../../core/test_investigation.py) | 11 |
 | [core/test_key_rotation.py](../../core/test_key_rotation.py) | 4 |
-| [core/test_listas_guiadas.py](../../core/test_listas_guiadas.py) | 4 |
+| [core/test_listas_guiadas.py](../../core/test_listas_guiadas.py) | 5 |
 | [core/test_log_redaction.py](../../core/test_log_redaction.py) | 6 |
 | [core/test_login_ip_throttle.py](../../core/test_login_ip_throttle.py) | 5 |
 | [core/test_mantenimiento.py](../../core/test_mantenimiento.py) | 7 |

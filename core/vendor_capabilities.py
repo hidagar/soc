@@ -66,12 +66,14 @@ MATRIX = {
     },
     'grandstream_gcc': {
         'logs': ('guided', 'Syslog configurado con la guía y comprobado al recibir registros.'),
-        'blocklist': ('pending', 'GDMS no documenta escritura de configuración. Comprobar si el GCC admite listas de IPs '
-                                 'por URL o importación.'),
-        'blocklist_out': ('pending', 'Igual que la de entrada.'),
-        'preventive': ('pending', 'Igual que la de entrada.'),
-        'dns': ('pending', 'Comprobar si el GCC admite listas de dominios propias.'),
-        'measure': ('pending', 'Sin contadores conocidos por API.'),
+        'blocklist': ('unavailable', 'El cortafuegos del GCC no descarga listas de IPs por URL y la API de GDMS (GWN) no '
+                                     'gestiona sus reglas ni sus grupos de direcciones. El GCC aplica sus propios módulos '
+                                     '(IPS, antibotnet, filtrado DNS por categorías); el SOC lo cubre con detección y avisos.'),
+        'blocklist_out': ('unavailable', 'Igual que la de entrada.'),
+        'preventive': ('unavailable', 'Igual que la de entrada.'),
+        'dns': ('pending', 'El filtrado DNS del GCC importa reglas desde un archivo con su plantilla, no desde una URL: '
+                           'con esa plantilla el SOC podría generar el archivo, pero sería una copia fija que hay que reimportar.'),
+        'measure': ('unavailable', 'Sin contadores por API; la API de GDMS solo exporta el registro de accesos web.'),
         'policy': ('guided', 'Guía preparada; se aplica desde la consola del equipo.'),
     },
 }

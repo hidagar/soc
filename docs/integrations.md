@@ -377,10 +377,10 @@ Criterio acordado con el usuario el 27/11/2026: cada función del SOC es común 
 | Función | OPNsense | UniFi | Hillstone | Grandstream GCC |
 |---|---|---|---|---|
 | Registros y detecciones | Automático | Automático | Guiado | Guiado |
-| Lista de bloqueo de entrada y salida | Automático (guiado sin API) | Automático | Guiado: filtrado perimetral (entrada) y lista dinámica externa (salida) | Por comprobar |
-| Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada, 4.000 IPv4 | Guiado | Por comprobar |
+| Lista de bloqueo de entrada y salida | Automático (guiado sin API) | Automático | Guiado: filtrado perimetral (entrada) y lista dinámica externa (salida) | No disponible |
+| Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada, 4.000 IPv4 | Guiado | No disponible |
 | Bloqueo de dominios | Automático (25.7 y API; guiado si no) | Parcial: política por dominios, 1.000, sin medición | Por comprobar | Por comprobar |
-| Medición de lo bloqueado | Automático (DNS: consultas, 25.7) | Parcial: indicio por detecciones | Por comprobar | Por comprobar |
+| Medición de lo bloqueado | Automático (DNS: consultas, 25.7) | Parcial: indicio por detecciones | Por comprobar | No disponible |
 | Cambios de política | Automático | Guiado | Guiado | Guiado |
 
 Todo lo que se basa en los registros (detecciones, incidencias, avisos, informes, portal, índice) y el antivirus de los equipos (agente Wazuh) es igual para todos los fabricantes.
@@ -392,6 +392,13 @@ Todo lo que se basa en los registros (detecciones, incidencias, avisos, informes
 - 5.5R12: External Dynamic List, una lista de IPs en un servidor referenciada en el destino de una política. Se usa para la lista de salida y la preventiva de salida (guiado).
 - La API REST (5.5R10) puede consultar libretas de direcciones y políticas, importar y exportar políticas y direcciones, borrar contadores de aciertos y gestionar la lista de bloqueo del módulo antibotnet; las rutas exactas están en la «RESTful API User Guide», que se descarga desde el propio equipo. Sin esa guía no se escribe nada en Hillstone por API: dominios y medición siguen «por comprobar».
 - Formato servido: una IP o red por línea. Por validar en un equipo real.
+
+**Grandstream GCC**, según el manual del cortafuegos del GCC6000 y la referencia de la API de GDMS (GWN), 28/11/2026:
+- el cortafuegos no descarga listas por URL. Las reglas usan grupos de direcciones IP o FQDN que se mantienen a mano («Networking › Profiles»);
+- el filtrado DNS y el filtrado de URL importan reglas desde un archivo con la plantilla del propio equipo, no desde una URL;
+- la API de GDMS (GWN) solo cubre red, SSID, clientes, lista de acceso por MAC, WAN, alertas, inventario y el registro de accesos web: nada del cortafuegos;
+- por eso las listas de bloqueo y la preventiva son «No disponible» en el GCC: el equipo aplica sus módulos propios (IPS, antibotnet, filtrado DNS por categorías) y el SOC lo cubre con detección y avisos. Los dominios quedan «por comprobar»: con la plantilla de importación del filtrado DNS, el SOC podría generar el archivo, pero sería una copia fija que hay que reimportar;
+- alternativa a valorar, no implementada: que el GCC reenvíe el DNS de los equipos a un resolvedor con la lista de dominios (por ejemplo, un OPNsense del cliente o un DNS del SOC).
 
 ## Archivos
 

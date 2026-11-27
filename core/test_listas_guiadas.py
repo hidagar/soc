@@ -74,3 +74,23 @@ class GuidedListsTests(TestCase):
         self.assertEqual(self.fetch().content, b'')
         self.feed.refresh_from_db()
         self.assertIn(HS_IP, self.feed.fetch_sources['in'])
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False, SOC_PUBLIC_ORIGIN='https://soc.example.test')
+class GrandstreamCapabilityTests(TestCase):
+    def test_gcc_lists_are_not_offered_and_the_page_says_why(self):
+        self.assertEqual({capability('grandstream_gcc', f)[0] for f in ('blocklist', 'blocklist_out', 'preventive', 'measure')},
+                         {'unavailable'})
+        self.assertEqual(capability('grandstream_gcc', 'dns')[0], 'pending')
+        company = Client.objects.create(name='Oficinas', code='o')
+        site = Site.objects.create(client=company, name='Inca', code='i')
+        gcc = Device.objects.create(site=site, name='GCC-Inca', vendor='grandstream_gcc')
+        self.assertEqual(for_device(gcc, 'blocklist'), capability('grandstream_gcc', 'blocklist'))
+        BlocklistFeed.objects.create(client=company, enabled=True)
+        admin = get_user_model().objects.create_superuser('admin', 'a@example.test', 'x')
+        self.client.force_login(admin)
+        page = self.client.get(reverse('blocklist_detail', args=[company.pk]))
+        self.assertContains(page, 'GCC-Inca')
+        self.assertContains(page, 'capability-unavailable')
+        self.assertContains(page, 'no descarga listas de IPs por URL')
+        self.assertNotContains(page, 'Aún no consta ninguna descarga')
