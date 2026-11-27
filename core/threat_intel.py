@@ -76,6 +76,12 @@ LOOKUP_REUSE = timedelta(days=7)
 LOOKUPS_PER_RUN = 10
 MAX_LOOKUP = 256 * 1024
 MAX_OFFERED = 50
+INDEX_MAX_GAP = timedelta(hours=6)  # el índice se lee al menos cada 6 h aunque Q-Feeds no publique nada (36 h de vigencia)
+CALLS_STATE = 'threat-intel-calls'
+CALLS_KEEP = timedelta(hours=72)
+KEY_USE_ISSUE = 'platform:threat-intel-key-use'
+KEY_USE_MARGIN = 10  # peticiones de más que se toleran antes de sospechar de otro uso de la clave
+BULK_MAX = 200
 FEED_NAME = re.compile(r'^[a-z0-9_]{1,32}$')
 DOMAIN = re.compile(r'^(?=.{1,253}$)(?:[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$')
 
@@ -113,10 +119,22 @@ def _open(req):
 def _get(path, params, key, limit):
     """GET con la clave en la cabecera (nunca en la URL, que puede acabar en registros). Errores sin
     contenido del proveedor ni la clave."""
+    return _request(path, params, key, limit)
+
+
+def _post(path, params, body, key, limit):
+    """POST con cuerpo JSON (consultas en bloque), con los mismos frenos que `_get`."""
+    return _request(path, params, key, limit, json.dumps(body).encode())
+
+
+def _request(path, params, key, limit, data=None):
     url = API + path + ('?' + urlparse.urlencode(params) if params else '')
     token = base64.b64encode(f'api_token:{key}'.encode()).decode()
-    req = urlrequest.Request(url, headers={'Authorization': 'Basic ' + token, 'User-Agent': 'ib-red-SOC/1',
-                                           'Accept': 'application/json'})
+    headers = {'Authorization': 'Basic ' + token, 'User-Agent': USER_AGENT, 'Accept': 'application/json'}
+    if data is not None:
+        headers['Content-Type'] = 'application/json'
+    req = urlrequest.Request(url, data=data, headers=headers, method='POST' if data is not None else 'GET')
+    _count_call(path)
     try:
         response = _open(req)
     except urlerror.HTTPError as exc:
@@ -139,6 +157,34 @@ def _get(path, params, key, limit):
         return json.loads(b''.join(chunks))
     except ValueError:
         raise FeedError('respuesta no válida') from None
+
+
+USER_AGENT = 'ib-red-SOC/1'
+
+
+def _count_call(path, now=None):
+    """Peticiones del SOC a Q-Feeds por hora (72 h), para compararlas con las que Q-Feeds registra con la clave.
+
+    `info.php` no cuenta: Q-Feeds tampoco la incluye en su uso.
+    """
+    if path == '/info.php':
+        return
+    now = now or timezone.now()
+    hour = now.strftime('%Y-%m-%dT%H')
+    cutoff = (now - CALLS_KEEP).strftime('%Y-%m-%dT%H')
+    with transaction.atomic():
+        WorkerState.reserve(CALLS_STATE)
+        state = WorkerState.objects.get(name=CALLS_STATE)
+        buckets = {k: v for k, v in (state.details or {}).items() if k >= cutoff and isinstance(v, int)}
+        buckets[hour] = buckets.get(hour, 0) + 1
+        WorkerState.objects.filter(name=CALLS_STATE).update(details=buckets)
+
+
+def own_calls(since, now=None):
+    now = now or timezone.now()
+    state = WorkerState.objects.filter(name=CALLS_STATE).first()
+    start = since.strftime('%Y-%m-%dT%H')
+    return sum(v for k, v in ((state.details if state else {}) or {}).items() if k >= start and isinstance(v, int))
 
 
 def normalize(raw, kind):
@@ -266,7 +312,7 @@ def sync(now=None):
     paused = parse_datetime(values.get('paused_until') or '')
     if paused and values.get('paused_key') != key_id(key):
         paused = None  # la pausa era por otra clave: con la nueva se reintenta ya
-    if key and not (paused and paused > now):
+    if key and not (paused and paused > now) and not _index_can_wait(values, key, now):
         try:
             try:
                 index = _get('/licenses.php', None, key, MAX_INDEX)
@@ -281,7 +327,10 @@ def sync(now=None):
             values['license'] = {'expires': _iso(company.get('token_expiration')), 'premium': bool(company.get('premium_access')),
                                  'features': [str(f.get('name'))[:60] for f in index.get('features') or []
                                               if isinstance(f, dict) and f.get('licensed')][:20]}
+            values['key_security'] = _key_security(index.get('security_settings'))
+            values['index_at'], values['index_key'] = now.isoformat(), key_id(key)
             _lookup_usage(key, values, now)
+            _key_usage(key, values, now)
             wanted, seen = wanted_feeds(), set()
             # Lo que ofrece la licencia, aunque no se descargue: tras cambiar de plan se ve qué listas añadir.
             values['offered'] = [{'name': str(item.get('feed_type')), 'type': str(item.get('type') or '')[:16],
@@ -296,10 +345,16 @@ def sync(now=None):
                 row = feeds.setdefault(name, {})
                 row['licensed'] = bool(item.get('licensed'))
                 row['next_update'] = _iso(item.get('next_update'))
+                frequency = item.get('frequency')
+                row['frequency'] = frequency if isinstance(frequency, int) and not isinstance(frequency, bool) and frequency > 0 else None
                 if not row['licensed']:
                     continue
                 updated = _iso(item.get('updated_at'))
-                if row.get('ready') and updated and row.get('updated_at') == updated:
+                due = parse_datetime(row['next_update'] or '')
+                # Q-Feeds recomienda cuándo volver a pedir la lista (`next_update`, según su publicación y los límites de
+                # la cuenta). Antes de esa hora se conserva la copia aunque cambie `updated_at`, que también refleja la
+                # última descarga de la cuenta: así no se repite la descarga en cada pasada.
+                if row.get('ready') and updated and (row.get('updated_at') == updated or (due and due > now)):
                     row['checked_at'] = now.isoformat()
                     if 'categorized' not in row:  # copias anteriores a este dato: se calcula una vez
                         row['categorized'] = sum(1 for codes in ThreatIndicator.objects.filter(feed=name).values_list(
@@ -341,6 +396,93 @@ def sync(now=None):
     _health(values, now)
     _license_health(values, now)
     return downloaded
+
+
+def _index_can_wait(values, key, now):
+    """No hace falta leer el índice: lo leído hace menos de 6 h con esta clave dice que ninguna lista tiene
+    publicación nueva hasta más tarde (`next_update`). Ahorra peticiones sin dejar caducar las listas (36 h)."""
+    index_at = parse_datetime(values.get('index_at') or '')
+    if not index_at or now - index_at >= INDEX_MAX_GAP or values.get('index_key') != key_id(key) or values.get('error'):
+        return False
+    feeds = values.get('feeds') or {}
+    wanted = wanted_feeds()
+    if any(name not in feeds for name in wanted):
+        return False
+    for name in wanted:
+        row = feeds[name]
+        due = parse_datetime(row.get('next_update') or '')
+        if row.get('licensed') and (not row.get('ready') or not due or due <= now):
+            return False
+    return True
+
+
+def next_index_check(values):
+    """Cuándo se volverá a leer el índice si ahora se está esperando (para la página)."""
+    index_at = parse_datetime(values.get('index_at') or '')
+    if not index_at:
+        return None
+    dues = [parse_datetime(r.get('next_update') or '') for r in (values.get('feeds') or {}).values() if r.get('licensed')]
+    dues = [d for d in dues if d]
+    return min(dues + [index_at + INDEX_MAX_GAP]) if dues else index_at + INDEX_MAX_GAP
+
+
+def _key_security(settings):
+    """Restricciones de la clave según Q-Feeds (`security_settings`): IP y programas permitidos, ventana de límite."""
+    settings = settings if isinstance(settings, dict) else {}
+
+    def items(value):
+        return [v.strip() for v in str(value or '*').split(',') if v.strip()][:20]
+    ips = items(settings.get('allowed_ips'))
+    agents = items(settings.get('allowed_user_agents'))
+    allowed = []
+    for value in ips:
+        try:
+            allowed.append(str(ipaddress.ip_network(value, strict=False)))
+        except ValueError:
+            continue
+    window = settings.get('rate_limit_window')
+    return {'ips_restricted': bool(ips) and '*' not in ips, 'allowed_ips': allowed[:10],
+            'agents_restricted': bool(agents) and '*' not in agents,
+            'agent_allowed': '*' in agents or any(a and a.lower() in USER_AGENT.lower() for a in agents),
+            'rate_window': window if isinstance(window, int) and not isinstance(window, bool) and window > 0 else None}
+
+
+def _key_usage(key, values, now):
+    """Una vez al día compara las peticiones que Q-Feeds registra con la clave (último día, `info.php`) con las
+    que ha hecho el SOC en las últimas 48 h. Muchas más en Q-Feeds sugieren que la clave se usa fuera del SOC.
+
+    La ventana de Q-Feeds no está documentada con exactitud: por eso se compara con 48 h del SOC y con margen
+    (solo avisa de un uso claramente ajeno). Del historial solo se cuentan los rechazos; sus textos no se guardan.
+    """
+    from .operations import set_issue
+    current = values.get('key_usage') or {}
+    checked = parse_datetime(current.get('checked_at') or '')
+    if checked and now - checked < USAGE_EVERY:
+        return
+    try:
+        info = _get('/info.php', {'term': 1}, key, MAX_INDEX)
+    except FeedError:
+        values['key_usage'] = {'available': False, 'checked_at': now.isoformat()}
+        return
+    usage = info.get('api_usage') if isinstance(info, dict) and isinstance(info.get('api_usage'), dict) else {}
+    total = usage.get('total_requests')
+    if not isinstance(total, int) or isinstance(total, bool) or total < 0:
+        values['key_usage'] = {'available': False, 'checked_at': now.isoformat()}
+        return
+    history = info.get('log_history') if isinstance(info.get('log_history'), list) else []
+    rejected = sum(1 for row in history if isinstance(row, dict) and isinstance(row.get('status_code'), int)
+                   and row['status_code'] >= 400)
+    ours = own_calls(now - timedelta(hours=48), now)
+    suspect = total > ours + max(KEY_USE_MARGIN, ours // 5)
+    values['key_usage'] = {'available': True, 'checked_at': now.isoformat(), 'total': total, 'ours': ours,
+                           'rejected': rejected, 'suspect': suspect, 'last_request': _iso(usage.get('last_request'))}
+    if suspect:
+        set_issue(KEY_USE_ISSUE, 'Clave de Q-Feeds usada fuera del SOC', now=now, severity='warning',
+                  details=f'Q-Feeds registra {total} peticiones con la clave del SOC en el último día y el SOC solo ha hecho '
+                          f'{ours} en 48 horas. Puede que otro equipo o persona use la clave: revisar el uso en el portal de '
+                          'Q-Feeds, limitar la clave a la IP del SOC y, si no se reconoce, cambiarla.')
+    else:
+        OperationalIssue.objects.filter(key=KEY_USE_ISSUE, active=True).update(active=False, resolved_at=now)
 
 
 def _lookup_usage(key, values, now):
@@ -635,6 +777,8 @@ def overview(request):
         'offered': values.get('offered') or [], 'history': _history(values),
         'can_open_incident': request.user.has_perm('core.add_incident'), 'license_info': values.get('license') or {},
         'license_expires': license_expiry(values), 'lookup_info': values.get('lookup') or {}, 'can_lookup': lookup_available(values),
+        'key_security': values.get('key_security') or {}, 'key_usage': values.get('key_usage') or {},
+        'next_check': next_index_check(values) if values.get('index_at') else None, 'user_agent': USER_AGENT,
         'context': _context(query, result, now),
         'paused_until': (lambda p: p if p and p > now else None)(parse_datetime(values.get('paused_until') or ''))})
 
@@ -741,6 +885,15 @@ def _clean_ioc(ioc):
                   for m in (ioc.get('mitre_attack') or [])[:10] if isinstance(m, dict)],
         'country': text(geo.get('country_name') or geo.get('country'), 60), 'asn': text(geo.get('asn_org'), 120),
         'linked': sum(v for v in (linked.get('outbound_total'), linked.get('inbound_total')) if isinstance(v, int)),
+        # Ya no lo reporta ninguna fuente: el veredicto no cambia, pero es una amenaza que puede haber cesado.
+        'expired': ioc.get('expired') is True,
+        # Listas de advertencia (servicios conocidos, CDN, sitios muy visitados): posible falso positivo.
+        'warninglists': [text(next((h.get(k) for k in ('name', 'list', 'title', 'description') if isinstance(h.get(k), str)), ''), 80)
+                         for h in (ioc.get('warninglist_hits') or [])[:5] if isinstance(h, dict)],
+        'related': [{'value': text(r.get('value'), 253), 'type': text(r.get('type'), 20), 'verdict': text(r.get('verdict'), 20),
+                     'kind': text(r.get('kind'), 20)}
+                    for r in ((linked.get('outbound') or []) + (linked.get('inbound') or []))[:5]
+                    if isinstance(r, dict) and r.get('value')],
     }
 
 
@@ -757,6 +910,11 @@ def process_lookups(now=None):
         return 0
     done = 0
     quota = None
+    if len(queued) > 1:
+        bulk = _bulk_lookup(queued, key, now)
+        if bulk is not None:
+            done, quota = bulk
+            queued = []  # resueltas en una sola petición
     for item in queued:
         try:
             data = _get('/ioc_lookup.php', {'action': 'ioc', 'value': item.value}, key, MAX_LOOKUP)
@@ -776,6 +934,42 @@ def process_lookups(now=None):
         values['lookup'] = {**(values.get('lookup') or {}), 'available': True, **quota}
         _save(values)
     return done
+
+
+def _bulk_lookup(queued, key, now):
+    """Consulta en bloque (una petición para todas las de la pasada; cada valor gasta una consulta del cupo).
+
+    Devuelve (resueltas, cupo) o None si Q-Feeds no admite el bloque: entonces se consultan una a una.
+    """
+    values = list(dict.fromkeys(item.value for item in queued))[:BULK_MAX]
+    try:
+        data = _post('/ioc_lookup.php', {'action': 'bulk'}, {'values': values}, key, MAX_LOOKUP * len(values))
+    except FeedError as exc:
+        if exc.status == 429:
+            return 0, None  # cupo agotado o límite de peticiones: se queda todo en cola
+        if exc.status == 403:
+            ThreatIntelLookup.objects.filter(pk__in=[q.pk for q in queued]).update(
+                status='failed', error='La licencia no incluye las consultas de contexto o no tienen cupo.', done_at=now)
+            return 0, None
+        return None
+    results = data.get('results') if isinstance(data, dict) and isinstance(data.get('results'), list) else None
+    if results is None:
+        return None
+    by_value = {}
+    for row in results:
+        if isinstance(row, dict) and isinstance(row.get('value'), str):
+            by_value.setdefault(row['value'].strip().lower().rstrip('.'), row)
+    done = 0
+    for item in queued:
+        row = by_value.get(item.value)
+        if row is None:
+            ThreatIntelLookup.objects.filter(pk=item.pk).update(status='failed', error='Q-Feeds no devolvió este indicador.',
+                                                                done_at=now)
+            continue
+        ThreatIntelLookup.objects.filter(pk=item.pk).update(status='done', matched=bool(row.get('matched')),
+                                                            result=_clean_ioc(row.get('ioc')), done_at=now)
+        done += 1
+    return done, _quota(data.get('meta'))
 
 
 VERDICTS = {'malicious': 'Maliciosa', 'suspicious': 'Sospechosa', 'benign': 'Benigna', 'unknown': 'Sin veredicto'}

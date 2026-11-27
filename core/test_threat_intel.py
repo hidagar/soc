@@ -36,13 +36,15 @@ DOMAINS = {'feed': 'malware_domains', 'kind': 'domain', 'generated_at': '2026-11
            'iocs': {'Malo.Example.com.': {}, 'mal..dominio': {}}}
 
 
+INFO = {'user_info': {'company': 'SOC'}, 'api_usage': {'total_requests': 3, 'period_days': 1},
+        'log_history': [{'timestamp': '2026-11-05T08:00:00Z', 'message': 'texto del proveedor', 'status_code': 200}]}
 USAGE = {'lookups_limit_month': 5000, 'lookups_used_month': 10, 'lookups_remaining_month': 4990, 'quota_reset_at': '2026-12-01 00:00:00'}
 
 
 class FakeApi:
-    def __init__(self, index=INDEX, ips=IPS, domains=DOMAINS, error=None, lookup=USAGE):
+    def __init__(self, index=INDEX, ips=IPS, domains=DOMAINS, error=None, lookup=USAGE, info=INFO):
         self.index, self.ips, self.domains, self.error, self.requests = index, ips, domains, error, []
-        self.lookup = lookup
+        self.lookup, self.info = lookup, info
 
     def __call__(self, req):
         self.requests.append(req)
@@ -50,6 +52,10 @@ class FakeApi:
             raise urlerror.HTTPError(req.full_url, self.error, 'error', {}, None)
         if '/licenses.php' in req.full_url:
             body = self.index
+        elif '/info.php' in req.full_url:
+            if isinstance(self.info, int):
+                raise urlerror.HTTPError(req.full_url, self.info, 'error', {}, None)
+            body = self.info
         elif '/ioc_lookup.php' in req.full_url:
             if isinstance(self.lookup, int):
                 raise urlerror.HTTPError(req.full_url, self.lookup, 'error', {}, None)
@@ -95,9 +101,10 @@ class ThreatIntelTests(TestCase):
         for req in api.requests:
             self.assertNotIn(KEY, req.full_url)
             self.assertEqual(req.get_header('Authorization'), 'Basic ' + base64.b64encode(f'api_token:{KEY}'.encode()).decode())
-        # Índice, cupo de consultas de contexto (no gasta consultas) y las dos listas.
-        self.assertEqual(len(api.requests), 4)
+        # Índice, cupo de consultas de contexto (no gasta consultas), uso de la clave y las dos listas.
+        self.assertEqual(len(api.requests), 5)
         self.assertIn('/ioc_lookup.php?action=usage', api.requests[1].full_url)
+        self.assertIn('/info.php?term=1', api.requests[2].full_url)
 
     def test_unchanged_lists_are_not_downloaded_again(self):
         self.sync()

@@ -252,6 +252,19 @@ En **esta lista** solo entra lo ya visto en las detecciones; la lista entera de 
 
 Para que un destino no entre en la lista de ningún cliente, se marca «Sin riesgo» en la revisión de Q-Feeds.
 
+### API de Q-Feeds 1.2: mejoras de la integración (30/11/2026)
+Revisada la [especificación](https://api.qfeeds.com/openapi/openapi.yaml) 1.2.0 frente a lo que usa el SOC:
+- **Descargas según la programación de Q-Feeds.** Cada lista trae `next_update` (cuándo conviene volver a pedirla, según su publicación y los límites de la cuenta) y `frequency`. Antes de esa hora se conserva la copia aunque cambie `updated_at`, que según la especificación también refleja la última descarga de la cuenta: así no se repite la descarga en cada pasada. Si ninguna lista tiene publicación pendiente, tampoco se lee el índice, pero se lee al menos cada 6 horas para no superar las 36 horas de vigencia. La página muestra la frecuencia y la próxima comprobación.
+- **Seguridad de la clave** (`security_settings` de `licenses.php`): la página indica si la clave admite cualquier IP (conviene limitarla a la IP pública del SOC), si limita los programas y si admite el del SOC (`ib-red-SOC/1`; si no, Q-Feeds lo rechazaría con 403) y su ventana de límite de peticiones.
+- **Uso de la clave** (`info.php?term=1`, una vez al día): se comparan las peticiones que Q-Feeds registra con la clave en el último día con las que ha hecho el SOC en 48 horas (contadas por hora, 72 horas). Si Q-Feeds registra claramente más (margen de 10 o del 20 %), se abre «Clave de Q-Feeds usada fuera del SOC» en «Salud del SOC». Del historial solo se cuentan los rechazos; sus textos no se guardan.
+- **Consultas de contexto en bloque** (`POST ioc_lookup.php?action=bulk`): las de una pasada (hasta 10) van en una sola petición; cada indicador sigue gastando una consulta del cupo. Si Q-Feeds no admite el bloque, se consultan una a una; con el límite de peticiones (429) se quedan en cola.
+- **Más contexto por indicador:** si ya no lo reporta ninguna fuente (`expired`: el veredicto no cambia, pero la amenaza puede haber cesado), si figura en listas de advertencia (`warninglist_hits`: servicios conocidos, posible falso positivo) y hasta 5 indicadores relacionados por DNS (`linked_iocs`). Las notas de los analistas de Q-Feeds no se guardan.
+
+No se usan, a propósito:
+- `diff`: la especificación no define respecto a qué versión se calculan las diferencias, y una diferencia perdida dejaría la copia incompleta;
+- las listas de URL (`malicious_urls`, antes `phishing_urls`): las evidencias no guardan URL, y bloquear sus dominios cortaría también sitios legítimos comprometidos;
+- la telemetría: enviaría a Q-Feeds lo que bloquean los clientes.
+
 ### Q-Feeds para los clientes: lista preventiva, dominios, medición y activación masiva (23/11/2026)
 `core/qfeeds_distribution.py` (migración 0087). Con el acuerdo equivalente al de CrowdSec, cada cliente puede recibir además dos listas propias. Las dos usan el token y el freno de emergencia de su lista del SOC y se sirven **vacías** si la lista está desactivada o detenida, si el cliente está inactivo o si las listas de Q-Feeds no están vigentes (36 horas). Se calculan al descargarlas: una excepción nueva vale en la siguiente descarga.
 
