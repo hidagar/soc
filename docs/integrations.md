@@ -265,7 +265,9 @@ Para que un destino no entre en la lista de ningún cliente, se marca «Sin ries
 **Dominios para el DNS** («Publicar los dominios de Q-Feeds para el DNS», desmarcada por defecto):
 - los dominios de las listas vigentes, uno por línea, para las listas de bloqueo de Unbound en OPNsense. URL `/feeds/bloqueo/<cliente>/<token>/dominios/`;
 - excepciones propias del cliente («Dominios que nunca se bloquean»), que incluyen sus subdominios; si una excepción es un subdominio de un dominio de la lista, se retira también ese dominio (Unbound no puede desbloquear un subdominio de lo que bloquea). El dominio del portal del SOC nunca se publica;
-- se configura **a mano** en el firewall («Servicios › Unbound DNS › Listas de bloqueo»): no hay plantilla del control de cambios y el SOC no mide lo que bloquea el DNS.
+- en OPNsense 25.7 o posterior con API, «Preparar bloqueo DNS» (plantilla `qfeeds_dns`, 27/11/2026) crea con el control de cambios una lista de bloqueo **propia** en Unbound (`add_dnsbl`, descripción `SOC PLAN <plan> dnsbl`, NXDOMAIN, copia de 1 hora), desactivada. Nunca modifica las listas del operador. Activarla exige aprobación con MFA; se aplica con `/api/unbound/service/dnsbl` y queda «esperando confirmación» 10 minutos: si no se confirma, se desactiva sola. El DNS no corta el acceso de gestión, así que no usa el punto de restauración del filtro. Revertir la retira y recarga Unbound;
+- en versiones anteriores (la lista de bloqueo era un bloque común que el SOC no toca), sin API o en otros equipos que admitan listas de dominios por URL, se añade la URL **a mano** («Servicios › Unbound DNS › Listas de bloqueo»). El plan queda en «Configuración manual» con esa indicación;
+- el SOC aún no mide lo que bloquea el DNS. Unbound descarga la lista al aplicar y al caducar su copia; para refrescarla sin cambios, programar «Actualizar listas de bloqueo DNS» en el cron de OPNsense.
 
 **Medición por fuente.** Cada regla tiene sus contadores (trabajo «Eficacia de las reglas de bloqueo», cada hora), así que se distingue lo que cortó la lista del SOC (CrowdSec, detecciones propias y atacantes vistos en Q-Feeds) de lo que cortó la preventiva. Una IP que esté en las dos la cuenta la regla que va antes. Cada entrada de la lista del SOC guarda sus fuentes (`sources`: `crowdsec`, `qfeeds`, `soc`, `manual`); las calculadas antes se clasifican por sus motivos. Se muestra:
 - al SOC, en la lista del cliente («Por fuente: …» y los contadores de cada regla) y en «Q-Feeds en los clientes»;
@@ -350,6 +352,23 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
    - Atacar a varios clientes no acredita un compromiso (invariante 4).
    - Las IPs son datos personales: uso interno para proteger a los clientes, sin compartirlas fuera del SOC.
    - Distribuirla a los firewalls (opción por cliente en su lista de bloqueo) es una fase posterior, cuando la medida preventiva lo justifique.
+
+## Capacidades por fabricante (27/11/2026)
+
+Criterio acordado con el usuario el 27/11/2026: cada función del SOC es común a todos los fabricantes (qué se bloquea, excepciones, freno de emergencia, medición, proyección al cliente) y se aplica con un adaptador por fabricante. Donde el fabricante tiene API, el modo es **automático**; donde no, **guiado** (URL o guía del SOC y comprobación); lo que falta verificar queda **por comprobar** y no se ofrece como disponible.
+
+`core/vendor_capabilities.py` guarda la tabla y calcula el modo efectivo de cada equipo (por ejemplo, un OPNsense sin API pasa a «Guiado»; un UniFi sin la consola vinculada, también). Se ve en «Ayuda › Capacidades por fabricante» y, para la lista preventiva y los dominios, junto a cada equipo en la lista de bloqueo del cliente. Al añadir o comprobar un adaptador, actualizar la tabla y esta sección.
+
+| Función | OPNsense | UniFi | Hillstone | Grandstream GCC |
+|---|---|---|---|---|
+| Registros y detecciones | Automático | Automático | Guiado | Guiado |
+| Lista de bloqueo de entrada y salida | Automático (guiado sin API) | Automático | Por comprobar | Por comprobar |
+| Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada, 4.000 IPv4 | Por comprobar | Por comprobar |
+| Dominios por DNS | Automático (25.7 y API; guiado si no) | Por comprobar | Por comprobar | Por comprobar |
+| Medición de lo bloqueado | Automático (salvo DNS) | Parcial: indicio por detecciones | Por comprobar | Por comprobar |
+| Cambios de política | Automático | Guiado | Guiado | Guiado |
+
+Todo lo que se basa en los registros (detecciones, incidencias, avisos, informes, portal, índice) y el antivirus de los equipos (agente Wazuh) es igual para todos los fabricantes.
 
 ## Archivos
 

@@ -142,6 +142,87 @@ def stage_blocklist_alias(plan,c):
         plan.save(update_fields=['remote_objects'])
     if not completed(api(c,'/api/firewall/alias/reconfigure',{})): raise ValueError('No se confirmó la carga del alias.')
 
+class DnsblUnsupported(Exception):
+    """El firewall no tiene la API de listas de bloqueo DNS por elementos (OPNsense anterior a 25.7)."""
+
+
+def dnsbl_description(plan):
+    return f'SOC PLAN {plan.pk} dnsbl'
+
+
+def stage_dnsbl(plan,c):
+    """Lista de bloqueo propia en Unbound, desactivada. Nunca toca las listas del operador ni la configuración común.
+
+    OPNsense 25.7 guarda cada lista de bloqueo DNS como un elemento con su descripción; en versiones
+    anteriores era un bloque común y el SOC no lo modifica (configuración guiada).
+    """
+    from .blocklist import feed_url
+    from .models import BlocklistFeed
+    from .opnsense_api import OpnsenseApiError
+    feed=BlocklistFeed.objects.filter(client_id=plan.parameters.get('client'),enabled=True).first()
+    if not feed or feed.client_id!=plan.device.site.client_id: raise ValueError('La lista del cliente no está activada.')
+    if not feed.qfeeds_dns: raise ValueError('Los dominios de Q-Feeds del cliente no están activados.')
+    try:
+        rows=api(c,'/api/unbound/settings/search_dnsbl?rowCount=-1').get('rows',[])
+    except OpnsenseApiError as exc:
+        if 'HTTP 404' in str(exc): raise DnsblUnsupported() from None
+        raise
+    general=(api(c,'/api/unbound/settings/get').get('unbound') or {}).get('general') or {}
+    if str(general.get('enabled'))!='1': raise ValueError('Unbound no está activo en el firewall.')
+    description=dnsbl_description(plan)
+    found=next((r for r in rows if r.get('description')==description),None)
+    if found:
+        uid=found['uuid']
+    else:
+        settings=plan.preview.get('dnsbl') or {}
+        item={'enabled':'0','lists':feed_url(feed,kind='dns'),'nxdomain':settings.get('nxdomain','1'),
+              'cache_ttl':settings.get('cache_ttl','3600'),'description':description}
+        response=api(c,'/api/unbound/settings/add_dnsbl',{'blocklist':item})
+        if response.get('result')!='saved' or not response.get('uuid'): raise ValueError('Creación de la lista DNS rechazada.')
+        uid=response['uuid']
+    if not any(o['uuid']==uid for o in plan.remote_objects):
+        # El token va solo en el firewall; el plan guarda la identidad del objeto, no la URL.
+        plan.remote_objects.append({'kind':'dnsbl','uuid':uid,'rule':{'description':description}})
+        plan.save(update_fields=['remote_objects'])
+    current=api(c,'/api/unbound/settings/get_dnsbl/'+uid).get('blocklist',{})
+    if str(current.get('enabled'))!='0' or current.get('description')!=description:
+        raise ValueError('La lista DNS no está desactivada o su identidad difiere.')
+
+
+def _owned_dnsbl(plan,c,obj):
+    current=api(c,'/api/unbound/settings/get_dnsbl/'+obj['uuid']).get('blocklist',{})
+    if current.get('description')!=obj['rule']['description']: raise ValueError('La lista DNS cambió de propietario; intervención manual requerida.')
+    return current
+
+
+def enable_dnsbl(plan):
+    """Activa la lista DNS propia y aplica Unbound. Sin punto de restauración nativo: si no se confirma a tiempo,
+    el trabajo la desactiva (el DNS no corta el acceso de gestión del firewall)."""
+    from datetime import timedelta
+    from .qfeeds_distribution import DNS_CONFIRM_MINUTES
+    c=plan.device.opnsense_api
+    plan.status='applying'; plan.save(update_fields=['status'])
+    try:
+        for obj in plan.remote_objects:
+            if obj.get('kind')!='dnsbl': continue
+            if str(_owned_dnsbl(plan,c,obj).get('enabled'))!='0': raise ValueError('El borrador remoto cambió. Preparar una revisión nueva.')
+            if api(c,'/api/unbound/settings/set_dnsbl/'+obj['uuid'],{'blocklist':{'enabled':'1'}}).get('result')!='saved':
+                raise ValueError('Activación rechazada.')
+        plan.confirmation_deadline=timezone.now()+timedelta(minutes=DNS_CONFIRM_MINUTES)
+        plan.save(update_fields=['confirmation_deadline'])
+        if not completed(api(c,'/api/unbound/service/dnsbl',{})): raise ValueError('Unbound no confirmó la carga de las listas.')
+        api(c,'/api/core/system/status')
+        for obj in plan.remote_objects:
+            if obj.get('kind')=='dnsbl' and str(_owned_dnsbl(plan,c,obj).get('enabled'))!='1': raise ValueError('Verificación de activación fallida.')
+        plan.status='awaiting_confirmation'
+        plan.result=f'Lista DNS activa en Unbound. Comprueba que los equipos resuelven con normalidad y confirma en {DNS_CONFIRM_MINUTES} minutos o se desactivará.'
+        plan.save(); audit('change.awaiting_confirmation',plan)
+    except Exception:
+        try: rollback(plan)
+        except Exception:
+            plan.status='needs_review'; plan.result='No se pudo confirmar la retirada de la lista DNS. Revisar «Unbound DNS › Listas de bloqueo» en la consola.'; plan.save()
+
+
 def stage(plan):
     if plan.device.vendor != Device.Vendor.OPNSENSE or plan.device.management_method!='api':
         plan.status='manual'; plan.result='Guía preparada. Este equipo requiere aplicar y verificar la plantilla desde su consola.'; plan.save(); return
@@ -153,6 +234,17 @@ def stage(plan):
     try:
         from .blocklist import ALL_TEMPLATES,alias_name
         from . import policy_changes
+        from .qfeeds_distribution import DNS_TEMPLATE
+        if plan.template==DNS_TEMPLATE:
+            try:
+                stage_dnsbl(plan,c)
+            except DnsblUnsupported:
+                plan.status='manual'; plan.result=('Este OPNsense no tiene la API de listas de bloqueo DNS (requiere 25.7 o posterior). '
+                    'Añade a mano la URL de dominios de la lista del cliente en «Servicios › Unbound DNS › Listas de bloqueo».')
+                plan.save(); return
+            plan.status='staged'; plan.result='Lista de bloqueo DNS creada desactivada y verificada. Revisa las comprobaciones antes de activarla.'
+            audit('change.staged',plan,{'count':len(plan.remote_objects),'template':plan.template})
+            plan.save(); return
         crowdsec=plan.template in ALL_TEMPLATES
         restrict=plan.template==policy_changes.TEMPLATE
         if crowdsec: stage_blocklist_alias(plan,c)
@@ -195,6 +287,14 @@ def rollback(plan,delete=False):
     # Las reglas antes que el alias: OPNsense no borra un alias en uso.
     for obj in sorted(plan.remote_objects,key=lambda o:o.get('kind')=='alias'):
         kind=obj.get('kind','firewall')
+        if kind=='dnsbl':
+            _owned_dnsbl(plan,c,obj)
+            if delete:
+                response=api(c,'/api/unbound/settings/del_dnsbl/'+obj['uuid'],{})
+                if response.get('result') not in ('deleted','saved','ok'): raise ValueError('No se pudo retirar la lista DNS.')
+            elif api(c,'/api/unbound/settings/set_dnsbl/'+obj['uuid'],{'blocklist':{'enabled':'0'}}).get('result')!='saved':
+                raise ValueError('Reversión de la lista DNS rechazada.')
+            continue
         if kind=='alias':
             current=api(c,'/api/firewall/alias/get_item/'+obj['uuid']).get('alias',{})
             if current.get('description')!=obj['rule']['description']: raise ValueError('El alias cambió de propietario; intervención manual requerida.')
@@ -223,7 +323,11 @@ def rollback(plan,delete=False):
         else:
             response=api(c,'/api/firewall/filter/set_rule/'+obj['uuid'],{'rule':{'enabled':'0'}})
         if response.get('result') not in ('saved','deleted','ok'): raise ValueError('Reversión rechazada.')
-    if not delete:
+    if any(o.get('kind')=='dnsbl' for o in plan.remote_objects):
+        # Unbound recarga sus listas sin la del SOC (retirada o desactivada).
+        if not completed(api(c,'/api/unbound/service/dnsbl',{})):
+            raise ValueError('Unbound no confirmó la recarga de las listas tras la reversión.')
+    if not delete and any(o.get('kind','firewall')=='firewall' for o in plan.remote_objects):
         apply_response=api(c,'/api/firewall/filter/apply',{})
         if not completed(apply_response):
             raise ValueError('No se confirmó la aplicación de la reversión.')
@@ -232,6 +336,9 @@ def rollback(plan,delete=False):
 
 def enable(plan):
     """Native savepoint limits interruption; worker must confirm inside native rollback window."""
+    from .qfeeds_distribution import DNS_TEMPLATE
+    if plan.template==DNS_TEMPLATE:
+        return enable_dnsbl(plan)
     c=plan.device.opnsense_api
     baseline=json.loads(decrypt(plan.encrypted_backup))
     current=snapshot(c)
@@ -292,8 +399,10 @@ def process_queue():
                 else:
                     c=plan.device.opnsense_api
                     api(c,'/api/core/system/status')
-                    response=api(c,'/api/firewall/filter/cancel_rollback/'+plan.rollback_revision,{})
-                    if not completed(response): raise ValueError('Confirmación rechazada.')
+                    if plan.rollback_revision:
+                        # Las listas DNS no usan el punto de restauración del filtro: no hay nada que cancelar.
+                        response=api(c,'/api/firewall/filter/cancel_rollback/'+plan.rollback_revision,{})
+                        if not completed(response): raise ValueError('Confirmación rechazada.')
                     plan.status='active'; plan.confirmation_deadline=None; plan.result='Pruebas confirmadas por el aprobador y acceso de gestión verificado.'; plan.save(); audit('change.applied',plan)
             elif plan.status=='applying':
                 # Interrupted activation never resumes automatically.

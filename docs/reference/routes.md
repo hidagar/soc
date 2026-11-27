@@ -121,6 +121,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `clients/<int:client_pk>/trends/` | `client_trends` | `trends.client_trends` |
 | `operations/map/` | `threat_map` | `geography.threat_map` |
 | `operations/map/data/` | `threat_map_data` | `geography.threat_map_data` |
+| `help/capacidades/` | `vendor_capabilities` | `vendor_capabilities.overview` |
 | `help/operations/` | `operations_help` | `login_required(TemplateView.as_view(template_name='operations_help.html'))` |
 | `operations/changes/` | `changes` | `controls.changes` |
 | `operations/changes/<int:pk>/` | `change_detail` | `controls.change_detail` |

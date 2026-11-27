@@ -323,6 +323,14 @@ class BulkTests(Base):
         self.assertFalse(feed.qfeeds_preventive or feed.include_qfeeds)
         self.assertTrue(feed.enabled, 'desactivar Q-Feeds no despublica la lista del cliente')
 
+    def test_dns_drafts_are_prepared_too(self):
+        login(self, 'manage_operations', 'manage_connections')
+        data = {**self.data, 'opt_qfeeds_dns': 'on', 'drafts': 'on'}
+        page = self.client.post(self.url(), {**data, 'action': 'preview'})
+        self.assertContains(page, 'Borrador de lista DNS en FW-A')
+        self.client.post(self.url(), {**data, 'action': 'apply', 'previewed': page.context['previewed']})
+        self.assertEqual(sorted(ChangePlan.objects.values_list('template', flat=True)), ['qfeeds', 'qfeeds_dns'])
+
     def test_drafts_need_the_connections_permission(self):
         login(self, 'manage_operations')
         response = self.client.post(self.url(), {**self.data, 'action': 'preview', 'drafts': 'on'})
@@ -333,3 +341,166 @@ class TimingTests(TestCase):
     def test_week_is_none_without_measurements(self):
         self.assertIsNone(qd._week([], timezone.now()))
         self.assertIsNone(qd._week([ChangePlan(pk=999999)], timezone.now() - timedelta(days=1)))
+
+
+class FakeUnbound(FakeOpnsenseWithAliases):
+    """OPNsense 25.7: listas de bloqueo DNS como elementos con descripción, y la carga de Unbound."""
+
+    def __init__(self, supported=True, unbound_enabled='1'):
+        super().__init__({})
+        self.dnsbl = {'operador': {'description': 'Lista del operador', 'enabled': '1', 'lists': 'https://otra.example/l.txt'}}
+        self.supported, self.unbound_enabled, self.reloads, self.fail_reload = supported, unbound_enabled, 0, False
+
+    def __call__(self, connection, path, payload=None, method=None):
+        if path.startswith('/api/unbound/'):
+            self.calls.append(path)
+            if not self.supported:
+                from .opnsense_api import OpnsenseApiError
+                raise OpnsenseApiError('OPNsense devolvió un error HTTP 404.')
+            uid = path.rsplit('/', 1)[1]
+            if path.startswith('/api/unbound/settings/search_dnsbl'):
+                return {'rows': [{'uuid': k, **v} for k, v in self.dnsbl.items()]}
+            if path == '/api/unbound/settings/get':
+                return {'unbound': {'general': {'enabled': self.unbound_enabled}}}
+            if path == '/api/unbound/settings/add_dnsbl':
+                self.dnsbl['dnsbl-1'] = dict(payload['blocklist'])
+                return {'result': 'saved', 'uuid': 'dnsbl-1'}
+            if path.startswith('/api/unbound/settings/get_dnsbl/'):
+                return {'blocklist': dict(self.dnsbl.get(uid, {}))}
+            if path.startswith('/api/unbound/settings/set_dnsbl/'):
+                self.dnsbl[uid].update(payload['blocklist'])
+                return {'result': 'saved'}
+            if path.startswith('/api/unbound/settings/del_dnsbl/'):
+                self.dnsbl.pop(uid)
+                return {'result': 'deleted'}
+            if path == '/api/unbound/service/dnsbl':
+                self.reloads += 1
+                return {'status': 'Error' if self.fail_reload else 'OK'}
+        return super().__call__(connection, path, payload, method)
+
+
+@override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False, SOC_PUBLIC_ORIGIN='https://soc.example.test')
+class DnsTemplateTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.ready()
+        self.qfeed = self.feed(qfeeds_preventive=False)
+        OpnsenseConnection.objects.create(device=self.device, api_url='https://fw.example.test', encrypted_api_key='x',
+                                          encrypted_api_secret='x')
+        Device.objects.filter(pk=self.device.pk).update(management_method='api')
+        self.device.refresh_from_db()
+
+    def plan(self):
+        login(self, 'manage_operations', 'manage_connections')
+        self.client.post(reverse('blocklist_detail', args=[self.company.pk]), {'action': 'plan_dns', 'device': self.device.pk})
+        return ChangePlan.objects.get(template=qd.DNS_TEMPLATE)
+
+    def run_with(self, firewall, function, plan):
+        with mock.patch.object(change_control, 'api', side_effect=firewall):
+            function(plan)
+        plan.refresh_from_db()
+
+    def test_stage_creates_a_disabled_own_list_and_never_touches_the_operator_list(self):
+        plan = self.plan()
+        self.assertEqual((plan.status, plan.preview['dnsbl']['nxdomain']), ('draft', '1'))
+        self.assertNotIn(self.token, json.dumps(plan.preview))
+        firewall = FakeUnbound()
+        self.run_with(firewall, stage, plan)
+        self.assertEqual(plan.status, 'staged')
+        item = firewall.dnsbl['dnsbl-1']
+        self.assertEqual((item['enabled'], item['description']), ('0', f'SOC PLAN {plan.pk} dnsbl'))
+        self.assertTrue(item['lists'].endswith(f'/{self.token}/dominios/'))
+        self.assertNotIn(self.token, json.dumps(plan.remote_objects))
+        self.assertEqual(firewall.dnsbl['operador']['enabled'], '1')
+        self.assertFalse(any('/api/firewall/filter/add_rule' in c for c in firewall.calls))
+        self.run_with(firewall, stage, plan)  # repetir no duplica
+        self.assertEqual(len(firewall.dnsbl), 2)
+
+    def test_old_versions_get_the_guided_mode_and_inactive_unbound_fails(self):
+        plan = self.plan()
+        self.run_with(FakeUnbound(supported=False), stage, plan)
+        self.assertEqual(plan.status, 'manual')
+        self.assertIn('25.7', plan.result)
+        other = qd.create_dns_draft(self.qfeed, self.device, None)
+        firewall = FakeUnbound(unbound_enabled='0')
+        self.run_with(firewall, stage, other)
+        self.assertEqual(other.status, 'failed')
+        self.assertEqual(list(firewall.dnsbl), ['operador'])
+
+    def test_activation_waits_for_confirmation_and_expiry_disables_it(self):
+        from .change_control import enable, process_queue
+        plan = self.plan()
+        firewall = FakeUnbound()
+        self.run_with(firewall, stage, plan)
+        self.run_with(firewall, enable, plan)
+        self.assertEqual(plan.status, 'awaiting_confirmation')
+        self.assertEqual(firewall.dnsbl['dnsbl-1']['enabled'], '1')
+        self.assertEqual(firewall.reloads, 1)
+        self.assertGreater(plan.confirmation_deadline, timezone.now() + timedelta(minutes=9))
+        self.assertFalse(any('savepoint' in c for c in firewall.calls))
+        # Confirmar: sin punto de restauración del filtro que cancelar.
+        ChangePlan.objects.filter(pk=plan.pk).update(status='confirm_queued')
+        with mock.patch.object(change_control, 'api', side_effect=firewall):
+            process_queue()
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, 'active')
+        self.assertFalse(any('cancel_rollback' in c for c in firewall.calls))
+        # Revertir la retira y recarga Unbound; la del operador sigue.
+        ChangePlan.objects.filter(pk=plan.pk).update(status='rollback_queued')
+        with mock.patch.object(change_control, 'api', side_effect=firewall):
+            process_queue()
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, 'rolled_back')
+        self.assertEqual(firewall.dnsbl['dnsbl-1']['enabled'], '0')
+        self.assertEqual(firewall.reloads, 2)
+        self.assertEqual(firewall.dnsbl['operador']['enabled'], '1')
+
+    def test_unconfirmed_or_failed_activation_is_disabled_again(self):
+        from .change_control import enable, process_queue
+        plan = self.plan()
+        firewall = FakeUnbound()
+        self.run_with(firewall, stage, plan)
+        self.run_with(firewall, enable, plan)
+        ChangePlan.objects.filter(pk=plan.pk).update(confirmation_deadline=timezone.now() - timedelta(seconds=1))
+        with mock.patch.object(change_control, 'api', side_effect=firewall):
+            process_queue()
+        plan.refresh_from_db()
+        self.assertEqual((plan.status, firewall.dnsbl['dnsbl-1']['enabled']), ('rolled_back', '0'))
+        other = qd.create_dns_draft(self.qfeed, self.device, None)
+        firewall = FakeUnbound()
+        self.run_with(firewall, stage, other)
+        firewall.fail_reload = True
+        self.run_with(firewall, enable, other)
+        self.assertNotEqual(other.status, 'awaiting_confirmation')
+        self.assertEqual(firewall.dnsbl['dnsbl-1']['enabled'], '0')
+
+    def test_client_page_shows_modes_per_device_and_the_dns_button(self):
+        from .models import Site
+        Device.objects.create(site=Site.objects.get(client=self.company), name='HS-Oficina', vendor='hillstone')
+        login(self, 'manage_operations', 'manage_connections')
+        page = self.client.get(reverse('blocklist_detail', args=[self.company.pk]))
+        self.assertContains(page, 'Preparar bloqueo DNS en FW-A')
+        self.assertContains(page, 'HS-Oficina')
+        self.assertContains(page, 'capability-pending')
+        self.assertContains(page, 'capability-auto')
+
+
+class CapabilityTests(TestCase):
+    def test_matrix_is_complete_and_modes_depend_on_the_connection(self):
+        from . import vendor_capabilities as vc
+        for vendor, _ in vc.VENDORS:
+            for feature, _ in vc.FEATURES:
+                self.assertIn(vc.capability(vendor, feature)[0], vc.MODES, (vendor, feature))
+        self.assertEqual(vc.for_device(Device(vendor='opnsense', management_method='api'), 'dns')[0], 'auto')
+        self.assertEqual(vc.for_device(Device(vendor='opnsense', management_method='ssh'), 'dns')[0], 'guided')
+        self.assertEqual(vc.for_device(Device(vendor='unifi'), 'blocklist')[0], 'guided')
+        self.assertEqual(vc.for_device(Device(vendor='other'), 'dns')[0], 'pending')
+
+    @override_settings(SECURE_SSL_REDIRECT=False, SOC_MFA_REQUIRED=False)
+    def test_page_lists_every_vendor(self):
+        user = get_user_model().objects.create_user('lector')
+        StaffAccess.objects.create(user=user, role='operator', all_clients=True)
+        self.client.force_login(user)
+        page = self.client.get(reverse('vendor_capabilities'))
+        for name in ('OPNsense', 'UniFi', 'Hillstone', 'Grandstream GCC', 'Bloqueo de dominios por DNS', 'Por comprobar'):
+            self.assertContains(page, name)

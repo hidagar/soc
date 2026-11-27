@@ -808,6 +808,16 @@ def exclude_entry(request, client, feed):
     return ''
 
 
+def capability_rows(client, feed):
+    """Cómo llega cada lista de Q-Feeds a cada equipo del cliente: automático, guiado o por comprobar."""
+    from .vendor_capabilities import device_rows
+    if not (feed.enabled and (feed.qfeeds_preventive or feed.qfeeds_dns)):
+        return {}
+    devices = list(Device.objects.filter(site__client=client, active=True).select_related('site').order_by('name'))
+    return {'preventive': device_rows(devices, 'preventive') if feed.qfeeds_preventive else [],
+            'dns': device_rows(devices, 'dns') if feed.qfeeds_dns else []}
+
+
 def global_access(user):
     """Bloqueos para todos los clientes: solo quien tiene acceso global al SOC."""
     from .models import StaffAccess
@@ -979,6 +989,16 @@ def detail(request, client_pk):
             if result is not None:
                 return result
             error = getattr(request, 'unifi_error', '')
+        elif action == 'plan_dns':
+            from .qfeeds_distribution import create_dns_draft
+            if not request.user.has_perm('core.manage_connections'):
+                return HttpResponseForbidden('Permiso de conexiones requerido.')
+            device = get_object_or_404(_devices(client), pk=_posted_pk(request, 'device'))
+            if not feed.enabled or not feed.token_hash or not feed.qfeeds_dns:
+                messages.error(request, 'Activa primero la lista del cliente y sus dominios de Q-Feeds para el DNS.')
+                return redirect('blocklist_detail', client_pk=client.pk)
+            plan = create_dns_draft(feed, device, request.user)
+            return redirect('change_detail', pk=plan.pk)
         elif action in ('plan_q', 'plan_q_out'):
             from .qfeeds_distribution import create_draft
             if not request.user.has_perm('core.manage_connections'):
@@ -1016,7 +1036,9 @@ def detail(request, client_pk):
     except ValueError as exc:
         allowlist_error = str(exc)
     from .blocklist_efficacy import summary
-    plans = list(ChangePlan.objects.filter(template__in=ALL_TEMPLATES, device__site__client=client).select_related('device').order_by('-pk')[:20])
+    from .qfeeds_distribution import DNS_TEMPLATE
+    plans = list(ChangePlan.objects.filter(template__in=ALL_TEMPLATES + (DNS_TEMPLATE,), device__site__client=client)
+                 .select_related('device').order_by('-pk')[:20])
     now = timezone.now()
     warnings = []
     for plan in plans:
@@ -1090,4 +1112,5 @@ def detail(request, client_pk):
         'sources': source_counts(feed.entries),
         'url_q': feed_url(feed, kind='preventive') if show_url and feed.enabled and feed.qfeeds_preventive else '',
         'url_dns': feed_url(feed, kind='dns') if show_url and feed.enabled and feed.qfeeds_dns else '',
-        'preventive_limit': PREVENTIVE_LIMIT_VIEW})
+        'preventive_limit': PREVENTIVE_LIMIT_VIEW,
+        'capability_rows': capability_rows(client, feed)})

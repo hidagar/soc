@@ -86,6 +86,7 @@ def _staff_groups(user, global_access):
         ("ayuda", "Ayuda", [
             _item("Guía de conexión", "connection_guide"),
             _item("Guía de operación", "operations_help"),
+            _item("Capacidades por fabricante", "vendor_capabilities"),
         ]),
         ("admin", "Administración", [
             _item("Usuarios y permisos", "staff", ["staff_edit", "mfa_reset"],

@@ -159,6 +159,8 @@ details.form-section{margin:0 0 22px}
 details.form-section>summary{margin-bottom:10px}
 .field.check label{display:flex;align-items:flex-start;gap:9px;font-weight:600;margin:0}
 .choice-group{display:grid;gap:6px}.choice-group>legend{grid-column:1/-1}.choice-group label{display:flex;align-items:flex-start;gap:8px;margin:0;font-weight:500}.choice-group input{width:auto;margin-top:3px}
+.capability-auto{background:#e3f4e8;color:#0B612D}.capability-guided{background:#e6effa;color:#1d4f86}.capability-partial{background:#fff3dc;color:#7a4b00}.capability-pending{background:#edf0f2;color:#4f5e6a}.capability-unavailable{background:#fde8ea;color:#8a1f2b}.capabilities td small{display:block;margin-top:4px}
+.capability-list{list-style:none;padding:0;margin:8px 0;display:grid;gap:8px}.capability-list li small{display:block;color:#5d6f80}
 .field.check input{width:auto;margin-top:3px}
 .ip-search{display:flex;gap:8px;align-items:center}.ip-search .input{width:240px}
 @media(max-width:700px){.ip-search{margin-top:14px}.ip-search .input{width:100%}}

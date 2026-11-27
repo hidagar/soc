@@ -46,6 +46,7 @@ from . import customer_portal
 from . import customer_preview
 from . import blocklist
 from . import qfeeds_distribution
+from . import vendor_capabilities
 from . import crowdsec_catalog
 from . import invitations
 from . import secure_logs
@@ -156,6 +157,7 @@ urlpatterns = [
     path('clients/<int:client_pk>/trends/',trends.client_trends,name='client_trends'),
     path('operations/map/',geography.threat_map,name='threat_map'),
     path('operations/map/data/',geography.threat_map_data,name='threat_map_data'),
+    path('help/capacidades/',vendor_capabilities.overview,name='vendor_capabilities'),
     path('help/operations/',login_required(TemplateView.as_view(template_name='operations_help.html')),name='operations_help'),
     path('operations/changes/',controls.changes,name='changes'),
     path('operations/changes/<int:pk>/',controls.change_detail,name='change_detail'),

@@ -88,7 +88,8 @@ def _request_json(api_url, api_key, api_secret, ca_certificate, path, method="GE
     try:
         # Applying IDS output settings installs the ruleset and restarts Suricata.
         # Keep regular reads short; this specific operation needs a bounded wait.
-        timeout = 60 if method == 'POST' and path == '/api/ids/service/reconfigure' else 10
+        # Applying DNS blocklists downloads every list before reloading Unbound.
+        timeout = {'/api/ids/service/reconfigure': 60, '/api/unbound/service/dnsbl': 120}.get(path, 10) if method == 'POST' else 10
         with opener.open(req, timeout=timeout) as response:
             if "json" not in response.headers.get("Content-Type", "").lower():
                 raise OpnsenseApiError("OPNsense no devolvió JSON en la API.")

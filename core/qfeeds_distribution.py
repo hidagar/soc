@@ -45,6 +45,10 @@ TEMPLATE_OUT = 'qfeeds_out'
 TEMPLATES = (TEMPLATE, TEMPLATE_OUT)
 TITLE = 'Bloqueo preventivo Q-Feeds del SOC'
 TITLE_OUT = 'Bloqueo preventivo de salida Q-Feeds del SOC'
+DNS_TEMPLATE = 'qfeeds_dns'
+DNS_TITLE = 'Bloqueo DNS Q-Feeds del SOC'
+DNS_CACHE_TTL = 3600  # segundos que Unbound reutiliza la lista descargada antes de pedirla de nuevo
+DNS_CONFIRM_MINUTES = 10  # el DNS no corta la gestión del firewall: hay tiempo para probar antes de confirmar
 VERSION = '1.0'
 # Lo que se puede activar o desactivar a la vez en varios clientes.
 OPTIONS = (
@@ -311,6 +315,28 @@ def plan_preview(device, outbound=False):
             'rules': [rule], 'checks': checks, 'zenarmor': [], 'suricata': []}
 
 
+def dns_plan_preview(device):
+    """Plantilla DNS: lista de bloqueo propia en Unbound (OPNsense 25.7 o posterior), desactivada hasta activarla."""
+    return {'profile': DNS_TITLE, 'version': VERSION, 'networks': [], 'interface': '', 'rules': [],
+            'dnsbl': {'cache_ttl': str(DNS_CACHE_TTL), 'nxdomain': '1',
+                      'description': 'Dominios de Q-Feeds descargados del SOC; respuesta NXDOMAIN'},
+            'checks': ['Comprobar que los equipos del cliente usan el DNS del firewall (Unbound); si usan otro DNS, la lista no les afecta.',
+                       'Añadir antes a «Dominios que nunca se bloquean» los dominios de proveedores y servicios que el cliente necesita.',
+                       'Requiere OPNsense 25.7 o posterior con Unbound activo. En versiones anteriores la lista se añade a mano.',
+                       f'Tras activarla, probar que un dominio habitual resuelve y confirmar en {DNS_CONFIRM_MINUTES} minutos; si no se confirma, se desactiva sola.',
+                       'Unbound vuelve a descargar la lista al aplicar los cambios y cuando caduca su copia (1 hora). Para '
+                       'refrescarla sin esperar a un cambio, programar «Actualizar listas de bloqueo DNS» en Sistema › Ajustes › Cron.',
+                       'Freno de emergencia: detener la lista en el SOC la vacía en la siguiente descarga; revertir retira la lista de Unbound.'],
+            'zenarmor': [], 'suricata': []}
+
+
+def create_dns_draft(feed, device, user):
+    plan = ChangePlan.objects.create(device=device, template=DNS_TEMPLATE, template_version=VERSION, title=DNS_TITLE,
+                                     parameters={'client': feed.client_id}, preview=dns_plan_preview(device), requested_by=user)
+    audit('change.draft', plan, {'template': plan.template})
+    return plan
+
+
 def _opnsense(client):
     return Device.objects.filter(site__client=client, active=True, vendor=Device.Vendor.OPNSENSE,
                                  management_method='api').select_related('site').order_by('name')
@@ -448,13 +474,22 @@ def preview_rows(clients, options, activate, publish, drafts):
             counts['dns'] = len(dns_values(feed))
         devices = list(_opnsense(client))
         planned = []
-        if activate and drafts and 'qfeeds_preventive' in options:
-            busy = open_plans([d.pk for d in devices], TEMPLATE)
-            planned = [d for d in devices if d.pk not in busy]
+        for option, template, _, label in (DRAFTABLE if activate and drafts else ()):
+            if option in options:
+                busy = open_plans([d.pk for d in devices], template)
+                free = [d for d in devices if d.pk not in busy]
+                if free:
+                    planned.append({'label': label, 'devices': free})
         if activate and 'qfeeds_preventive' in options and not devices:
             warnings.append('Sin OPNsense por API: la lista preventiva se configura a mano (URL) o en UniFi desde la lista del cliente.')
+        if activate and 'qfeeds_dns' in options and not devices:
+            warnings.append('Sin OPNsense por API: los dominios se añaden a mano en el DNS del firewall (URL), si lo admite.')
         rows.append({'client': client, 'changes': changes, 'counts': counts, 'warnings': warnings, 'drafts': planned})
     return rows
+
+
+DRAFTABLE = (('qfeeds_preventive', TEMPLATE, lambda feed, device, user: create_draft(feed, device, user), 'regla preventiva'),
+             ('qfeeds_dns', DNS_TEMPLATE, lambda feed, device, user: create_dns_draft(feed, device, user), 'lista DNS'))
 
 
 def apply(request, clients, options, activate, publish, drafts):
@@ -479,12 +514,14 @@ def apply(request, clients, options, activate, publish, drafts):
                                                     'fields': [labels.get(f, 'Publicar la lista') for f in fields]})
         if feed.enabled and not feed.token_hash:
             rotate_token(feed)
-        if activate and drafts and 'qfeeds_preventive' in options and feed.enabled:
+        for option, template, make, _ in (DRAFTABLE if activate and drafts and feed.enabled else ()):
+            if option not in options:
+                continue
             devices = list(_opnsense(client))
-            busy = open_plans([d.pk for d in devices], TEMPLATE)
+            busy = open_plans([d.pk for d in devices], template)
             for device in devices:
                 if device.pk not in busy:
-                    create_draft(feed, device, request.user)
+                    make(feed, device, request.user)
                     created += 1
     refresh_feeds()
     if not activate:
@@ -527,7 +564,7 @@ def overview(request):
             changed, created = apply(request, selected, options, activate, publish, drafts)
             text = f'{changed} cliente{"s" if changed != 1 else ""} actualizado{"s" if changed != 1 else ""} y listas recalculadas.'
             if created:
-                text += f' {created} borrador{"es" if created != 1 else ""} de regla preventiva en el control de cambios (desactivados).'
+                text += f' {created} borrador{"es" if created != 1 else ""} en el control de cambios (desactivados hasta aprobarlos).'
             messages.success(request, text)
             return redirect('blocklist_qfeeds')
         else:
