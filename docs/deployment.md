@@ -122,6 +122,15 @@ Si el gestor exige contraseña de alta, se pasa con `WAZUH_REGISTRATION_PASSWORD
 
 Después, en el portal, «Antivirus de equipos › Agentes sin asignar»: marcar los equipos y asignarlos al cliente. El grupo de Wazuh no asigna nada por sí solo. `--ver` muestra si la regla y los grupos están aplicados.
 
+## DNS del SOC por la VPN de sedes
+
+Para bloquear dominios en sedes cuyo firewall no admite listas DNS (Grandstream GCC). `sudo deploy/configurar_dns_soc.sh --instalar`:
+1. Comprueba que la VPN de sedes (`wg-soc`, 10.255.251.1) está activa y que nada más escucha en su puerto 53.
+2. Instala Unbound y su configuración base (`/etc/unbound/unbound.conf.d/soc-base.conf`): escucha **solo** en 10.255.251.1, rechaza cualquier origen salvo las sedes que autorice el SOC y no registra las consultas resueltas. Si `unbound-checkconf` no la acepta, la retira.
+3. Instala y arranca el trabajo `soc-dns` (cada 15 minutos, root), que escribe la configuración de los clientes (`soc-qfeeds.conf`) y sus zonas (`/var/lib/unbound/soc`), la comprueba y recarga Unbound solo si cambió.
+
+Necesita salida DNS (53/UDP y TCP) desde la VM hacia Internet: Unbound resuelve por sí mismo. Las reglas nft de la VPN (`soc-vpn`) solo abren el puerto 53 a las sedes de clientes con «DNS del SOC» activado; sin ninguno, no cambian. `--ver` muestra el estado. Después, en el portal, se activa «DNS del SOC» en la lista de bloqueo del cliente y se configura su firewall con la guía.
+
 ## Reversión
 
 Detener escritores/timers y servicios nuevos antes de restaurar código/unidades y base compatible. Retirar archivos nuevos ausentes en versión anterior; no dejar migraciones importándose contra un esquema restaurado. Recargar systemd, regenerar estáticos y arrancar componentes previstos.

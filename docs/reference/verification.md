@@ -47,6 +47,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_deploy_envfile.py](../../core/test_deploy_envfile.py) | 2 |
 | [core/test_device_inventory.py](../../core/test_device_inventory.py) | 13 |
 | [core/test_device_mac.py](../../core/test_device_mac.py) | 7 |
+| [core/test_dns_resolver.py](../../core/test_dns_resolver.py) | 7 |
 | [core/test_durable_operations.py](../../core/test_durable_operations.py) | 22 |
 | [core/test_email_auth.py](../../core/test_email_auth.py) | 6 |
 | [core/test_endpoint_portal.py](../../core/test_endpoint_portal.py) | 4 |
@@ -225,3 +226,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0087_qfeeds_clientes.py](../../core/migrations/0087_qfeeds_clientes.py)
 - [core/migrations/0088_unifi_dominios.py](../../core/migrations/0088_unifi_dominios.py)
 - [core/migrations/0089_descargas_listas.py](../../core/migrations/0089_descargas_listas.py)
+- [core/migrations/0090_dns_del_soc.py](../../core/migrations/0090_dns_del_soc.py)

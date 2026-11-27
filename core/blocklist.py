@@ -930,6 +930,11 @@ def capability_rows(client, feed):
     return result
 
 
+def resolver_status(feed):
+    from .dns_resolver import client_status
+    return client_status(feed) if feed.dns_resolver else None
+
+
 def global_access(user):
     """Bloqueos para todos los clientes: solo quien tiene acceso global al SOC."""
     from .models import StaffAccess
@@ -1043,11 +1048,13 @@ def detail(request, client_pk):
                 feed.preventive_max = preventive_max
                 feed.qfeeds_dns = request.POST.get('qfeeds_dns') == 'on'
                 feed.dns_allowlist = request.POST.get('dns_allowlist', '').strip()[:20000]
+                resolver_off = feed.dns_resolver and request.POST.get('dns_resolver') != 'on'
+                feed.dns_resolver = request.POST.get('dns_resolver') == 'on'
                 feed.enabled = request.POST.get('enabled') == 'on'
                 feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'include_soc_detections',
                                          'include_repeat_attackers',
                                          'outbound_enabled', 'include_c2_detections', 'include_qfeeds', 'include_qfeeds_c2',
-                                         'qfeeds_preventive', 'preventive_max', 'qfeeds_dns', 'dns_allowlist',
+                                         'qfeeds_preventive', 'preventive_max', 'qfeeds_dns', 'dns_allowlist', 'dns_resolver',
                                          'enabled', 'updated_at'])
                 if feed.enabled and not feed.token_hash:
                     rotate_token(feed)
@@ -1056,7 +1063,9 @@ def detail(request, client_pk):
                 refresh_feeds()
                 if preventive_off or turned_off:
                     sync_unifi(client)  # UniFi no descarga: se vacía ya lo que deja de servirse
-                messages.success(request, 'Configuración guardada y lista recalculada.')
+                messages.success(request, 'Configuración guardada y lista recalculada.'
+                                 + (' DNS del SOC desactivado: sus sedes dejarán de poder usarlo en unos minutos; '
+                                    'comprueba que su firewall ya no le reenvía el DNS.' if resolver_off else ''))
                 return redirect('blocklist_detail', client_pk=client.pk)
         elif action == 'exclude':
             error = exclude_entry(request, client, feed)
@@ -1225,4 +1234,5 @@ def detail(request, client_pk):
         'url_q': feed_url(feed, kind='preventive') if show_url and feed.enabled and feed.qfeeds_preventive else '',
         'url_dns': feed_url(feed, kind='dns') if show_url and feed.enabled and feed.qfeeds_dns else '',
         'preventive_limit': PREVENTIVE_LIMIT_VIEW,
-        'capability_rows': capability_rows(client, feed), 'fetch_rows': fetch_rows(feed)})
+        'capability_rows': capability_rows(client, feed), 'fetch_rows': fetch_rows(feed),
+        'resolver': resolver_status(feed)})

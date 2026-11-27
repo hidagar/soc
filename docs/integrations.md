@@ -379,7 +379,7 @@ Criterio acordado con el usuario el 27/11/2026: cada función del SOC es común 
 | Registros y detecciones | Automático | Automático | Guiado | Guiado |
 | Lista de bloqueo de entrada y salida | Automático (guiado sin API) | Automático | Guiado: filtrado perimetral (entrada) y lista dinámica externa (salida) | No disponible |
 | Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada, 4.000 IPv4 | Guiado | No disponible |
-| Bloqueo de dominios | Automático (25.7 y API; guiado si no) | Parcial: política por dominios, 1.000, sin medición | Por comprobar | Por comprobar |
+| Bloqueo de dominios | Automático (25.7 y API; guiado si no) | Parcial: política por dominios, 1.000, sin medición | Por comprobar | Guiado: DNS del SOC por la VPN de sedes |
 | Medición de lo bloqueado | Automático (DNS: consultas, 25.7) | Parcial: indicio por detecciones | Por comprobar | No disponible |
 | Cambios de política | Automático | Guiado | Guiado | Guiado |
 
@@ -398,7 +398,12 @@ Todo lo que se basa en los registros (detecciones, incidencias, avisos, informes
 - el filtrado DNS y el filtrado de URL importan reglas desde un archivo con la plantilla del propio equipo, no desde una URL;
 - la API de GDMS (GWN) solo cubre red, SSID, clientes, lista de acceso por MAC, WAN, alertas, inventario y el registro de accesos web: nada del cortafuegos;
 - por eso las listas de bloqueo y la preventiva son «No disponible» en el GCC: el equipo aplica sus módulos propios (IPS, antibotnet, filtrado DNS por categorías) y el SOC lo cubre con detección y avisos. Los dominios quedan «por comprobar»: con la plantilla de importación del filtrado DNS, el SOC podría generar el archivo, pero sería una copia fija que hay que reimportar;
-- alternativa a valorar, no implementada: que el GCC reenvíe el DNS de los equipos a un resolvedor con la lista de dominios (por ejemplo, un OPNsense del cliente o un DNS del SOC).
+- dominios: **DNS del SOC por la VPN de sedes** (29/11/2026, `core/dns_resolver.py`). El GCC admite WireGuard como cliente y un DNS estático en la WAN o en la VPN («VPN Static DNS»). Se conecta a la VPN de sedes del SOC y reenvía su DNS a 10.255.251.1, donde un Unbound del SOC aplica a las sedes de cada cliente la lista de dominios de Q-Feeds de ese cliente (zona RPZ por cliente, etiquetada por la dirección VPN de sus sedes; respuesta NXDOMAIN). Los equipos de la sede siguen usando el GCC como DNS.
+  - Se activa por cliente: «DNS del SOC» en la configuración de su lista. Requiere `deploy/configurar_dns_soc.sh` en la VM ([despliegue](deployment.md#dns-del-soc-por-la-vpn-de-sedes)).
+  - Freno: detener o despublicar la lista o desactivar los dominios deja la zona vacía y las sedes siguen resolviendo. Desactivar «DNS del SOC» retira su acceso: antes hay que devolver el DNS del firewall.
+  - Disponibilidad: si se pone un DNS alternativo público, la sede sigue resolviendo si el SOC no responde, pero sin la lista en ese momento.
+  - Medición: el trabajo `soc-dns` cuenta en el diario de Unbound las consultas bloqueadas de cada cliente, con un cursor que solo avanza si la lectura terminó. Se muestra en la lista del cliente y al cliente (portal e informes) como consultas bloqueadas.
+  - Sirve también para cualquier otra sede con la VPN de sedes cuyo firewall no tenga listas DNS. No validado aún con un GCC real.
 
 ## Archivos
 

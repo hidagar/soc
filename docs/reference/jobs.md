@@ -9,7 +9,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | [core/management/commands/comprobar_restauracion.py](../../core/management/commands/comprobar_restauracion.py) | Sin argumentos propios |
 | [core/management/commands/dashboard_sources.py](../../core/management/commands/dashboard_sources.py) | Sin argumentos propios |
 | [core/management/commands/monitor_soc.py](../../core/management/commands/monitor_soc.py) | parser.add_argument('--no-notify', action='store_true') |
-| [core/management/commands/operate_soc.py](../../core/management/commands/operate_soc.py) | parser.add_argument('job', choices=['vpn', 'changes', 'backup']); parser.add_argument('--daily', action='store_true') |
+| [core/management/commands/operate_soc.py](../../core/management/commands/operate_soc.py) | parser.add_argument('job', choices=['vpn', 'changes', 'backup', 'dns']); parser.add_argument('--daily', action='store_true') |
 | [core/management/commands/poll_urgent_alerts.py](../../core/management/commands/poll_urgent_alerts.py) | Sin argumentos propios |
 | [core/management/commands/rebuild_customer_projection.py](../../core/management/commands/rebuild_customer_projection.py) | parser.add_argument('--client', type=int) |
 | [core/management/commands/rotate_encryption_keys.py](../../core/management/commands/rotate_encryption_keys.py) | parser.add_argument('--apply', action='store_true', help='Escribir los valores recifrados') |
@@ -72,6 +72,8 @@ La unidad instalada puede tener overrides no presentes en Git. Consultar su conf
 - [deploy/systemd/soc-backup.timer](../../deploy/systemd/soc-backup.timer)
 - [deploy/systemd/soc-changes.service](../../deploy/systemd/soc-changes.service)
 - [deploy/systemd/soc-changes.timer](../../deploy/systemd/soc-changes.timer)
+- [deploy/systemd/soc-dns.service](../../deploy/systemd/soc-dns.service)
+- [deploy/systemd/soc-dns.timer](../../deploy/systemd/soc-dns.timer)
 - [deploy/systemd/soc-https-delivery.timer](../../deploy/systemd/soc-https-delivery.timer)
 - [deploy/systemd/soc-job@.service](../../deploy/systemd/soc-job@.service)
 - [deploy/systemd/soc-monitor.service](../../deploy/systemd/soc-monitor.service)

@@ -69,14 +69,14 @@ def synchronize():
     rules='''table inet soc_wg {
       chain input { type filter hook input priority -10; policy accept;
         iifname "wg-soc" ip daddr 10.255.251.1 udp dport {PORT} accept
-        iifname "wg-soc" ip daddr 10.255.251.1 icmp type echo-request accept
+        iifname "wg-soc" ip daddr 10.255.251.1 icmp type echo-request accept{DNS}
         iifname "wg-soc" drop
       }
       chain forward { type filter hook forward priority -10; policy accept;
         iifname "wg-soc" drop
         oifname "wg-soc" drop
       }
-    }'''.replace('{PORT}',str(PORT))
+    }'''.replace('{PORT}',str(PORT)).replace('{DNS}',dns_rules())
     exists=subprocess.run(['nft','list','table','inet','soc_wg'],capture_output=True,timeout=5).returncode==0
     script=('delete table inet soc_wg\n' if exists else '')+rules
     subprocess.run(['nft','--check','-f','-'],input=script,text=True,check=True,capture_output=True,timeout=5)
@@ -98,6 +98,14 @@ def synchronize():
     VpnPeer.objects.filter(Q(site__active=False)|Q(site__client__active=False)).update(status='paused',handshake_at=None)
     state,_=WorkerState.objects.get_or_create(name='vpn')
     state.last_success_at=timezone.now(); state.error=''; state.save()
+
+def dns_rules():
+    """DNS del SOC: solo las sedes de clientes que lo tienen activado (core.dns_resolver). Sin ninguna, nada cambia."""
+    from .dns_resolver import dns_peers
+    peers=[p for p in dns_peers() if ipaddress.ip_address(p) in NETWORK and p!=SERVER]
+    if not peers: return ''
+    addresses=', '.join(peers)
+    return ''.join('\n        iifname "wg-soc" ip saddr { '+addresses+' } ip daddr 10.255.251.1 '+proto+' dport 53 accept' for proto in ('udp','tcp'))
 
 def record_log_transport(device,source,stamp,now):
     if not device.active or device.integration=='paused':return

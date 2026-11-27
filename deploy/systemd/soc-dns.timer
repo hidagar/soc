@@ -1,0 +1,8 @@
+[Unit]
+Description=Schedule Centro SOC soc-dns
+[Timer]
+OnBootSec=90s
+OnUnitInactiveSec=15min
+AccuracySec=10s
+[Install]
+WantedBy=timers.target

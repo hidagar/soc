@@ -220,6 +220,8 @@ class BlocklistFeed(models.Model):
     qfeeds_dns=models.BooleanField('Publicar los dominios de Q-Feeds para el DNS',default=False)
     dns_allowlist=models.TextField('Dominios que nunca se bloquean',blank=True,help_text='Un dominio por línea; incluye sus subdominios.')
     dns_count=models.PositiveIntegerField(default=0)
+    # DNS del SOC para las sedes conectadas por la VPN de sedes (equipos sin listas DNS propias, como el GCC).
+    dns_resolver=models.BooleanField('Ofrecer el DNS del SOC a las sedes por la VPN',default=False)
     dns_fetch_at=models.DateTimeField(null=True,blank=True)
     outbound_entries=models.JSONField(default=list,blank=True)
     # Quién descarga cada lista: {lista: {IP: fecha ISO}}, como mucho 10 IP por lista. Comprueba el modo guiado.

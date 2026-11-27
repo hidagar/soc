@@ -281,6 +281,20 @@ def client_protection(client, first_day=None, last_day=None, now=None):
                 item['measured'] = True
                 item['queries'] += sum(v for d, v in (state.details.get('history') or {}).items()
                                        if first_day.isoformat() <= d <= last_day.isoformat())
+    # DNS del SOC por la VPN de sedes: cuenta si alguna sede está conectada.
+    if feed.dns_resolver and feed.qfeeds_dns:
+        from .dns_resolver import blocked_between
+        from .models import VpnPeer
+        sites = list(VpnPeer._base_manager.filter(site__client=client, enabled=True, status='connected', site__active=True)
+                     .order_by('site__name').values_list('site__name', flat=True))
+        if sites:
+            item = result.setdefault('dns', {'entries': feed.dns_count, 'queries': 0, 'firewalls': [], 'measured': False,
+                                             'measuring': True})
+            item['firewalls'] += [f'{name} (DNS del SOC)' for name in sites if f'{name} (DNS del SOC)' not in item['firewalls']]
+            blocked = blocked_between(client.pk, first_day, last_day)
+            if blocked is not None:
+                item['measured'] = True
+                item['queries'] += blocked
     # Consolas UniFi con la lista escrita por el SOC y sus políticas de bloqueo activas (no se presume
     # protección por una política hecha a mano que el SOC no ve). UniFi no ofrece contadores por regla.
     from .models import UnifiBlocklistBinding

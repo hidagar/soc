@@ -71,8 +71,8 @@ MATRIX = {
                                      '(IPS, antibotnet, filtrado DNS por categorías); el SOC lo cubre con detección y avisos.'),
         'blocklist_out': ('unavailable', 'Igual que la de entrada.'),
         'preventive': ('unavailable', 'Igual que la de entrada.'),
-        'dns': ('pending', 'El filtrado DNS del GCC importa reglas desde un archivo con su plantilla, no desde una URL: '
-                           'con esa plantilla el SOC podría generar el archivo, pero sería una copia fija que hay que reimportar.'),
+        'dns': ('guided', 'DNS del SOC por la VPN de sedes: el GCC se conecta por WireGuard y reenvía su DNS a 10.255.251.1, '
+                          'que bloquea los dominios de la lista del cliente y cuenta lo bloqueado. Requiere activar «DNS del SOC».'),
         'measure': ('unavailable', 'Sin contadores por API; la API de GDMS solo exporta el registro de accesos web.'),
         'policy': ('guided', 'Guía preparada; se aplica desde la consola del equipo.'),
     },
@@ -90,6 +90,14 @@ GUIDES = {
                                  'de entradas de tablas en Firewall › Settings › Advanced).',
                                  'Firewall › Rules › WAN: regla «Block» con origen ese alias.', _FETCH],
     ('opnsense', 'dns'): ['Services › Unbound DNS › Blocklist: añadir la URL de dominios como lista propia y aplicar.', _FETCH],
+    ('grandstream_gcc', 'dns'): ['En el SOC: «VPN de sedes», preparar la VPN de la sede y descargar su configuración WireGuard; '
+                                 'en la lista de bloqueo del cliente, activar «DNS del SOC».',
+                                 'En el GCC: VPN › WireGuard, cliente con la configuración descargada (solo enruta 10.255.251.1).',
+                                 'En la WAN (o en la VPN, «VPN Static DNS»): servidor DNS preferido 10.255.251.1. Los equipos siguen '
+                                 'usando el GCC como DNS; el GCC reenvía al SOC.',
+                                 'Servidor alternativo: dejar uno público solo si se prefiere disponibilidad a bloqueo (si el SOC no '
+                                 'responde, se resuelve sin la lista).',
+                                 'Comprobar en esta página que la sede aparece «Conectada» y que un dominio de la lista no resuelve.'],
     ('hillstone', 'blocklist'): ['Perimeter Traffic Filtering: activar la lista negra definida por el usuario e importar sus miembros '
                                  'desde una fuente externa por HTTPS con la URL de la lista de entrada.',
                                  'Formato: una IP o red por línea. Si StoneOS no acepta el certificado del SOC, importar su CA.', _FETCH],

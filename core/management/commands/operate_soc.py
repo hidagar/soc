@@ -4,9 +4,9 @@ from django.utils import timezone
 from core.models import BackupRun,WorkerState
 
 class Command(BaseCommand):
-    help='Procesa VPN, cambios aprobados y copias cifradas mediante servicios protegidos.'
+    help='Procesa VPN, DNS del SOC, cambios aprobados y copias cifradas mediante servicios protegidos.'
     def add_arguments(self,parser):
-        parser.add_argument('job',choices=['vpn','changes','backup'])
+        parser.add_argument('job',choices=['vpn','changes','backup','dns'])
         parser.add_argument('--daily',action='store_true')
     def handle(self,*args,**options):
         if os.geteuid()!=0: raise CommandError('Ejecutar mediante el servicio protegido de operaciones.')
@@ -22,6 +22,9 @@ class Command(BaseCommand):
             try:
                 if job=='vpn':
                     from core.vpn import synchronize
+                    synchronize()
+                elif job=='dns':
+                    from core.dns_resolver import synchronize
                     synchronize()
                 elif job=='changes':
                     from core.change_control import process_queue

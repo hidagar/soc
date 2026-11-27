@@ -1,0 +1,18 @@
+[Unit]
+Description=Centro SOC soc-dns (DNS del SOC para las sedes por la VPN)
+After=network-online.target unbound.service wg-quick@wg-soc.service
+ConditionPathExists=/etc/unbound/unbound.conf.d/soc-base.conf
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/srv/soc-portal
+EnvironmentFile=/etc/soc-portal/portal.env
+ExecStart=/opt/soc-portal-venv/bin/python /srv/soc-portal/manage.py operate_soc dns
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/srv/soc-portal/data /run /etc/unbound/unbound.conf.d /var/lib/unbound/soc
+UMask=0022
+TimeoutStartSec=300

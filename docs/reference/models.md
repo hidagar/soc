@@ -436,6 +436,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `qfeeds_dns` | BooleanField |  |
 | `dns_allowlist` | TextField | blank=True |
 | `dns_count` | PositiveIntegerField |  |
+| `dns_resolver` | BooleanField |  |
 | `dns_fetch_at` | DateTimeField | null=True; blank=True |
 | `outbound_entries` | JSONField | blank=True |
 | `fetch_sources` | JSONField | blank=True |
