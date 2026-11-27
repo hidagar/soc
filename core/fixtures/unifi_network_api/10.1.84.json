@@ -1,0 +1,2948 @@
+{
+ "note": "Subconjunto de la especificación pública de UniFi Network: solo los esquemas que usa el SOC (core/unifi_blocklist.py).",
+ "schemas": {
+  "Address IPv4 matching": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/IPv4 matching"
+    },
+    {
+     "properties": {
+      "value": {
+       "description": "IPv4 address",
+       "example": "192.168.1.5",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "value"
+   ]
+  },
+  "Address IPv6 matching": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/IPv6 matching"
+    },
+    {
+     "properties": {
+      "value": {
+       "description": "IPv6 address",
+       "example": "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "value"
+   ]
+  },
+  "Address range IPv4 matching": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/IPv4 matching"
+    },
+    {
+     "properties": {
+      "start": {
+       "description": "IPv4 start address",
+       "example": "192.168.1.10",
+       "type": "string"
+      },
+      "stop": {
+       "description": "IPv4 stop address",
+       "example": "192.168.1.20",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "start",
+    "stop"
+   ]
+  },
+  "Create or update firewall policy": {
+   "properties": {
+    "action": {
+     "$ref": "#/components/schemas/Firewall policy action"
+    },
+    "connectionStateFilter": {
+     "description": "Match on firewall connection state. If null, matches all connection states.",
+     "items": {
+      "enum": [
+       "NEW",
+       "INVALID",
+       "ESTABLISHED",
+       "RELATED"
+      ],
+      "type": "string"
+     },
+     "maxItems": 2147483647,
+     "minItems": 1,
+     "type": "array",
+     "uniqueItems": true
+    },
+    "description": {
+     "example": "A description for my firewall policy",
+     "type": "string"
+    },
+    "destination": {
+     "$ref": "#/components/schemas/Firewall policy destination"
+    },
+    "enabled": {
+     "type": "boolean"
+    },
+    "ipProtocolScope": {
+     "$ref": "#/components/schemas/Firewall policy IP protocol scope"
+    },
+    "ipsecFilter": {
+     "description": "Match on traffic encrypted, or not encrypted by IPsec. If null, matches all traffic.",
+     "enum": [
+      "MATCH_ENCRYPTED",
+      "MATCH_NOT_ENCRYPTED"
+     ],
+     "type": "string"
+    },
+    "loggingEnabled": {
+     "description": "Generate syslog entries when traffic is matched. Such entries are sent to a remote syslog server.",
+     "type": "boolean"
+    },
+    "name": {
+     "example": "My firewall policy",
+     "minLength": 1,
+     "type": "string"
+    },
+    "schedule": {
+     "$ref": "#/components/schemas/Firewall schedule"
+    },
+    "source": {
+     "$ref": "#/components/schemas/Firewall policy source"
+    }
+   },
+   "required": [
+    "action",
+    "destination",
+    "enabled",
+    "ipProtocolScope",
+    "loggingEnabled",
+    "name",
+    "source"
+   ],
+   "type": "object"
+  },
+  "Create or update traffic matching list": {
+   "discriminator": {
+    "mapping": {
+     "IPV4_ADDRESSES": "#/components/schemas/IntegrationIpV4TrafficMatchingListCreateUpdateDto",
+     "IPV6_ADDRESSES": "#/components/schemas/IntegrationIpV6TrafficMatchingListCreateUpdateDto",
+     "PORTS": "#/components/schemas/IntegrationPortTrafficMatchingListCreateUpdateDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "name": {
+     "example": "Allowed port list|Protected IP list",
+     "minLength": 1,
+     "type": "string"
+    },
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "name",
+    "type"
+   ],
+   "type": "object"
+  },
+  "Derived entity metadata": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Entity metadata"
+    }
+   ]
+  },
+  "Entity metadata": {
+   "discriminator": {
+    "mapping": {
+     "DERIVED": "#/components/schemas/Derived entity metadata",
+     "ORCHESTRATED": "#/components/schemas/Orchestrated entity metadata",
+     "SYSTEM_DEFINED": "#/components/schemas/System defined entity metadata",
+     "USER_DEFINED": "#/components/schemas/User defined entity metadata"
+    },
+    "propertyName": "origin"
+   },
+   "properties": {
+    "origin": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "origin"
+   ]
+  },
+  "Firewall policy": {
+   "properties": {
+    "action": {
+     "$ref": "#/components/schemas/Firewall policy action"
+    },
+    "connectionStateFilter": {
+     "description": "Match on firewall connection state. If null, matches all connection states.",
+     "items": {
+      "enum": [
+       "NEW",
+       "INVALID",
+       "ESTABLISHED",
+       "RELATED"
+      ],
+      "type": "string"
+     },
+     "maxItems": 2147483647,
+     "minItems": 1,
+     "type": "array",
+     "uniqueItems": true
+    },
+    "description": {
+     "example": "A description for my firewall policy",
+     "type": "string"
+    },
+    "destination": {
+     "$ref": "#/components/schemas/Firewall policy destination"
+    },
+    "enabled": {
+     "type": "boolean"
+    },
+    "id": {
+     "format": "uuid",
+     "type": "string"
+    },
+    "index": {
+     "format": "int32",
+     "type": "integer"
+    },
+    "ipProtocolScope": {
+     "$ref": "#/components/schemas/Firewall policy IP protocol scope"
+    },
+    "ipsecFilter": {
+     "description": "Match on traffic encrypted, or not encrypted by IPsec. If null, matches all traffic.",
+     "enum": [
+      "MATCH_ENCRYPTED",
+      "MATCH_NOT_ENCRYPTED"
+     ],
+     "type": "string"
+    },
+    "loggingEnabled": {
+     "description": "Generate syslog entries when traffic is matched. Such entries are sent to a remote syslog server.",
+     "type": "boolean"
+    },
+    "metadata": {
+     "$ref": "#/components/schemas/User or system defined or derived entity metadata"
+    },
+    "name": {
+     "example": "My firewall policy",
+     "type": "string"
+    },
+    "schedule": {
+     "$ref": "#/components/schemas/Firewall schedule"
+    },
+    "source": {
+     "$ref": "#/components/schemas/Firewall policy source"
+    }
+   },
+   "required": [
+    "action",
+    "destination",
+    "enabled",
+    "id",
+    "index",
+    "ipProtocolScope",
+    "loggingEnabled",
+    "metadata",
+    "name",
+    "source"
+   ],
+   "type": "object"
+  },
+  "Firewall policy IP address filter": {
+   "description": "Match traffic originating from, or destined to selected IP addresses.",
+   "discriminator": {
+    "mapping": {
+     "IP_ADDRESSES": "#/components/schemas/IntegrationFirewallPolicySpecificIpAddressFilterDto",
+     "TRAFFIC_MATCHING_LIST": "#/components/schemas/IntegrationFirewallPolicyIpAddressTrafficMatchingListFilterDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "matchOpposite": {
+     "description": "Match on all IP addresses except the specified ones.",
+     "type": "boolean"
+    },
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "matchOpposite",
+    "type"
+   ],
+   "type": "object"
+  },
+  "Firewall policy IP protocol scope": {
+   "description": "Defines rules for matching by IP version and protocol.",
+   "discriminator": {
+    "mapping": {
+     "IPV4": "#/components/schemas/IntegrationFirewallPolicyIpv4ProtocolScopeDto",
+     "IPV4_AND_IPV6": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6ProtocolScopeDto",
+     "IPV6": "#/components/schemas/IntegrationFirewallPolicyIpv6ProtocolScopeDto"
+    },
+    "propertyName": "ipVersion"
+   },
+   "properties": {
+    "ipVersion": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "ipVersion"
+   ]
+  },
+  "Firewall policy IPv4 and IPv6 named protocol": {
+   "description": "Defines rules for matching by protocol name.",
+   "discriminator": {
+    "mapping": {
+     "AH": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "DCCP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "EIGRP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "ESP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "GRE": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "IPCOMP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "ISIS": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "L2TP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "MANET": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "MOBILITY_HEADER": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "MPLS_IN_IP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "OSPF": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "PIM": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "RSVP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "SCTP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "SHIM6": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "TCP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "UDP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto",
+     "VRRP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto"
+    },
+    "propertyName": "name"
+   },
+   "properties": {
+    "name": {
+     "enum": [
+      "ah",
+      "ax.25",
+      "dccp",
+      "ddp",
+      "egp",
+      "eigrp",
+      "encap",
+      "esp",
+      "etherip",
+      "fc",
+      "ggp",
+      "gre",
+      "hip",
+      "hmp",
+      "icmp",
+      "icmpv6",
+      "idpr-cmtp",
+      "idrp",
+      "igmp",
+      "igp",
+      "ip",
+      "ipcomp",
+      "ipencap",
+      "ipip",
+      "ipv6",
+      "ipv6-frag",
+      "ipv6-nonxt",
+      "ipv6-opts",
+      "ipv6-route",
+      "isis",
+      "iso-tp4",
+      "l2tp",
+      "manet",
+      "mobility-header",
+      "mpls-in-ip",
+      "ospf",
+      "pim",
+      "pup",
+      "rdp",
+      "rohc",
+      "rspf",
+      "rsvp",
+      "sctp",
+      "shim6",
+      "skip",
+      "st",
+      "tcp",
+      "tcp_udp",
+      "udp",
+      "udplite",
+      "vmtp",
+      "vrrp",
+      "wesp",
+      "xns-idp",
+      "xtp"
+     ],
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ],
+   "type": "object"
+  },
+  "Firewall policy IPv4 and IPv6 protocol": {
+   "description": "Defines protocol matching. If null, matches all protocols.",
+   "discriminator": {
+    "mapping": {
+     "NAMED_PROTOCOL": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolFilterDto",
+     "PRESET": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6ProtocolPresetFilterDto",
+     "PROTOCOL_NUMBER": "#/components/schemas/Firewall policy IPv4 and IPv6 protocol number"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "Firewall policy IPv4 and IPv6 protocol number": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 and IPv6 protocol"
+    },
+    {
+     "properties": {
+      "matchOpposite": {
+       "description": "Match on all protocols except the specified protocol.",
+       "type": "boolean"
+      },
+      "protocolNumber": {
+       "description": "Protocol number as defined by IANA.",
+       "format": "int32",
+       "maximum": 255,
+       "minimum": 0,
+       "type": "integer"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "description": "Defines rules for matching by protocol number.",
+   "required": [
+    "matchOpposite",
+    "protocolNumber"
+   ]
+  },
+  "Firewall policy IPv4 and IPv6 protocol preset": {
+   "description": "Defines rules for matching by protocol preset.",
+   "discriminator": {
+    "mapping": {
+     "TCP_UDP": "#/components/schemas/IntegrationFirewallPolicyIpv4AndIpv6ProtocolPresetTcpUdpDto"
+    },
+    "propertyName": "name"
+   },
+   "properties": {
+    "name": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ]
+  },
+  "Firewall policy IPv4 named protocol": {
+   "description": "Defines rules for matching by protocol name.",
+   "discriminator": {
+    "mapping": {
+     "AH": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "AX_25": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "DCCP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "DDP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "EGP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "EIGRP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "ENCAP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "ESP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "ETHERIP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "FC": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "GGP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "GRE": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "HIP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "HMP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "ICMP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolIcmpDto",
+     "IDPR_CMTP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "IDRP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "IGMP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "IGP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "IP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "IPCOMP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "IPENCAP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "IPIP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "ISIS": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "ISO_TP4": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "L2TP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "MANET": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "MOBILITY_HEADER": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "MPLS_IN_IP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "OSPF": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "PIM": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "PUP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "RDP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "ROHC": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "RSPF": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "RSVP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "SCTP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "SHIM6": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "SKIP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "ST": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "TCP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "UDP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "UDPLITE": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "VMTP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "VRRP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "WESP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "XNS_IDP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto",
+     "XTP": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto"
+    },
+    "propertyName": "name"
+   },
+   "properties": {
+    "name": {
+     "enum": [
+      "ah",
+      "ax.25",
+      "dccp",
+      "ddp",
+      "egp",
+      "eigrp",
+      "encap",
+      "esp",
+      "etherip",
+      "fc",
+      "ggp",
+      "gre",
+      "hip",
+      "hmp",
+      "icmp",
+      "icmpv6",
+      "idpr-cmtp",
+      "idrp",
+      "igmp",
+      "igp",
+      "ip",
+      "ipcomp",
+      "ipencap",
+      "ipip",
+      "ipv6",
+      "ipv6-frag",
+      "ipv6-nonxt",
+      "ipv6-opts",
+      "ipv6-route",
+      "isis",
+      "iso-tp4",
+      "l2tp",
+      "manet",
+      "mobility-header",
+      "mpls-in-ip",
+      "ospf",
+      "pim",
+      "pup",
+      "rdp",
+      "rohc",
+      "rspf",
+      "rsvp",
+      "sctp",
+      "shim6",
+      "skip",
+      "st",
+      "tcp",
+      "tcp_udp",
+      "udp",
+      "udplite",
+      "vmtp",
+      "vrrp",
+      "wesp",
+      "xns-idp",
+      "xtp"
+     ],
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "Firewall policy IPv4 protocol": {
+   "description": "Defines protocol matching. If null, matches all protocols.",
+   "discriminator": {
+    "mapping": {
+     "NAMED_PROTOCOL": "#/components/schemas/IntegrationFirewallPolicyIpv4NamedProtocolFilterDto",
+     "PRESET": "#/components/schemas/IntegrationFirewallPolicyIpv4ProtocolPresetFilterDto",
+     "PROTOCOL_NUMBER": "#/components/schemas/Firewall policy IPv4 protocol number"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "Firewall policy IPv4 protocol number": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv6 protocol"
+    },
+    {
+     "properties": {
+      "matchOpposite": {
+       "description": "Match on all protocols except the specified protocol.",
+       "type": "boolean"
+      },
+      "protocolNumber": {
+       "description": "Protocol number as defined by IANA.",
+       "format": "int32",
+       "maximum": 255,
+       "minimum": 0,
+       "type": "integer"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "description": "Defines rules for matching by protocol number.",
+   "required": [
+    "matchOpposite",
+    "protocolNumber"
+   ]
+  },
+  "Firewall policy IPv4 protocol preset": {
+   "description": "Defines rules for matching by protocol preset.",
+   "discriminator": {
+    "mapping": {
+     "TCP_UDP": "#/components/schemas/IntegrationFirewallPolicyIpv4ProtocolPresetTcpUdpDto"
+    },
+    "propertyName": "name"
+   },
+   "properties": {
+    "name": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ]
+  },
+  "Firewall policy IPv6 interface identifier filter": {
+   "properties": {
+    "ipv6Iid": {
+     "description": "IPv6 Interface Identifier.",
+     "example": "2001:db8::1/::ffff:ffff:ffff:ffff",
+     "minLength": 1,
+     "type": "string"
+    },
+    "matchOpposite": {
+     "description": "Match on all IPv6 IIDs except the specified one.",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "ipv6Iid",
+    "matchOpposite"
+   ],
+   "type": "object"
+  },
+  "Firewall policy IPv6 named protocol": {
+   "description": "Defines rules for matching by protocol name.",
+   "discriminator": {
+    "mapping": {
+     "AH": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "DCCP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "EIGRP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "ESP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "GRE": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "ICMPV6": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolIcmpv6Dto",
+     "IPCOMP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "IPV6": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "IPV6_FRAG": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "IPV6_NONXT": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "IPV6_OPTS": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "IPV6_ROUTE": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "ISIS": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "L2TP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "MANET": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "MOBILITY_HEADER": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "MPLS_IN_IP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "OSPF": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "PIM": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "RSVP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "SCTP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "SHIM6": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "TCP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "UDP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto",
+     "VRRP": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto"
+    },
+    "propertyName": "name"
+   },
+   "properties": {
+    "name": {
+     "enum": [
+      "ah",
+      "ax.25",
+      "dccp",
+      "ddp",
+      "egp",
+      "eigrp",
+      "encap",
+      "esp",
+      "etherip",
+      "fc",
+      "ggp",
+      "gre",
+      "hip",
+      "hmp",
+      "icmp",
+      "icmpv6",
+      "idpr-cmtp",
+      "idrp",
+      "igmp",
+      "igp",
+      "ip",
+      "ipcomp",
+      "ipencap",
+      "ipip",
+      "ipv6",
+      "ipv6-frag",
+      "ipv6-nonxt",
+      "ipv6-opts",
+      "ipv6-route",
+      "isis",
+      "iso-tp4",
+      "l2tp",
+      "manet",
+      "mobility-header",
+      "mpls-in-ip",
+      "ospf",
+      "pim",
+      "pup",
+      "rdp",
+      "rohc",
+      "rspf",
+      "rsvp",
+      "sctp",
+      "shim6",
+      "skip",
+      "st",
+      "tcp",
+      "tcp_udp",
+      "udp",
+      "udplite",
+      "vmtp",
+      "vrrp",
+      "wesp",
+      "xns-idp",
+      "xtp"
+     ],
+     "type": "string"
+    }
+   },
+   "type": "object"
+  },
+  "Firewall policy IPv6 protocol": {
+   "description": "Defines protocol matching. If null, matches all protocols.",
+   "discriminator": {
+    "mapping": {
+     "NAMED_PROTOCOL": "#/components/schemas/IntegrationFirewallPolicyIpv6NamedProtocolFilterDto",
+     "PRESET": "#/components/schemas/IntegrationFirewallPolicyIpv6ProtocolPresetFilterDto",
+     "PROTOCOL_NUMBER": "#/components/schemas/Firewall policy IPv4 protocol number"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "Firewall policy IPv6 protocol preset": {
+   "description": "Defines rules for matching by protocol preset.",
+   "discriminator": {
+    "mapping": {
+     "TCP_UDP": "#/components/schemas/IntegrationFirewallPolicyIpv6ProtocolPresetTcpUdpDto"
+    },
+    "propertyName": "name"
+   },
+   "properties": {
+    "name": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "name"
+   ]
+  },
+  "Firewall policy MAC address filter": {
+   "properties": {
+    "macAddresses": {
+     "description": "Array of MAC addresses to match.",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1,
+     "type": "array",
+     "uniqueItems": true
+    }
+   },
+   "required": [
+    "macAddresses"
+   ],
+   "type": "object"
+  },
+  "Firewall policy VPN server filter": {
+   "properties": {
+    "matchOpposite": {
+     "type": "boolean"
+    },
+    "vpnServerIds": {
+     "items": {
+      "format": "uuid",
+      "type": "string"
+     },
+     "minItems": 1,
+     "type": "array",
+     "uniqueItems": true
+    }
+   },
+   "required": [
+    "matchOpposite",
+    "vpnServerIds"
+   ],
+   "type": "object"
+  },
+  "Firewall policy action": {
+   "description": "Defines action for matched traffic.",
+   "discriminator": {
+    "mapping": {
+     "ALLOW": "#/components/schemas/IntegrationFirewallPolicyActionAllowDto",
+     "BLOCK": "#/components/schemas/IntegrationFirewallPolicyActionBlockDto",
+     "REJECT": "#/components/schemas/IntegrationFirewallPolicyActionRejectDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "Firewall policy application category filter": {
+   "properties": {
+    "applicationCategoryIds": {
+     "description": "Array of DPI Category IDs to match.",
+     "items": {
+      "format": "int32",
+      "type": "integer"
+     },
+     "minItems": 1,
+     "type": "array",
+     "uniqueItems": true
+    }
+   },
+   "required": [
+    "applicationCategoryIds"
+   ],
+   "type": "object"
+  },
+  "Firewall policy application filter": {
+   "properties": {
+    "applicationIds": {
+     "description": "Array of DPI Application IDs to match.",
+     "items": {
+      "format": "int32",
+      "type": "integer"
+     },
+     "maxItems": 100,
+     "minItems": 1,
+     "type": "array",
+     "uniqueItems": true
+    }
+   },
+   "required": [
+    "applicationIds"
+   ],
+   "type": "object"
+  },
+  "Firewall policy destination": {
+   "properties": {
+    "trafficFilter": {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    "zoneId": {
+     "description": "ID of the firewall zone to which the matched traffic is destined.",
+     "format": "uuid",
+     "type": "string"
+    }
+   },
+   "required": [
+    "zoneId"
+   ],
+   "type": "object"
+  },
+  "Firewall policy destination traffic filter": {
+   "discriminator": {
+    "mapping": {
+     "APPLICATION": "#/components/schemas/IntegrationFirewallPolicyDestinationApplicationFilterDto",
+     "APPLICATION_CATEGORY": "#/components/schemas/IntegrationFirewallPolicyDestinationApplicationCategoryFilterDto",
+     "DOMAIN": "#/components/schemas/IntegrationFirewallPolicyDestinationDomainFilterDto",
+     "IPV6_IID": "#/components/schemas/IntegrationFirewallPolicyDestinationIpv6IidFilterDto",
+     "IP_ADDRESS": "#/components/schemas/IntegrationFirewallPolicyDestinationIpAddressFilterDto",
+     "NETWORK": "#/components/schemas/IntegrationFirewallPolicyDestinationNetworkFilterDto",
+     "PORT": "#/components/schemas/IntegrationFirewallPolicyDestinationPortFilterDto",
+     "REGION": "#/components/schemas/IntegrationFirewallPolicyDestinationRegionFilterDto",
+     "SITE_TO_SITE_VPN_TUNNEL": "#/components/schemas/IntegrationFirewallPolicyDestinationSiteToSiteVpnTunnelFilterDto",
+     "VPN_SERVER": "#/components/schemas/IntegrationFirewallPolicyDestinationVpnServerFilterDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "Firewall policy domain filter": {
+   "discriminator": {
+    "mapping": {
+     "DOMAINS": "#/components/schemas/IntegrationFirewallPolicySpecificDomainFilterDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "Firewall policy network filter": {
+   "properties": {
+    "matchOpposite": {
+     "description": "Match on all Networks except the selected.",
+     "type": "boolean"
+    },
+    "networkIds": {
+     "description": "Array of Network IDs to match.",
+     "items": {
+      "format": "uuid",
+      "type": "string"
+     },
+     "minItems": 1,
+     "type": "array",
+     "uniqueItems": true
+    }
+   },
+   "required": [
+    "matchOpposite",
+    "networkIds"
+   ],
+   "type": "object"
+  },
+  "Firewall policy port filter": {
+   "description": "Defines rules for matching traffic by port.",
+   "discriminator": {
+    "mapping": {
+     "PORTS": "#/components/schemas/IntegrationFirewallPolicyPortValueFilterDto",
+     "TRAFFIC_MATCHING_LIST": "#/components/schemas/IntegrationFirewallPolicyPortReferenceFilterDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "matchOpposite": {
+     "description": "Match on all ports except the specified ones.",
+     "type": "boolean"
+    },
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "matchOpposite",
+    "type"
+   ],
+   "type": "object"
+  },
+  "Firewall policy region filter": {
+   "properties": {
+    "regions": {
+     "description": "Match traffic originating from selected regions. Regions are identified by their ISO 3166-1 alpha-2 country codes.",
+     "items": {
+      "enum": [
+       "AD",
+       "AE",
+       "AF",
+       "AG",
+       "AI",
+       "AL",
+       "AM",
+       "AO",
+       "AQ",
+       "AR",
+       "AS",
+       "AT",
+       "AU",
+       "AW",
+       "AX",
+       "AZ",
+       "BA",
+       "BB",
+       "BD",
+       "BE",
+       "BF",
+       "BG",
+       "BH",
+       "BI",
+       "BJ",
+       "BL",
+       "BM",
+       "BN",
+       "BO",
+       "BQ",
+       "BR",
+       "BS",
+       "BT",
+       "BW",
+       "BY",
+       "BZ",
+       "CA",
+       "CC",
+       "CD",
+       "CF",
+       "CG",
+       "CH",
+       "CI",
+       "CK",
+       "CL",
+       "CM",
+       "CN",
+       "CO",
+       "CR",
+       "CU",
+       "CV",
+       "CW",
+       "CX",
+       "CY",
+       "CZ",
+       "DE",
+       "DJ",
+       "DK",
+       "DM",
+       "DO",
+       "DZ",
+       "EC",
+       "EE",
+       "EG",
+       "EH",
+       "ER",
+       "ES",
+       "ET",
+       "FI",
+       "FJ",
+       "FK",
+       "FM",
+       "FO",
+       "FR",
+       "GA",
+       "GB",
+       "GD",
+       "GE",
+       "GF",
+       "GG",
+       "GH",
+       "GI",
+       "GL",
+       "GM",
+       "GN",
+       "GP",
+       "GQ",
+       "GR",
+       "GS",
+       "GT",
+       "GU",
+       "GW",
+       "GY",
+       "HK",
+       "HN",
+       "HR",
+       "HT",
+       "HU",
+       "ID",
+       "IE",
+       "IL",
+       "IM",
+       "IN",
+       "IO",
+       "IQ",
+       "IR",
+       "IS",
+       "IT",
+       "JE",
+       "JM",
+       "JO",
+       "JP",
+       "KE",
+       "KG",
+       "KH",
+       "KI",
+       "KM",
+       "KN",
+       "KP",
+       "KR",
+       "KW",
+       "KY",
+       "KZ",
+       "LA",
+       "LB",
+       "LC",
+       "LI",
+       "LK",
+       "LR",
+       "LS",
+       "LT",
+       "LU",
+       "LV",
+       "LY",
+       "MA",
+       "MC",
+       "MD",
+       "ME",
+       "MF",
+       "MG",
+       "MH",
+       "MK",
+       "ML",
+       "MM",
+       "MN",
+       "MO",
+       "MP",
+       "MQ",
+       "MR",
+       "MS",
+       "MT",
+       "MU",
+       "MV",
+       "MW",
+       "MX",
+       "MY",
+       "MZ",
+       "NA",
+       "NC",
+       "NE",
+       "NF",
+       "NG",
+       "NI",
+       "NL",
+       "NO",
+       "NP",
+       "NR",
+       "NU",
+       "NZ",
+       "OM",
+       "PA",
+       "PE",
+       "PF",
+       "PG",
+       "PH",
+       "PK",
+       "PL",
+       "PM",
+       "PN",
+       "PR",
+       "PS",
+       "PT",
+       "PW",
+       "PY",
+       "QA",
+       "RE",
+       "RO",
+       "RS",
+       "RU",
+       "RW",
+       "SA",
+       "SB",
+       "SC",
+       "SD",
+       "SE",
+       "SG",
+       "SH",
+       "SI",
+       "SJ",
+       "SK",
+       "SL",
+       "SM",
+       "SN",
+       "SO",
+       "SR",
+       "SS",
+       "ST",
+       "SV",
+       "SX",
+       "SY",
+       "SZ",
+       "TC",
+       "TD",
+       "TF",
+       "TG",
+       "TH",
+       "TJ",
+       "TK",
+       "TL",
+       "TM",
+       "TN",
+       "TO",
+       "TR",
+       "TT",
+       "TV",
+       "TW",
+       "TZ",
+       "UA",
+       "UG",
+       "UM",
+       "US",
+       "UY",
+       "UZ",
+       "VA",
+       "VC",
+       "VE",
+       "VG",
+       "VI",
+       "VN",
+       "VU",
+       "WF",
+       "WS",
+       "XK",
+       "YE",
+       "YT",
+       "ZA",
+       "ZM",
+       "ZW"
+      ],
+      "type": "string"
+     },
+     "minItems": 1,
+     "type": "array",
+     "uniqueItems": true
+    }
+   },
+   "required": [
+    "regions"
+   ],
+   "type": "object"
+  },
+  "Firewall policy site-to-site VPN tunnel filter": {
+   "properties": {
+    "siteToSiteVpnTunnelId": {
+     "format": "uuid",
+     "type": "string"
+    }
+   },
+   "required": [
+    "siteToSiteVpnTunnelId"
+   ],
+   "type": "object"
+  },
+  "Firewall policy source": {
+   "properties": {
+    "trafficFilter": {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    "zoneId": {
+     "description": "ID of the firewall zone from which the matched traffic originates.",
+     "format": "uuid",
+     "type": "string"
+    }
+   },
+   "required": [
+    "zoneId"
+   ],
+   "type": "object"
+  },
+  "Firewall policy source traffic filter": {
+   "discriminator": {
+    "mapping": {
+     "IPV6_IID": "#/components/schemas/IntegrationFirewallPolicySourceIpv6IidFilterDto",
+     "IP_ADDRESS": "#/components/schemas/IntegrationFirewallPolicySourceIpAddressFilterDto",
+     "MAC_ADDRESS": "#/components/schemas/IntegrationFirewallPolicySourceMacAddressFilterDto",
+     "NETWORK": "#/components/schemas/IntegrationFirewallPolicySourceNetworkFilterDto",
+     "PORT": "#/components/schemas/IntegrationFirewallPolicySourcePortFilterDto",
+     "REGION": "#/components/schemas/IntegrationFirewallPolicySourceRegionFilterDto",
+     "SITE_TO_SITE_VPN_TUNNEL": "#/components/schemas/IntegrationFirewallPolicySourceSiteToSiteVpnTunnelFilterDto",
+     "VPN_SERVER": "#/components/schemas/IntegrationFirewallPolicySourceVpnServerFilterDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "Firewall schedule": {
+   "description": "Defines date and time when the entity is active. If null, the entity is always active.",
+   "discriminator": {
+    "mapping": {
+     "CUSTOM": "#/components/schemas/IntegrationFirewallScheduleCustomDto",
+     "EVERY_DAY": "#/components/schemas/IntegrationFirewallScheduleEveryDayDto",
+     "EVERY_WEEK": "#/components/schemas/IntegrationFirewallScheduleEveryWeekDto",
+     "ONE_TIME_ONLY": "#/components/schemas/IntegrationFirewallScheduleOneTimeOnlyDto"
+    },
+    "propertyName": "mode"
+   },
+   "properties": {
+    "mode": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "mode"
+   ]
+  },
+  "Firewall schedule time": {
+   "description": "Defines the time range when the entity is active. If null, the entity is active all day.",
+   "properties": {
+    "startTime": {
+     "description": "Time in HH:MM format. Uses 24-hour clock system. ISO 8601 compliant.",
+     "example": "21:37",
+     "type": "string"
+    },
+    "stopTime": {
+     "description": "Time in HH:MM format. Uses 24-hour clock system. ISO 8601 compliant.",
+     "example": "21:37",
+     "type": "string"
+    }
+   },
+   "required": [
+    "startTime",
+    "stopTime"
+   ],
+   "type": "object"
+  },
+  "IP matching": {
+   "discriminator": {
+    "mapping": {
+     "IP_ADDRESS": "#/components/schemas/IntegrationFirewallPolicyIpMatchingIpAddressDto",
+     "IP_ADDRESS_RANGE": "#/components/schemas/IntegrationFirewallPolicyIpMatchingRangeDto",
+     "SUBNET": "#/components/schemas/IntegrationFirewallPolicyIpMatchingSubnetDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "IPv4 matching": {
+   "discriminator": {
+    "mapping": {
+     "IP_ADDRESS": "#/components/schemas/Address IPv4 matching",
+     "IP_ADDRESS_RANGE": "#/components/schemas/Address range IPv4 matching",
+     "SUBNET": "#/components/schemas/Subnet IPv4 matching"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "IPv6 matching": {
+   "discriminator": {
+    "mapping": {
+     "IP_ADDRESS": "#/components/schemas/Address IPv6 matching",
+     "SUBNET": "#/components/schemas/Subnet IPv6 matching"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "IntegrationDerivedSiteToSiteTunnelMetadata": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Site-to-site VPN tunnel metadata"
+    },
+    {
+     "properties": {
+      "source": {
+       "enum": [
+        "SDWAN"
+       ],
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "source"
+   ]
+  },
+  "IntegrationFirewallPolicyActionAllowDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy action"
+    },
+    {
+     "properties": {
+      "allowReturnTraffic": {
+       "description": "Creates a derived policy for the mirrored firewall zone pair to automatically allow the return traffic.",
+       "type": "boolean"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "allowReturnTraffic"
+   ]
+  },
+  "IntegrationFirewallPolicyActionBlockDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy action"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyActionRejectDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy action"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationApplicationCategoryFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "applicationCategoryFilter": {
+       "$ref": "#/components/schemas/Firewall policy application category filter",
+       "description": "Match destination traffic by DPI application categories."
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "applicationCategoryFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationApplicationFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "applicationFilter": {
+       "$ref": "#/components/schemas/Firewall policy application filter",
+       "description": "Match destination traffic by DPI applications."
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "applicationFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationDomainFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "domainFilter": {
+       "$ref": "#/components/schemas/Firewall policy domain filter",
+       "description": "Match destination traffic by domains."
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "domainFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationIpAddressFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "ipAddressFilter": {
+       "$ref": "#/components/schemas/Firewall policy IP address filter",
+       "description": "Match destination traffic by IP addresses."
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "ipAddressFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationIpv6IidFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "ipv6IidFilter": {
+       "$ref": "#/components/schemas/Firewall policy IPv6 interface identifier filter",
+       "description": "Match destination traffic by IPv6 interface identifier."
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "ipv6IidFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationNetworkFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "networkFilter": {
+       "$ref": "#/components/schemas/Firewall policy network filter",
+       "description": "Match destination traffic by networks."
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "networkFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationPortFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic by ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "portFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationRegionFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      },
+      "regionFilter": {
+       "$ref": "#/components/schemas/Firewall policy region filter",
+       "description": "Match destination traffic by regions."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "regionFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationSiteToSiteVpnTunnelFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      },
+      "siteToSiteVpnTunnelFilter": {
+       "$ref": "#/components/schemas/Firewall policy site-to-site VPN tunnel filter",
+       "description": "Match destination traffic by site-to-site VPN tunnel."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "siteToSiteVpnTunnelFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyDestinationVpnServerFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy destination traffic filter"
+    },
+    {
+     "properties": {
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match destination traffic additionally by ports. If null, match all ports."
+      },
+      "vpnServerFilter": {
+       "$ref": "#/components/schemas/Firewall policy VPN server filter",
+       "description": "Match destination traffic by VPN servers."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "vpnServerFilter"
+   ]
+  },
+  "IntegrationFirewallPolicyIpAddressTrafficMatchingListFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IP address filter"
+    },
+    {
+     "properties": {
+      "trafficMatchingListId": {
+       "description": "ID of Traffic Matching List containing IP addresses to match.",
+       "format": "uuid",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "matchOpposite",
+    "trafficMatchingListId"
+   ]
+  },
+  "IntegrationFirewallPolicyIpMatchingIpAddressDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/IP matching"
+    },
+    {
+     "properties": {
+      "value": {
+       "description": "IP address to match.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "value"
+   ]
+  },
+  "IntegrationFirewallPolicyIpMatchingRangeDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/IP matching"
+    },
+    {
+     "properties": {
+      "start": {
+       "description": "First IP address from range to match.",
+       "type": "string"
+      },
+      "stop": {
+       "description": "Last IP address from range to match.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "start",
+    "stop"
+   ]
+  },
+  "IntegrationFirewallPolicyIpMatchingSubnetDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/IP matching"
+    },
+    {
+     "properties": {
+      "value": {
+       "description": "IP subnet in CIDR notation to match.",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "value"
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolDefaultDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 and IPv6 named protocol"
+    }
+   ],
+   "required": [
+    "name"
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4AndIpv6NamedProtocolFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 and IPv6 protocol"
+    },
+    {
+     "properties": {
+      "matchOpposite": {
+       "description": "Match on all protocols except the specified protocol.",
+       "type": "boolean"
+      },
+      "protocol": {
+       "$ref": "#/components/schemas/Firewall policy IPv4 and IPv6 named protocol"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "matchOpposite",
+    "protocol"
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4AndIpv6ProtocolPresetFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 and IPv6 protocol"
+    },
+    {
+     "properties": {
+      "preset": {
+       "$ref": "#/components/schemas/Firewall policy IPv4 and IPv6 protocol preset"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "preset"
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4AndIpv6ProtocolPresetTcpUdpDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 and IPv6 protocol preset"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4AndIpv6ProtocolScopeDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IP protocol scope"
+    },
+    {
+     "properties": {
+      "protocolFilter": {
+       "$ref": "#/components/schemas/Firewall policy IPv4 and IPv6 protocol"
+      }
+     },
+     "type": "object"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4NamedProtocolDefaultDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 named protocol"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4NamedProtocolFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 protocol"
+    },
+    {
+     "properties": {
+      "matchOpposite": {
+       "description": "Match on all protocols except the specified protocol.",
+       "type": "boolean"
+      },
+      "protocol": {
+       "$ref": "#/components/schemas/Firewall policy IPv4 named protocol"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "matchOpposite",
+    "protocol"
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4NamedProtocolIcmpDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 named protocol"
+    },
+    {
+     "properties": {
+      "typenameFilter": {
+       "description": "Match specific type of ICMP traffic. If null, matches all types.",
+       "enum": [
+        "ADDRESS_MASK_REPLY",
+        "ADDRESS_MASK_REQUEST",
+        "COMMUNICATION_PROHIBITED",
+        "DESTINATION_UNREACHABLE",
+        "ECHO_REPLY",
+        "ECHO_REQUEST",
+        "FRAGMENTATION_NEEDED",
+        "HOST_PRECEDENCE_VIOLATION",
+        "HOST_PROHIBITED",
+        "HOST_REDIRECT",
+        "HOST_UNKNOWN",
+        "HOST_UNREACHABLE",
+        "IP_HEADER_BAD",
+        "NETWORK_PROHIBITED",
+        "NETWORK_REDIRECT",
+        "NETWORK_UNKNOWN",
+        "NETWORK_UNREACHABLE",
+        "PARAMETER_PROBLEM",
+        "PORT_UNREACHABLE",
+        "PRECEDENCE_CUTOFF",
+        "PROTOCOL_UNREACHABLE",
+        "REDIRECT",
+        "REQUIRED_OPTION_MISSING",
+        "ROUTER_ADVERTISEMENT",
+        "ROUTER_SOLICITATION",
+        "SOURCE_QUENCH",
+        "SOURCE_ROUTE_FAILED",
+        "TIME_EXCEEDED",
+        "TIMESTAMP_REPLY",
+        "TIMESTAMP_REQUEST",
+        "TOS_HOST_REDIRECT",
+        "TOS_HOST_UNREACHABLE",
+        "TOS_NETWORK_REDIRECT",
+        "TOS_NETWORK_UNREACHABLE",
+        "TTL_ZERO_DURING_REASSEMBLY",
+        "TTL_ZERO_DURING_TRANSIT"
+       ],
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4ProtocolPresetFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 protocol"
+    },
+    {
+     "properties": {
+      "preset": {
+       "$ref": "#/components/schemas/Firewall policy IPv4 protocol preset"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "preset"
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4ProtocolPresetTcpUdpDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv4 protocol preset"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv4ProtocolScopeDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IP protocol scope"
+    },
+    {
+     "properties": {
+      "protocolFilter": {
+       "$ref": "#/components/schemas/Firewall policy IPv4 protocol"
+      }
+     },
+     "type": "object"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv6NamedProtocolDefaultDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv6 named protocol"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv6NamedProtocolFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv6 protocol"
+    },
+    {
+     "properties": {
+      "matchOpposite": {
+       "description": "Match on all protocols except the specified protocol.",
+       "type": "boolean"
+      },
+      "protocol": {
+       "$ref": "#/components/schemas/Firewall policy IPv6 named protocol"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "matchOpposite",
+    "protocol"
+   ]
+  },
+  "IntegrationFirewallPolicyIpv6NamedProtocolIcmpv6Dto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv6 named protocol"
+    },
+    {
+     "properties": {
+      "typenameFilter": {
+       "description": "Match specific type of ICMPv6 traffic. If null, matches all types.",
+       "enum": [
+        "ADDRESS_UNREACHABLE",
+        "BAD_HEADER",
+        "BEYOND_SCOPE",
+        "COMMUNICATION_PROHIBITED",
+        "DESTINATION_UNREACHABLE",
+        "ECHO_REPLY",
+        "ECHO_REQUEST",
+        "FAILED_POLICY",
+        "NEIGHBOR_ADVERTISEMENT",
+        "NEIGHBOR_SOLICITATION",
+        "NO_ROUTE",
+        "PACKET_TOO_BIG",
+        "PARAMETER_PROBLEM",
+        "PORT_UNREACHABLE",
+        "REDIRECT",
+        "REJECT_ROUTE",
+        "ROUTER_ADVERTISEMENT",
+        "ROUTER_SOLICITATION",
+        "TIME_EXCEEDED",
+        "TTL_ZERO_DURING_REASSEMBLY",
+        "TTL_ZERO_DURING_TRANSIT",
+        "UNKNOWN_HEADER_TYPE",
+        "UNKNOWN_OPTION"
+       ],
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv6ProtocolPresetFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv6 protocol"
+    },
+    {
+     "properties": {
+      "preset": {
+       "$ref": "#/components/schemas/Firewall policy IPv6 protocol preset"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "preset"
+   ]
+  },
+  "IntegrationFirewallPolicyIpv6ProtocolPresetTcpUdpDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IPv6 protocol preset"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyIpv6ProtocolScopeDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IP protocol scope"
+    },
+    {
+     "properties": {
+      "protocolFilter": {
+       "$ref": "#/components/schemas/Firewall policy IPv6 protocol"
+      }
+     },
+     "type": "object"
+    }
+   ]
+  },
+  "IntegrationFirewallPolicyPortReferenceFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy port filter"
+    },
+    {
+     "properties": {
+      "trafficMatchingListId": {
+       "description": "ID of Traffic Matching List containing ports to match.",
+       "format": "uuid",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "matchOpposite",
+    "trafficMatchingListId"
+   ]
+  },
+  "IntegrationFirewallPolicyPortValueFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy port filter"
+    },
+    {
+     "properties": {
+      "items": {
+       "description": "List of ports or port ranges to match.",
+       "items": {
+        "$ref": "#/components/schemas/Port matching"
+       },
+       "minItems": 1,
+       "type": "array",
+       "uniqueItems": true
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "items",
+    "matchOpposite"
+   ]
+  },
+  "IntegrationFirewallPolicySourceIpAddressFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    {
+     "properties": {
+      "ipAddressFilter": {
+       "$ref": "#/components/schemas/Firewall policy IP address filter",
+       "description": "Match source traffic by IP addresses"
+      },
+      "macAddressFilter": {
+       "description": "Match source traffic additionally by a MAC address. If null, match all MAC addresses.",
+       "type": "string"
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match source traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "ipAddressFilter"
+   ]
+  },
+  "IntegrationFirewallPolicySourceIpv6IidFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    {
+     "properties": {
+      "ipv6IidFilter": {
+       "$ref": "#/components/schemas/Firewall policy IPv6 interface identifier filter",
+       "description": "Match source traffic by IPv6 interface identifier"
+      },
+      "macAddressFilter": {
+       "description": "Match source traffic additionally by a MAC address. If null, match all MAC addresses.",
+       "type": "string"
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match source traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "ipv6IidFilter"
+   ]
+  },
+  "IntegrationFirewallPolicySourceMacAddressFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    {
+     "properties": {
+      "macAddressFilter": {
+       "$ref": "#/components/schemas/Firewall policy MAC address filter",
+       "description": "Match source traffic by MAC addresses."
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match source traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "macAddressFilter"
+   ]
+  },
+  "IntegrationFirewallPolicySourceNetworkFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    {
+     "properties": {
+      "macAddressFilter": {
+       "description": "Match source traffic additionally by a MAC address. If null, match all MAC addresses.",
+       "type": "string"
+      },
+      "networkFilter": {
+       "$ref": "#/components/schemas/Firewall policy network filter",
+       "description": "Match source traffic by networks."
+      },
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match source traffic additionally by ports. If null, match all ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "networkFilter"
+   ]
+  },
+  "IntegrationFirewallPolicySourcePortFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    {
+     "properties": {
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match source traffic by ports."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "portFilter"
+   ]
+  },
+  "IntegrationFirewallPolicySourceRegionFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    {
+     "properties": {
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match source traffic additionally by ports. If null, match all ports."
+      },
+      "regionFilter": {
+       "$ref": "#/components/schemas/Firewall policy region filter",
+       "description": "Match source traffic by regions."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "regionFilter"
+   ]
+  },
+  "IntegrationFirewallPolicySourceSiteToSiteVpnTunnelFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    {
+     "properties": {
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match source traffic additionally by ports. If null, match all ports."
+      },
+      "siteToSiteVpnTunnelFilter": {
+       "$ref": "#/components/schemas/Firewall policy site-to-site VPN tunnel filter",
+       "description": "Match source traffic by site-to-site VPN tunnel."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "siteToSiteVpnTunnelFilter"
+   ]
+  },
+  "IntegrationFirewallPolicySourceVpnServerFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy source traffic filter"
+    },
+    {
+     "properties": {
+      "portFilter": {
+       "$ref": "#/components/schemas/Firewall policy port filter",
+       "description": "Match source traffic additionally by ports. If null, match all ports."
+      },
+      "vpnServerFilter": {
+       "$ref": "#/components/schemas/Firewall policy VPN server filter",
+       "description": "Match source traffic by VPN servers."
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "vpnServerFilter"
+   ]
+  },
+  "IntegrationFirewallPolicySpecificDomainFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy domain filter"
+    },
+    {
+     "properties": {
+      "domains": {
+       "description": "List of domains to match.",
+       "items": {
+        "type": "string"
+       },
+       "minItems": 1,
+       "type": "array",
+       "uniqueItems": true
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "domains"
+   ]
+  },
+  "IntegrationFirewallPolicySpecificIpAddressFilterDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall policy IP address filter"
+    },
+    {
+     "properties": {
+      "items": {
+       "description": "List of IP addresses, IP address ranges, or IP subnets to match.",
+       "items": {
+        "$ref": "#/components/schemas/IP matching"
+       },
+       "minItems": 1,
+       "type": "array",
+       "uniqueItems": true
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "items",
+    "matchOpposite"
+   ]
+  },
+  "IntegrationFirewallScheduleCustomDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall schedule"
+    },
+    {
+     "properties": {
+      "repeatOnDays": {
+       "items": {
+        "enum": [
+         "MONDAY",
+         "TUESDAY",
+         "WEDNESDAY",
+         "THURSDAY",
+         "FRIDAY",
+         "SATURDAY",
+         "SUNDAY"
+        ],
+        "type": "string"
+       },
+       "minItems": 1,
+       "type": "array",
+       "uniqueItems": true
+      },
+      "startDate": {
+       "description": "Date in YYYY-MM-DD format. ISO 8601 compliant.",
+       "example": "2025-12-31",
+       "format": "date",
+       "type": "string"
+      },
+      "stopDate": {
+       "description": "Date in YYYY-MM-DD format. ISO 8601 compliant.",
+       "example": "2025-12-31",
+       "format": "date",
+       "type": "string"
+      },
+      "timeFilter": {
+       "$ref": "#/components/schemas/Firewall schedule time"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "repeatOnDays",
+    "startDate",
+    "stopDate"
+   ]
+  },
+  "IntegrationFirewallScheduleEveryDayDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall schedule"
+    },
+    {
+     "properties": {
+      "timeFilter": {
+       "$ref": "#/components/schemas/Firewall schedule time"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "timeFilter"
+   ]
+  },
+  "IntegrationFirewallScheduleEveryWeekDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall schedule"
+    },
+    {
+     "properties": {
+      "repeatOnDays": {
+       "items": {
+        "enum": [
+         "MONDAY",
+         "TUESDAY",
+         "WEDNESDAY",
+         "THURSDAY",
+         "FRIDAY",
+         "SATURDAY",
+         "SUNDAY"
+        ],
+        "type": "string"
+       },
+       "minItems": 1,
+       "type": "array",
+       "uniqueItems": true
+      },
+      "timeFilter": {
+       "$ref": "#/components/schemas/Firewall schedule time"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "repeatOnDays"
+   ]
+  },
+  "IntegrationFirewallScheduleOneTimeOnlyDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Firewall schedule"
+    },
+    {
+     "properties": {
+      "date": {
+       "description": "Date in YYYY-MM-DD format. ISO 8601 compliant.",
+       "example": "2025-12-31",
+       "format": "date",
+       "type": "string"
+      },
+      "timeFilter": {
+       "$ref": "#/components/schemas/Firewall schedule time"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "date",
+    "timeFilter"
+   ]
+  },
+  "IntegrationIpV4TrafficMatchingListCreateUpdateDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Create or update traffic matching list"
+    },
+    {
+     "properties": {
+      "items": {
+       "items": {
+        "$ref": "#/components/schemas/IPv4 matching"
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "items",
+    "name"
+   ]
+  },
+  "IntegrationIpV4TrafficMatchingListDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Traffic matching list"
+    },
+    {
+     "properties": {
+      "items": {
+       "items": {
+        "$ref": "#/components/schemas/IPv4 matching"
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "id",
+    "items",
+    "name"
+   ]
+  },
+  "IntegrationIpV6TrafficMatchingListCreateUpdateDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Create or update traffic matching list"
+    },
+    {
+     "properties": {
+      "items": {
+       "items": {
+        "$ref": "#/components/schemas/IPv6 matching"
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "items",
+    "name"
+   ]
+  },
+  "IntegrationIpV6TrafficMatchingListDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Traffic matching list"
+    },
+    {
+     "properties": {
+      "items": {
+       "items": {
+        "$ref": "#/components/schemas/IPv6 matching"
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "id",
+    "items",
+    "name"
+   ]
+  },
+  "IntegrationPortTrafficMatchingListCreateUpdateDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Create or update traffic matching list"
+    },
+    {
+     "properties": {
+      "items": {
+       "items": {
+        "$ref": "#/components/schemas/Port matching"
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "items",
+    "name"
+   ]
+  },
+  "IntegrationPortTrafficMatchingListDto": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Traffic matching list"
+    },
+    {
+     "properties": {
+      "items": {
+       "items": {
+        "$ref": "#/components/schemas/Port matching"
+       },
+       "minItems": 1,
+       "type": "array"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "id",
+    "items",
+    "name"
+   ]
+  },
+  "Number port matching": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Port matching"
+    },
+    {
+     "properties": {
+      "value": {
+       "description": "Port number",
+       "example": "80|443|8080",
+       "format": "int32",
+       "maximum": 65535,
+       "minimum": 1,
+       "type": "integer"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "value"
+   ]
+  },
+  "Number range port matching": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Port matching"
+    },
+    {
+     "properties": {
+      "start": {
+       "description": "Start port number",
+       "example": "80|443|8080",
+       "format": "int32",
+       "maximum": 65535,
+       "minimum": 1,
+       "type": "integer"
+      },
+      "stop": {
+       "description": "Stop port number",
+       "example": "80|443|8080",
+       "format": "int32",
+       "maximum": 65535,
+       "minimum": 1,
+       "type": "integer"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "start",
+    "stop"
+   ]
+  },
+  "Orchestrated entity metadata": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Entity metadata"
+    }
+   ]
+  },
+  "Port matching": {
+   "discriminator": {
+    "mapping": {
+     "PORT_NUMBER": "#/components/schemas/Number port matching",
+     "PORT_NUMBER_RANGE": "#/components/schemas/Number range port matching"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "type"
+   ]
+  },
+  "Site-to-site VPN tunnel metadata": {
+   "discriminator": {
+    "mapping": {
+     "DERIVED": "#/components/schemas/IntegrationDerivedSiteToSiteTunnelMetadata",
+     "USER_DEFINED": "#/components/schemas/User defined entity metadata"
+    },
+    "propertyName": "origin"
+   },
+   "properties": {
+    "origin": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "origin"
+   ]
+  },
+  "Subnet IPv4 matching": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/IPv4 matching"
+    },
+    {
+     "properties": {
+      "value": {
+       "description": "IPv4 subnet in CIDR notation",
+       "example": "192.168.1.0/24",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "value"
+   ]
+  },
+  "Subnet IPv6 matching": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/IPv6 matching"
+    },
+    {
+     "properties": {
+      "value": {
+       "description": "IPv6 subnet in CIDR notation",
+       "example": "2001:db8:1:0::/64",
+       "type": "string"
+      }
+     },
+     "type": "object"
+    }
+   ],
+   "required": [
+    "value"
+   ]
+  },
+  "System defined entity metadata": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Entity metadata"
+    }
+   ]
+  },
+  "Traffic matching list": {
+   "discriminator": {
+    "mapping": {
+     "IPV4_ADDRESSES": "#/components/schemas/IntegrationIpV4TrafficMatchingListDto",
+     "IPV6_ADDRESSES": "#/components/schemas/IntegrationIpV6TrafficMatchingListDto",
+     "PORTS": "#/components/schemas/IntegrationPortTrafficMatchingListDto"
+    },
+    "propertyName": "type"
+   },
+   "properties": {
+    "id": {
+     "example": "ffcdb32c-6278-4364-8947-df4f77118df8",
+     "format": "uuid",
+     "type": "string"
+    },
+    "name": {
+     "example": "Allowed port list|Protected IP list",
+     "minLength": 1,
+     "type": "string"
+    },
+    "type": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "id",
+    "name",
+    "type"
+   ],
+   "type": "object"
+  },
+  "User defined entity metadata": {
+   "allOf": [
+    {
+     "$ref": "#/components/schemas/Entity metadata"
+    },
+    {
+     "$ref": "#/components/schemas/User or system defined entity metadata"
+    },
+    {
+     "$ref": "#/components/schemas/User defined or derived entity metadata"
+    },
+    {
+     "$ref": "#/components/schemas/User or system defined or orchestrated entity metadata"
+    },
+    {
+     "$ref": "#/components/schemas/User or orchestrated entity metadata"
+    },
+    {
+     "$ref": "#/components/schemas/User or derived or orchestrated entity metadata"
+    },
+    {
+     "$ref": "#/components/schemas/Site-to-site VPN tunnel metadata"
+    }
+   ]
+  },
+  "User defined or derived entity metadata": {
+   "discriminator": {
+    "mapping": {
+     "DERIVED": "#/components/schemas/Derived entity metadata",
+     "USER_DEFINED": "#/components/schemas/User defined entity metadata"
+    },
+    "propertyName": "origin"
+   },
+   "properties": {
+    "origin": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "origin"
+   ]
+  },
+  "User or derived or orchestrated entity metadata": {
+   "discriminator": {
+    "mapping": {
+     "DERIVED": "#/components/schemas/Derived entity metadata",
+     "ORCHESTRATED": "#/components/schemas/Orchestrated entity metadata",
+     "USER_DEFINED": "#/components/schemas/User defined entity metadata"
+    },
+    "propertyName": "origin"
+   },
+   "properties": {
+    "origin": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "origin"
+   ]
+  },
+  "User or orchestrated entity metadata": {
+   "discriminator": {
+    "mapping": {
+     "ORCHESTRATED": "#/components/schemas/Orchestrated entity metadata",
+     "USER_DEFINED": "#/components/schemas/User defined entity metadata"
+    },
+    "propertyName": "origin"
+   },
+   "properties": {
+    "origin": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "origin"
+   ]
+  },
+  "User or system defined entity metadata": {
+   "discriminator": {
+    "mapping": {
+     "SYSTEM_DEFINED": "#/components/schemas/System defined entity metadata",
+     "USER_DEFINED": "#/components/schemas/User defined entity metadata"
+    },
+    "propertyName": "origin"
+   },
+   "properties": {
+    "origin": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "origin"
+   ]
+  },
+  "User or system defined or derived entity metadata": {
+   "discriminator": {
+    "mapping": {
+     "DERIVED": "#/components/schemas/Derived entity metadata",
+     "SYSTEM_DEFINED": "#/components/schemas/System defined entity metadata",
+     "USER_DEFINED": "#/components/schemas/User defined entity metadata"
+    },
+    "propertyName": "origin"
+   },
+   "properties": {
+    "origin": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "origin"
+   ]
+  },
+  "User or system defined or orchestrated entity metadata": {
+   "discriminator": {
+    "mapping": {
+     "ORCHESTRATED": "#/components/schemas/Orchestrated entity metadata",
+     "SYSTEM_DEFINED": "#/components/schemas/System defined entity metadata",
+     "USER_DEFINED": "#/components/schemas/User defined entity metadata"
+    },
+    "propertyName": "origin"
+   },
+   "properties": {
+    "origin": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "origin"
+   ]
+  }
+ },
+ "source": "https://developer.ui.com/network/v10.1.84/openapi.json",
+ "version": "10.1.84"
+}

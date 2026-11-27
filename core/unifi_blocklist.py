@@ -25,10 +25,14 @@ from django.utils import timezone
 from .models import BlocklistFeed, UnifiBlocklistBinding, WorkerState
 from .unifi_cloud import UnifiCloudError, _NoRedirect, decrypt_api_key
 
+# Versiones de la API oficial de UniFi Network contra cuyo esquema se validan las peticiones del SOC
+# (core/test_unifi_api_schema.py). La 11 añade `reportFlowEnabled` a las políticas: no se envía al crear
+# (vale true: lo bloqueado aparece en «Insights › Flows») y al reescribir se conserva el valor de UniFi.
+API_VERSIONS = ('10.1.84', '11.0.97')
 PREFIX = 'SOC'
 PLACEHOLDER = '192.0.2.1'  # TEST-NET-1 (RFC 5737): no corresponde a ningún equipo real
 MAX_ITEMS = 4000
-# Dominios: la política de UniFi lleva los dominios dentro (filtro de destino DOMAINS, API de Network 10.1).
+# Dominios: la política de UniFi lleva los dominios dentro (filtro de destino DOMAINS, API de Network 10.1 y 11).
 # La API no fija un máximo; se limita a los más recientes para no cargar la puerta de enlace.
 DNS = 'dns'
 DNS_MAX_ITEMS = 1000
@@ -264,7 +268,7 @@ def create_policies(binding):
 
 
 def domain_match(domains):
-    """Filtro de destino por dominios de una política de UniFi (esquema de la API de Network 10.1)."""
+    """Filtro de destino por dominios de una política de UniFi (esquema de la API de Network 10.1 y 11)."""
     return {'type': 'DOMAIN', 'domainFilter': {'type': 'DOMAINS', 'domains': list(domains)}}
 
 

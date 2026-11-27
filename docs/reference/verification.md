@@ -116,6 +116,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_threat_intel.py](../../core/test_threat_intel.py) | 15 |
 | [core/test_threat_intel_review.py](../../core/test_threat_intel_review.py) | 7 |
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 11 |
+| [core/test_unifi_api_schema.py](../../core/test_unifi_api_schema.py) | 4 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
 | [core/test_unifi_dominios.py](../../core/test_unifi_dominios.py) | 6 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
