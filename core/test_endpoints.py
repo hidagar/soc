@@ -197,7 +197,23 @@ class DefenderScriptTests(SimpleTestCase):
         self.run_script('--grupo', 'talleres')
         conf_again = (self.dir / 'ossec/etc/shared/soc-talleres/agent.conf').read_text()
         self.assertEqual(conf_again.count('Microsoft-Windows-Windows Defender/Operational'), 1)
+        self.assertEqual(conf_again.count('soc-integridad'), 1)
         self.assertNotEqual(self.run_script('--grupo', '../etc').returncode, 0)
+
+    def test_groups_configured_before_get_the_file_integrity_block_once(self):
+        import xml.etree.ElementTree as ET
+        shared = self.dir / 'ossec/etc/shared/soc-talleres'
+        shared.mkdir(parents=True)
+        (shared / 'agent.conf').write_text((ROOT / 'deploy/wazuh/agente_defender.conf.example').read_text())
+        result = self.run_script('--grupo', 'talleres')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('añadida la vigilancia en tiempo real', result.stdout)
+        conf = (shared / 'agent.conf').read_text()
+        self.assertEqual((conf.count('Microsoft-Windows-Windows Defender/Operational'), conf.count('soc-integridad')), (1, 1))
+        root = ET.fromstring(f'<root>{conf}</root>')  # el gestor lee varios <agent_config> seguidos
+        self.assertEqual([c.get('os') for c in root.iter('agent_config')], ['Windows', 'Windows', 'Linux'])
+        self.assertTrue(any('System32\\Tasks' in (d.text or '') for d in root.iter('directories')))
+        self.assertIn('vigila en tiempo real', self.run_script('--ver').stdout)
 
     def test_rules_are_installed_only_if_wazuh_accepts_them(self):
         (self.dir / 'fail').touch()

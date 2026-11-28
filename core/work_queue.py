@@ -77,6 +77,7 @@ def work_queue(request):
         'threat_destinations': _threat_destinations(request, selected),
         'endpoint_detections': _endpoint_detections(request, selected),
         'endpoint_access': _endpoint_access(request, selected),
+        'file_changes': _file_changes(request, selected),
     })
 
 
@@ -93,6 +94,14 @@ def _endpoint_access(request, selected):
     if not request.user.has_perm('core.manage_operations'):
         return []
     from .endpoint_access import review_queue
+    return review_queue(int(selected) if selected.isdigit() else None)[:20]
+
+
+def _file_changes(request, selected):
+    """Cambios sensibles en archivos y registro de los equipos por revisar (solo con permiso de operaciones)."""
+    if not request.user.has_perm('core.manage_operations'):
+        return []
+    from .endpoint_integrity import review_queue
     return review_queue(int(selected) if selected.isdigit() else None)[:20]
 
 

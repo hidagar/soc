@@ -9,7 +9,9 @@
 # --reglas: copia deploy/wazuh/soc_defender_rules.xml a /var/ossec/etc/rules/, comprueba la configuración con
 #   wazuh-analysisd -t y solo entonces reinicia wazuh-manager. Si la comprobación falla, restaura lo anterior.
 # --grupo: crea el grupo de agentes del cliente y su agent.conf compartido (canal de Defender, plantilla
-#   deploy/wazuh/agente_defender.conf.example). Los agentes que se instalen con ese grupo leen Defender.
+#   deploy/wazuh/agente_defender.conf.example, y vigilancia en tiempo real de los puntos de arranque automático
+#   y de acceso, deploy/wazuh/agente_integridad.conf.example). Se puede repetir: añade solo lo que falte.
+#   Los agentes que se instalen con ese grupo leen Defender.
 #   Pertenecer al grupo no asigna el equipo al cliente en el portal: se asigna en «Antivirus de equipos».
 set -euo pipefail
 
@@ -42,6 +44,11 @@ show() {
       echo "Grupo $(basename "$dir"): lee el canal de Defender."
     else
       echo "Grupo $(basename "$dir"): SIN el canal de Defender."
+    fi
+    if grep -q 'soc-integridad' "$dir/agent.conf" 2>/dev/null; then
+      echo "Grupo $(basename "$dir"): vigila en tiempo real el arranque automático y los accesos."
+    else
+      echo "Grupo $(basename "$dir"): SIN la vigilancia en tiempo real (repetir --grupo para añadirla)."
     fi
   done
   [[ $found == 1 ]] || echo "Grupos de clientes (soc-*): ninguno."
@@ -92,6 +99,15 @@ configure_group() {
     chown wazuh:wazuh "$conf" 2>/dev/null || true
     chmod 0660 "$conf"
     echo "Grupo $group: configurado para leer Microsoft Defender."
+  fi
+  if grep -q 'soc-integridad' "$conf" 2>/dev/null; then
+    echo "El grupo $group ya vigila en tiempo real el arranque automático y los accesos."
+  else
+    mkdir -p "$BACKUPS" && cp -p "$conf" "$BACKUPS/$group-agent.conf.$(date +%Y%m%d-%H%M%S)"
+    cat "$HERE/agente_integridad.conf.example" >> "$conf"
+    chown wazuh:wazuh "$conf" 2>/dev/null || true
+    chmod 0660 "$conf"
+    echo "Grupo $group: añadida la vigilancia en tiempo real (integridad de archivos). Los agentes la reciben en unos minutos."
   fi
   cat <<EOF
 

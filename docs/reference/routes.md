@@ -56,6 +56,7 @@ Rutas extraídas de los URLconf, no una API REST pública estable. Métodos, aut
 | `operations/equipos/vulnerabilidades/` | `endpoint_vulnerabilities` | `endpoint_vulnerabilities.overview` |
 | `operations/equipos/accesos/` | `endpoint_access` | `endpoint_access.overview` |
 | `operations/equipos/configuracion/` | `endpoint_hardening` | `endpoint_hardening.overview` |
+| `operations/equipos/integridad/` | `endpoint_integrity` | `endpoint_integrity.overview` |
 | `operations/policies/` | `policies` | `policy_views.overview` |
 | `search/` | `search` | `global_search.results` |
 | `clients/<int:pk>/actividad/` | `client_timeline` | `client_timeline.timeline` |

@@ -229,3 +229,44 @@ class EndpointPolicyCheck(models.Model):
     def regressed(self):
         """Antes cumplía y ahora no."""
         return self.result == 'failed' and self.previous_result == 'passed'
+
+
+class EndpointFileChange(models.Model):
+    """Cambio en un archivo o una clave del registro de un equipo (integridad de archivos, syscheck de Wazuh).
+
+    Uno por alerta de Wazuh (único por equipo e identificador de alerta: releer no duplica). `category` sale de la
+    ruta: los sensibles (arranque automático, usuarios y permisos, resolución de nombres) se revisan uno a uno; el
+    resto (binarios del sistema, configuración) se resume por equipo y día, porque una actualización cambia miles.
+    Un cambio no prueba una intrusión (invariante 4). Ruta, usuario y proceso son datos internos (invariante 3).
+    """
+    EVENTS = [('added', 'Añadido'), ('modified', 'Modificado'), ('deleted', 'Eliminado')]
+    CATEGORIES = [('persistence', 'Arranque automático'), ('identity', 'Usuarios y permisos'),
+                  ('network', 'Resolución de nombres'), ('config', 'Configuración'), ('binary', 'Programas del sistema'),
+                  ('other', 'Otros')]
+    REVIEW = [('pending', 'Por revisar'), ('reviewed', 'Revisado'), ('incident', 'Incidencia abierta')]
+    agent = models.ForeignKey(EndpointAgent, on_delete=models.CASCADE, related_name='file_changes')
+    client_scope_id = models.PositiveBigIntegerField(db_index=True, editable=False)
+    event_id = models.CharField(max_length=64)
+    observed_at = models.DateTimeField(db_index=True)
+    path = models.CharField(max_length=500)
+    value_name = models.CharField(max_length=200, blank=True)  # registro de Windows
+    registry = models.BooleanField(default=False)
+    event = models.CharField(max_length=10, choices=EVENTS)
+    category = models.CharField(max_length=12, choices=CATEGORIES, db_index=True)
+    sensitive = models.BooleanField(default=False, db_index=True)
+    mode = models.CharField(max_length=12, blank=True)  # scheduled, realtime, whodata
+    changed = models.JSONField(default=list, blank=True)  # atributos cambiados (size, sha256, perm…)
+    sha256 = models.CharField(max_length=64, blank=True)
+    actor = models.CharField(max_length=120, blank=True)  # usuario (whodata)
+    process = models.CharField(max_length=260, blank=True)  # proceso (whodata)
+    review = models.CharField(max_length=10, choices=REVIEW, default='pending', db_index=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    incident = models.ForeignKey('core.Incident', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    objects = ScopedManager()
+    customer_lookup = 'client_scope_id'
+
+    class Meta:
+        ordering = ['-observed_at', '-pk']
+        constraints = [models.UniqueConstraint(fields=['agent', 'event_id'], name='unique_endpoint_file_change')]
+        indexes = [models.Index(fields=['sensitive', 'review'], name='endpoint_fim_review')]

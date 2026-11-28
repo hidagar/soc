@@ -17,8 +17,8 @@
   «permitida» o «no pudo actuar», si tiene los avisos urgentes activos. Lleva equipo, sede, hora, amenaza,
   gravedad y resultado; nunca la ruta del archivo ni el usuario, que son datos internos (invariante 3).
 - Los intentos de acceso de esos mismos eventos (Windows Security, SSH, sudo, PAM) los cuenta
-  `endpoint_access` y la configuración segura (SCA) `endpoint_hardening`; la recuperación desde el indexador
-  tiene un flujo para cada uno.
+  `endpoint_access`, la configuración segura (SCA) `endpoint_hardening` y la integridad de archivos
+  `endpoint_integrity`; la recuperación desde el indexador tiene un flujo para cada uno.
 """
 import hashlib
 import ipaddress
@@ -126,7 +126,11 @@ def observe(source, stamp, now, cache):
     if event is not None:
         _defender(endpoint, event[0], event[1], stamp, now, source)
         return True
-    from . import endpoint_hardening
+    from . import endpoint_hardening, endpoint_integrity
+    syscheck = endpoint_integrity.fim_event(source)
+    if syscheck is not None:
+        endpoint_integrity.record(endpoint, syscheck, stamp, now, source)
+        return True
     sca = endpoint_hardening.sca_event(source)
     if sca is not None:
         endpoint_hardening.record(endpoint, sca, stamp, now, cache)
@@ -450,11 +454,12 @@ def customer_context(client, preview=False, now=None):
         detections.append({'observed_at': row.observed_at, 'device': name, 'site': site, 'threat': row.threat,
                            'severity': row.severity, 'result': PORTAL_RESULTS[row.action], 'urgent': row.urgent})
     from .endpoint_vulnerabilities import customer_rows
-    from . import endpoint_access, endpoint_hardening
+    from . import endpoint_access, endpoint_hardening, endpoint_integrity
     return {**_portal_base(client, preview, 'endpoints'), 'devices': devices, 'detections': detections,
             'summary': portal_summary(client, now), 'portal_days': PORTAL_DAYS, 'vulnerabilities': customer_rows(client),
             'access': endpoint_access.customer_rows(client, now), 'access_days': endpoint_access.PORTAL_DAYS,
-            'hardening': endpoint_hardening.customer_context(client)}
+            'hardening': endpoint_hardening.customer_context(client),
+            'file_changes': endpoint_integrity.customer_rows(client, now), 'file_days': endpoint_integrity.PORTAL_DAYS}
 
 
 @login_required
@@ -478,6 +483,12 @@ USEFUL_EVENTS = sorted(DETECTED | ACTED | FAILED | SCAN_OFF | UPDATE_FAILED | {H
 
 def _stream(name):
     """(estado, incidencia, filtro, días máximos hacia atrás, título, error) de cada flujo de recuperación."""
+    if name == 'fim':
+        from .endpoint_integrity import MAX_AGE as FIM_MAX_AGE, recovery_filter as fim_filter
+        return ('endpoint-fim-reconciliation', 'platform:endpoint-fim-reconciliation', [fim_filter()], FIM_MAX_AGE.days,
+                'Recuperación de la integridad de archivos de equipos pendiente',
+                'No terminó la recuperación de los cambios de archivos de los equipos. Revisar el acceso al indexador; '
+                'el cursor se conserva.')
     if name == 'sca':
         from .endpoint_hardening import recovery_filter
         return ('endpoint-sca-reconciliation', 'platform:endpoint-sca-reconciliation', [recovery_filter()], 90,

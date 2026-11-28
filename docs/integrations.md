@@ -357,7 +357,7 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
   - Un aviso urgente de algo que llega con más de 2 horas queda caducado, sin enviarse.
   - Los agentes de firewalls quedan para la recuperación de los firewalls.
 - Las rutas y usuarios de las detecciones son datos internos.
-- En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus». Sus accesos fallidos (SSH, sudo, PAM) y su configuración segura sí cuentan: [accesos fallidos](#accesos-fallidos-a-los-equipos-28112026) y [SCA](#configuración-segura-de-los-equipos-sca-28112026).
+- En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus». Sus accesos fallidos (SSH, sudo, PAM), su configuración segura y la integridad de sus archivos sí cuentan: [accesos fallidos](#accesos-fallidos-a-los-equipos-28112026) y [SCA](#configuración-segura-de-los-equipos-sca-28112026).
 
 ## Vulnerabilidades de los equipos (28/11/2026)
 
@@ -394,6 +394,17 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
 - **SOC:** «Cobertura y salud › Configuración de equipos»: equipos evaluados, cumplimiento medio, equipos por debajo del 50 %, lo que dejó de cumplir en 7 días y «Qué corregir primero», agrupado por comprobación con los equipos, el motivo, la corrección y las referencias de cumplimiento.
 - **Cliente** (con «Portal: antivirus de equipos»): en «Equipos», «Configuración segura»: guía, porcentaje que cumple, cuántas por corregir y fecha por equipo, y las 15 recomendaciones que más se repiten (título y equipos). Sin el texto de corrección ni identificadores (invariante 3). El inicio propone «Mejorar la configuración de seguridad» si algún equipo cumple menos del 50 %. No cumplir una recomendación no es un ataque ni una vulnerabilidad explotada (invariante 4).
 - **Conservación:** es un estado, no un evento: se borra con el equipo retirado.
+
+## Integridad de archivos de los equipos (28/11/2026)
+
+`core/endpoint_integrity.py`, modelo `EndpointFileChange` (migración 0096). El agente de Wazuh vigila por defecto, cada 12 horas, los directorios del sistema (Windows: System32 y claves del registro; Linux: /etc, /bin, /sbin, /usr/bin, /usr/sbin, /boot) y el gestor genera alertas `syscheck` al añadir, modificar o eliminar algo. El SOC las toma de los mismos eventos de agentes:
+- **Vigilancia en tiempo real (opcional, por cliente):** `configurar_defender.sh --grupo CODIGO` añade al grupo `deploy/wazuh/agente_integridad.conf.example` (carpeta Inicio, tareas programadas, hosts y claves Run, RunOnce, Winlogon y Services en Windows; SSH, sudoers, cron, systemd, PAM y claves SSH de root en Linux). Ver [despliegue](deployment.md#antivirus-de-equipos-agentes-wazuh-con-microsoft-defender). Saber **quién** hizo el cambio requiere `whodata` (auditoría de Windows o auditd), que no se activa por defecto.
+- **Registro:** una fila por alerta, única por equipo e identificador: releer o recuperar no duplica. Solo equipos asignados y desde su asignación (invariante 2). Guarda ruta (y valor del registro), tipo de cambio, atributos cambiados, SHA-256, modo y, con whodata, usuario y proceso.
+- **Clasificación por ruta** (`category`): arranque automático (Run, servicios, Winlogon, tareas programadas, carpeta Inicio, cron, systemd, init, `ld.so.preload`), usuarios y permisos (passwd, shadow, sudoers, `authorized_keys`, `sshd_config`, PAM, LSA), resolución de nombres (hosts, `resolv.conf`), programas del sistema, configuración y otros. Las tres primeras son **sensibles** y se revisan una a una; el resto se resume por equipo y día («Probable actualización» con 50 o más programas del sistema el mismo día).
+- **SOC:** «Cobertura y salud › Integridad de archivos»: cambios sensibles con «Revisado», «Abrir incidencia» y revisión en bloque, y el resumen del resto. Bandeja de trabajo y contador del menú con los sensibles pendientes. Sin aviso urgente: la mayoría son instalaciones y actualizaciones (invariante 4).
+- **Cliente** (con «Portal: antivirus de equipos»): en «Equipos», «Cambios en archivos importantes» de 30 días: fecha, equipo, tipo de cambio («Programas que se ejecutan al arrancar», «Usuarios, contraseñas y permisos», «Resolución de nombres») y si el SOC lo revisó. Sin rutas, usuarios, procesos ni huellas (invariante 3).
+- **Recuperación:** flujo `fim` de `endpoint_reconciliation`, con su cursor (`endpoint-fim-reconciliation`), hasta 25 días atrás; invariante 5 e incidencia `platform:endpoint-fim-reconciliation`.
+- **Conservación:** cambios no sensibles, 30 días; sensibles revisados sin incidencia, con el plazo de las evidencias.
 
 ## Reputación propia del SOC
 

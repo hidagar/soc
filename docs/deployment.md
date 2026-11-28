@@ -116,7 +116,7 @@ Si ClamAV deja de responder con adjuntos esperando más de 15 minutos, o sus fir
 
 En el gestor de Wazuh del SOC:
 1. `sudo deploy/wazuh/configurar_defender.sh --reglas`: instala la regla del informe de salud de Defender y reinicia `wazuh-manager` solo si `wazuh-analysisd -t` la acepta; si no, deja todo como estaba.
-2. `sudo deploy/wazuh/configurar_defender.sh --grupo CODIGO`, por cliente (el código del portal): crea el grupo de agentes `soc-CODIGO` con su `agent.conf` (canal de Defender, plantilla `deploy/wazuh/agente_defender.conf.example`) y muestra el comando de instalación del agente.
+2. `sudo deploy/wazuh/configurar_defender.sh --grupo CODIGO`, por cliente (el código del portal): crea el grupo de agentes `soc-CODIGO` con su `agent.conf` (canal de Defender, plantilla `deploy/wazuh/agente_defender.conf.example`) y muestra el comando de instalación del agente. Añade también la vigilancia en tiempo real de la integridad de archivos (`deploy/wazuh/agente_integridad.conf.example`): carpeta Inicio, tareas programadas, archivo hosts y claves Run, RunOnce, Winlogon y Services en Windows; SSH, sudoers, cron, systemd, PAM y claves SSH de root en Linux. Se puede repetir en un grupo ya creado: añade solo lo que falte y guarda una copia del `agent.conf` anterior. Los agentes reciben el cambio en unos minutos, sin reiniciar el gestor.
 
 En cada equipo Windows del cliente se instala el agente con `WAZUH_AGENT_GROUP="soc-CODIGO"`. El agente debe alcanzar el gestor del SOC (puertos 1514 y 1515):
 - **Preferible:** por la VPN de la sede con el SOC;

@@ -69,6 +69,7 @@ def _staff_groups(user, global_access):
             _item("Antivirus de equipos", "endpoints"),
             _item("Accesos a equipos", "endpoint_access"),
             _item("Configuración de equipos", "endpoint_hardening"),
+            _item("Integridad de archivos", "endpoint_integrity"),
             _item("Políticas propuestas", "policies"),
             _item("Control de exposición", "exposure_list", ["exposure_detail", "exposure_interfaces",
                   "exposure_recheck", "unifi_policies"]),
@@ -117,6 +118,7 @@ def badges():
     from .threat_intel import review_queue
     from .endpoints import badge as endpoint_badge
     from .endpoint_access import badge as access_badge
+    from .endpoint_integrity import badge as integrity_badge
     destinations = review_queue()
     return {
         # Destinos salientes de las listas de Q-Feeds por revisar; urgente si alguno tuvo tráfico permitido.
@@ -125,6 +127,8 @@ def badges():
         "endpoints": endpoint_badge(),
         # Accesos correctos tras fallos y cuentas bloqueadas por revisar; urgente si hay un acceso tras fallos.
         "endpoint_access": access_badge(),
+        # Cambios en arranque automático, usuarios y permisos o resolución de nombres por revisar.
+        "endpoint_integrity": integrity_badge(),
         "requests": (requests.count(), requests.filter(urgent=True).exists()),
         "vulnerabilities": (exposures.values("device").distinct().count(), exposures.filter(record__kev_added__isnull=False).exists()),
         "policies": (policies.count(), policies.filter(status="approved").exists()),

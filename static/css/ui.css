@@ -274,3 +274,4 @@ label.attachments small{display:block;color:#566779;margin-top:4px}
 }
 .plain-summary{font-size:15px;line-height:1.6;background:white;border:1px solid #e3e9ee;border-radius:12px;padding:14px 18px;margin:0 0 20px}
 .check-group{border-top:1px solid #eaf0f3;padding:10px 0}.check-group summary{cursor:pointer;line-height:1.5}.check-group p{margin:6px 0;font-size:14px;overflow-wrap:anywhere}
+small.path{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;overflow-wrap:anywhere}

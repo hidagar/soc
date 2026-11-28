@@ -90,6 +90,8 @@ Además borra los registros operativos que crecían sin límite. Los plazos son 
 | Identificadores de intentos de acceso ya contados (`EndpointAccessEvent`) | más de 30 días | Evitan contar dos veces un intento al releer; la recuperación de accesos no mira más de 25 días atrás. |
 | Fallos de acceso aislados (`EndpointAccessAlert` «Fallos aislados») | sin intentos en 7 días | No se muestran; solo sirven para formar una ráfaga. |
 | Ráfagas de accesos fallidos revisadas sin incidencia | con el plazo de las evidencias | Las pendientes y las que tienen incidencia se conservan. |
+| Cambios de archivos no sensibles (`EndpointFileChange`: programas del sistema, configuración, otros) | más de 30 días | Solo se muestran resumidos por equipo y día; la mayoría son actualizaciones. |
+| Cambios de archivos sensibles revisados sin incidencia | con el plazo de las evidencias | Los pendientes y los que tienen incidencia se conservan. |
 
 ## Versión instalada
 

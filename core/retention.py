@@ -19,7 +19,9 @@ Plazos de los registros operativos (constantes; cambiarlos aquí y en docs/opera
 - antivirus de equipos: detecciones revisadas sin incidencia, con el plazo de las evidencias; agentes sin
   asignar sin eventos en 90 días; equipos retirados (con sus detecciones), 400 días;
 - accesos fallidos de equipos: identificadores de intentos ya contados, 30 días; fallos aislados (no se
-  muestran), 7 días; ráfagas revisadas sin incidencia, con el plazo de las evidencias.
+  muestran), 7 días; ráfagas revisadas sin incidencia, con el plazo de las evidencias;
+- integridad de archivos: cambios no sensibles (actualizaciones), 30 días; sensibles revisados sin
+  incidencia, con el plazo de las evidencias.
 """
 import time
 from datetime import timedelta
@@ -43,6 +45,7 @@ RETIRED_AGENT_DAYS = 400
 RESOLVED_VULNERABILITY_DAYS = 365  # vulnerabilidades de equipos ya corregidas
 ACCESS_EVENT_DAYS = 30  # identificadores de intentos ya contados (la recuperación mira 25 días)
 ISOLATED_ACCESS_DAYS = 7  # fallos aislados: no se muestran, solo sirven para formar una ráfaga
+ROUTINE_FILE_CHANGE_DAYS = 30  # cambios de archivos no sensibles (actualizaciones): solo se resumen
 CHAT_FINAL = ('accepted', 'delivered', 'suppressed', 'failed', 'uncertain', 'expired')
 
 
@@ -70,7 +73,8 @@ def prune(now=None, budget=BUDGET):
     deadline = time.monotonic() + budget
     result = {'checked_at': now.isoformat(), 'evidence_days': days, 'pending': False}
     from .models import (ChatNotice, ConnectivityEvent, CustomerRequest, EndpointAccessAlert, EndpointAccessEvent,
-                         EndpointAgent, EndpointDetection, EndpointVulnerability, PolicyProposal, ThreatIntelLookup)
+                         EndpointAgent, EndpointDetection, EndpointFileChange, EndpointVulnerability, PolicyProposal,
+                         ThreatIntelLookup)
     for name, queryset in (
             ('auth_attempts', AuthAttempt._base_manager.filter(
                 occurred_at__lt=now - timedelta(days=AUTH_ATTEMPT_DAYS)).order_by('occurred_at')),
@@ -92,6 +96,10 @@ def prune(now=None, budget=BUDGET):
                 kind='isolated', last_at__lt=now - timedelta(days=ISOLATED_ACCESS_DAYS)).order_by('last_at')),
             ('endpoint_access', EndpointAccessAlert._base_manager.filter(
                 review='reviewed', incident__isnull=True, last_at__lt=cutoff).order_by('last_at')),
+            ('routine_file_changes', EndpointFileChange._base_manager.filter(
+                sensitive=False, observed_at__lt=now - timedelta(days=ROUTINE_FILE_CHANGE_DAYS)).order_by('observed_at')),
+            ('sensitive_file_changes', EndpointFileChange._base_manager.filter(
+                sensitive=True, review='reviewed', incident__isnull=True, observed_at__lt=cutoff).order_by('observed_at')),
             ('pending_agents', EndpointAgent._base_manager.filter(
                 status='pending', last_seen_at__lt=now - timedelta(days=STALE_PENDING_AGENT_DAYS)).order_by('last_seen_at')),
             ('retired_agents', EndpointAgent._base_manager.filter(

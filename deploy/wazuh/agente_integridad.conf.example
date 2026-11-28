@@ -1,0 +1,20 @@
+<!-- soc-integridad: vigilancia en tiempo real de los puntos de arranque automático y de acceso.
+     Se añade al agent.conf compartido del grupo del cliente (deploy/wazuh/configurar_defender.sh con la opción de grupo).
+     Complementa la integridad de archivos por defecto del agente (directorios del sistema cada 12 horas). -->
+<agent_config os="Windows">
+  <syscheck>
+    <directories realtime="yes" check_all="yes">%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup</directories>
+    <directories realtime="yes" check_all="yes">%WINDIR%\System32\Tasks</directories>
+    <directories realtime="yes" check_all="yes">%WINDIR%\System32\drivers\etc</directories>
+    <windows_registry arch="both">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run</windows_registry>
+    <windows_registry arch="both">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\RunOnce</windows_registry>
+    <windows_registry arch="both">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Winlogon</windows_registry>
+    <windows_registry>HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services</windows_registry>
+  </syscheck>
+</agent_config>
+<agent_config os="Linux">
+  <syscheck>
+    <directories realtime="yes" check_all="yes">/etc/ssh,/etc/sudoers.d,/etc/cron.d,/etc/systemd/system,/etc/pam.d,/root/.ssh,/var/spool/cron</directories>
+    <directories check_all="yes">/etc/passwd,/etc/shadow,/etc/group,/etc/sudoers,/etc/crontab,/etc/hosts,/etc/ld.so.preload</directories>
+  </syscheck>
+</agent_config>

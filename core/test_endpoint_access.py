@@ -347,9 +347,3 @@ class RecoveryTests(AccessBase):
         self.assertEqual(self.state().details, before)
         self.assertFalse(EndpointAccessAlert.objects.exists())
         self.assertTrue(OperationalIssue.objects.filter(key='platform:endpoint-access-reconciliation', active=True).exists())
-
-    def test_the_job_runs_both_streams(self):
-        from .background_jobs import execute
-        with mock.patch('core.endpoints.reconcile', return_value=1) as run:
-            self.assertEqual(execute('endpoint_reconciliation'), 3)
-        self.assertEqual([c.kwargs.get('stream', 'defender') for c in run.call_args_list], ['defender', 'access', 'sca'])

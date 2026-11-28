@@ -303,6 +303,33 @@ Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
 | `first_seen_at` | DateTimeField |  |
 | `observed_at` | DateTimeField |  |
 | `changed_at` | DateTimeField | null=True; blank=True; db_index=True |
+## EndpointFileChange
+
+Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
+
+Ámbito declarado: `'client_scope_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `agent` | ForeignKey | → EndpointAgent; on_delete=models.CASCADE |
+| `client_scope_id` | PositiveBigIntegerField | db_index=True |
+| `event_id` | CharField | max_length=64 |
+| `observed_at` | DateTimeField | db_index=True |
+| `path` | CharField | max_length=500 |
+| `value_name` | CharField | max_length=200; blank=True |
+| `registry` | BooleanField |  |
+| `event` | CharField | max_length=10 |
+| `category` | CharField | max_length=12; db_index=True |
+| `sensitive` | BooleanField | db_index=True |
+| `mode` | CharField | max_length=12; blank=True |
+| `changed` | JSONField | blank=True |
+| `sha256` | CharField | max_length=64; blank=True |
+| `actor` | CharField | max_length=120; blank=True |
+| `process` | CharField | max_length=260; blank=True |
+| `review` | CharField | max_length=10; db_index=True |
+| `reviewed_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `reviewed_at` | DateTimeField | null=True; blank=True |
+| `incident` | ForeignKey | → 'core.Incident'; on_delete=models.SET_NULL; null=True; blank=True |
 ## RunbookStep
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).
