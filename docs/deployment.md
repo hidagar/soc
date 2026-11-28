@@ -108,6 +108,10 @@ Sin esas rutas, el portal responde «Not Found» (su 404) a `/wazuh/…`. Así o
 
 Si ClamAV deja de responder con adjuntos esperando más de 15 minutos, o sus firmas tienen más de 3 días, aparece «Antivirus de adjuntos» en «Salud del SOC». Otro socket se indica con `SOC_PORTAL_CLAMD_SOCKET`.
 
+## Vulnerabilidades de los equipos
+
+`sudo deploy/wazuh/permitir_vulnerabilidades.sh --aplicar` permite al usuario de solo lectura del SOC leer el índice de vulnerabilidades de Wazuh (rol `soc_vulnerabilities_reader`), con el certificado de administración del indexador de la VM. Del archivo del usuario de lectura solo lee el nombre. `--ver` muestra el permiso, cuántas filas tiene el índice y si la detección de vulnerabilidades está activa en el gestor (`<vulnerability-detection>` en `ossec.conf`, activa por defecto desde Wazuh 4.8). Los agentes envían su inventario sin configuración adicional. [Integraciones](integrations.md#vulnerabilidades-de-los-equipos-28112026).
+
 ## Antivirus de equipos: agentes Wazuh con Microsoft Defender
 
 En el gestor de Wazuh del SOC:

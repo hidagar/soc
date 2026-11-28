@@ -17,6 +17,7 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 | Contratar el plan de pago de Q-Feeds para el SOC (plan A) | Q-Feeds, 20/11 | Q-Feeds confirmó el 20/11 que el uso central cabe en el plan normal. Antes de elegir entre Plus y Premium: mirar «Evolución» unos días y probar Premium 7 días (cambiando `SOC_PORTAL_QFEEDS_KEY`). Tras contratar, añadir a `SOC_PORTAL_QFEEDS_FEEDS` las listas nuevas que muestre «Listas que ofrece tu licencia». |
 | Activar Q-Feeds en la lista de bloqueo de los clientes | Q-Feeds, 20/11 | Las listas que ya existían la tienen desmarcada. Empezar por un cliente piloto (Pollença): marcar «IPs en listas de Q-Feeds», revisar «Q-Feeds en esta lista» y extender al resto desde «Q-Feeds en los clientes» (activación masiva con vista previa). La lista de salida con Q-Feeds es opcional. |
 | Aprobar las actualizaciones de plantilla 1.1 | Propagación, 30/11 | En «Listas de bloqueo › Propagación a los firewalls», cada regla activa anterior tiene preparada su «Actualización a 1.1» (tabla cada ~15 minutos): revisarla, crear el borrador, activarla con MFA y confirmar que el firewall sigue descargando. |
+| Permitir la lectura de las vulnerabilidades de los equipos: `sudo deploy/wazuh/permitir_vulnerabilidades.sh --aplicar` | Vulnerabilidades de equipos, 28/11 | Después, `--ver` debe indicar el permiso concedido, filas en el índice y la detección activa en el gestor. En una hora aparecen en «Vulnerabilidades de equipos». |
 | Dejar el motor CrowdSec sin compartir señales: `sudo deploy/configurar_crowdsec_privado.sh --aplicar` | CrowdSec, 28/11 | Decisión del usuario. La lista comunitaria pasa a la versión reducida; comprobar después que sigue llegando (`sudo cscli decisions list --origin CAPI \| head`). [Despliegue](deployment.md#crowdsec-sin-compartir-señales). |
 | Limitar la clave de Q-Feeds a la IP pública del SOC | Q-Feeds, 30/11 | En el portal de Q-Feeds, restringir la clave a la IP de salida de la VM. Si se limitan también los programas, incluir `ib-red-SOC/1`. «Inteligencia Q-Feeds» muestra si ya está limitada. |
 | Confirmar con Q-Feeds que el acuerdo cubre la lista completa y los dominios | Q-Feeds para los clientes, 23/11 | La lista preventiva reparte todas las IPs de Q-Feeds (no solo las vistas en detecciones) y la de DNS, sus dominios. Conservar la confirmación junto al contrato antes de activarlas en clientes. |
@@ -122,6 +123,8 @@ Auditoría del 11/11/2026: herramientas automáticas (ruff, bandit, pip-audit), 
 - Hecho el 13/11: el informe mensual incluye vulnerabilidades, solicitudes y cambios.
 
 ### Antivirus de equipos
+- Hecho el 28/11: vulnerabilidades de los equipos (detección de Wazuh) para el SOC y el portal del cliente.
+- Siguiente, acordado el 28/11: accesos fallidos en los equipos (inicios de sesión fallidos en Windows, sudo y SSH en Linux) como detecciones y avisos urgentes. Después: configuración segura (SCA), integridad de archivos en servidores, agentes Linux y evidencias de cumplimiento.
 - Hecho el 23/11: estado del antivirus en el portal del cliente (opción por cliente).
 - Hecho el 23/11: avisos urgentes al cliente por detecciones «permitidas» o «sin poder actuar».
 - Hecho el 23/11: recuperación de los eventos de Defender desde el indexador.

@@ -82,3 +82,33 @@ class EndpointDetection(models.Model):
     @property
     def urgent(self):
         return self.action in ('allowed', 'failed')
+
+
+class EndpointVulnerability(models.Model):
+    """Vulnerabilidad conocida (CVE) del software de un equipo, según la detección de vulnerabilidades de Wazuh.
+
+    Es una fotografía del estado actual del equipo, no un evento: el trabajo `endpoint_vulnerabilities` la
+    sustituye con cada lectura completa del índice de Wazuh. Lo que deja de aparecer se marca resuelto
+    (`resolved_at`); con una lectura incompleta no se resuelve nada (invariante 5). El cliente es el del equipo
+    en el momento de la lectura (estado actual, no histórico).
+    """
+    SEVERITIES = [('critical', 'Crítica'), ('high', 'Alta'), ('medium', 'Media'), ('low', 'Baja'), ('none', 'Sin clasificar')]
+    agent = models.ForeignKey(EndpointAgent, on_delete=models.CASCADE, related_name='vulnerabilities')
+    client = models.ForeignKey('core.Client', on_delete=models.CASCADE, related_name='endpoint_vulnerabilities')
+    cve = models.CharField(max_length=40)
+    package = models.CharField(max_length=200)
+    version = models.CharField(max_length=120, blank=True)
+    severity = models.CharField(max_length=10, choices=SEVERITIES, default='none', db_index=True)
+    score = models.FloatField(null=True, blank=True)
+    title = models.CharField(max_length=300, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    detected_at = models.DateTimeField(null=True, blank=True)
+    first_seen_at = models.DateTimeField(default=timezone.now)
+    last_seen_at = models.DateTimeField(default=timezone.now)
+    resolved_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    objects = ScopedManager()
+    customer_lookup = 'client_id'
+
+    class Meta:
+        ordering = ['-score', 'cve']
+        constraints = [models.UniqueConstraint(fields=['agent', 'cve', 'package'], name='unique_endpoint_vulnerability')]

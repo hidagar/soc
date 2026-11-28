@@ -412,8 +412,11 @@ def portal_summary(client, now=None):
     # Malware que el antivirus permitió o no pudo contener y que el SOC aún no ha revisado.
     unresolved = EndpointDetection.objects.filter(client_scope_id=client.pk, review='pending',
                                                   action__in=('allowed', 'failed')).count()
+    from .endpoint_vulnerabilities import client_summary
+    vulnerabilities = client_summary(client)
     return {'total': len(devices), 'protected': protected, 'attention': attention, 'recent_detections': recent,
-            'unresolved_malware': unresolved}
+            'unresolved_malware': unresolved, 'critical_vulnerability_devices': vulnerabilities['critical_devices'],
+            'vulnerabilities': vulnerabilities}
 
 
 def customer_context(client, preview=False, now=None):
@@ -429,8 +432,9 @@ def customer_context(client, preview=False, now=None):
         name, site = names.get(row.agent_id, ('Equipo retirado', ''))
         detections.append({'observed_at': row.observed_at, 'device': name, 'site': site, 'threat': row.threat,
                            'severity': row.severity, 'result': PORTAL_RESULTS[row.action], 'urgent': row.urgent})
+    from .endpoint_vulnerabilities import customer_rows
     return {**_portal_base(client, preview, 'endpoints'), 'devices': devices, 'detections': detections,
-            'summary': portal_summary(client, now), 'portal_days': PORTAL_DAYS}
+            'summary': portal_summary(client, now), 'portal_days': PORTAL_DAYS, 'vulnerabilities': customer_rows(client)}
 
 
 @login_required

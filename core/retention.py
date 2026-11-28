@@ -15,6 +15,7 @@ Plazos de los registros operativos (constantes; cambiarlos aquí y en docs/opera
 - solicitudes de clientes resueltas, con su conversación: 730 días desde la resolución;
 - propuestas de política «Ya no aplica»: 180 días sin cambios;
 - consultas de contexto de Q-Feeds: 90 días (son una caché);
+- vulnerabilidades de equipos ya corregidas: 365 días desde que dejaron de aparecer;
 - antivirus de equipos: detecciones revisadas sin incidencia, con el plazo de las evidencias; agentes sin
   asignar sin eventos en 90 días; equipos retirados (con sus detecciones), 400 días.
 """
@@ -37,6 +38,7 @@ OBSOLETE_PROPOSAL_DAYS = 180
 CONTEXT_LOOKUP_DAYS = 90
 STALE_PENDING_AGENT_DAYS = 90
 RETIRED_AGENT_DAYS = 400
+RESOLVED_VULNERABILITY_DAYS = 365  # vulnerabilidades de equipos ya corregidas
 CHAT_FINAL = ('accepted', 'delivered', 'suppressed', 'failed', 'uncertain', 'expired')
 
 
@@ -63,8 +65,8 @@ def prune(now=None, budget=BUDGET):
     cutoff = now - timedelta(days=days)
     deadline = time.monotonic() + budget
     result = {'checked_at': now.isoformat(), 'evidence_days': days, 'pending': False}
-    from .models import (ChatNotice, ConnectivityEvent, CustomerRequest, EndpointAgent, EndpointDetection, PolicyProposal,
-                         ThreatIntelLookup)
+    from .models import (ChatNotice, ConnectivityEvent, CustomerRequest, EndpointAgent, EndpointDetection,
+                         EndpointVulnerability, PolicyProposal, ThreatIntelLookup)
     for name, queryset in (
             ('auth_attempts', AuthAttempt._base_manager.filter(
                 occurred_at__lt=now - timedelta(days=AUTH_ATTEMPT_DAYS)).order_by('occurred_at')),
@@ -84,6 +86,8 @@ def prune(now=None, budget=BUDGET):
                 status='pending', last_seen_at__lt=now - timedelta(days=STALE_PENDING_AGENT_DAYS)).order_by('last_seen_at')),
             ('retired_agents', EndpointAgent._base_manager.filter(
                 status='retired', retired_at__lt=now - timedelta(days=RETIRED_AGENT_DAYS)).order_by('retired_at')),
+            ('resolved_vulnerabilities', EndpointVulnerability._base_manager.filter(
+                resolved_at__lt=now - timedelta(days=RESOLVED_VULNERABILITY_DAYS)).order_by('resolved_at')),
             ('context_lookups', ThreatIntelLookup._base_manager.filter(
                 requested_at__lt=now - timedelta(days=CONTEXT_LOOKUP_DAYS)).exclude(status='queued').order_by('requested_at')),
             # Las evidencias de una incidencia se conservan con ella.

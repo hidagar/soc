@@ -39,7 +39,7 @@ class EndpointPortalTests(TestCase):
         for internal in ('Downloads', 'factura.exe', 'explorer.exe', 'EMPRESA\\ana', '10.0.0.25', 'agente 003'):
             self.assertNotContains(page, internal)
         home = self.client.get(reverse('customer_home'))
-        self.assertContains(home, 'Antivirus de vuestros equipos')
+        self.assertContains(home, '<h2>Vuestros equipos</h2>')
         self.assertContains(home, '1 de 1')
         self.assertContains(home, reverse('customer_endpoints'))
 
@@ -55,7 +55,7 @@ class EndpointPortalTests(TestCase):
         self.assertEqual(self.client.get(reverse('customer_endpoints')).status_code, 404)
         home = self.client.get(reverse('customer_home'))
         self.assertNotContains(home, reverse('customer_endpoints'))
-        self.assertNotContains(home, 'Antivirus de vuestros equipos')
+        self.assertNotContains(home, '<h2>Vuestros equipos</h2>')
 
     def test_soc_preview_shows_the_same_page_and_is_audited(self):
         admin = get_user_model().objects.create_superuser('admin', 'a@a.test', 'x')

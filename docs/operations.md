@@ -86,6 +86,7 @@ Además borra los registros operativos que crecían sin límite. Los plazos son 
 | Solicitudes de clientes resueltas, con su conversación | resueltas hace más de 730 días | Las abiertas no se tocan; una incidencia enlazada se conserva. |
 | Propuestas de política «Ya no aplica» | sin cambios en 180 días | Ya no se muestran a nadie. |
 | Consultas de contexto de Q-Feeds (`ThreatIntelLookup`) | más de 90 días, salvo las que están en cola | Son una caché; se pueden repetir. |
+| Vulnerabilidades de equipos corregidas (`EndpointVulnerability`) | 365 días desde que dejaron de aparecer | Las abiertas se conservan siempre. |
 
 ## Versión instalada
 

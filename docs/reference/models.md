@@ -202,6 +202,27 @@ Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
 | `reviewed_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
 | `reviewed_at` | DateTimeField | null=True; blank=True |
 | `incident` | ForeignKey | → 'core.Incident'; on_delete=models.SET_NULL; null=True; blank=True |
+## EndpointVulnerability
+
+Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
+
+Ámbito declarado: `'client_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `agent` | ForeignKey | → EndpointAgent; on_delete=models.CASCADE |
+| `client` | ForeignKey | → 'core.Client'; on_delete=models.CASCADE |
+| `cve` | CharField | max_length=40 |
+| `package` | CharField | max_length=200 |
+| `version` | CharField | max_length=120; blank=True |
+| `severity` | CharField | max_length=10; db_index=True |
+| `score` | FloatField | null=True; blank=True |
+| `title` | CharField | max_length=300; blank=True |
+| `published_at` | DateTimeField | null=True; blank=True |
+| `detected_at` | DateTimeField | null=True; blank=True |
+| `first_seen_at` | DateTimeField |  |
+| `last_seen_at` | DateTimeField |  |
+| `resolved_at` | DateTimeField | null=True; blank=True; db_index=True |
 ## RunbookStep
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

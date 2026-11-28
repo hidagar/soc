@@ -32,6 +32,7 @@ JOBS={
     'threat_intel':(900,'Inteligencia Q-Feeds'),
     'attachment_scan':(60,'Antivirus de adjuntos'),
     'endpoint_reconciliation':(300,'Recuperación del antivirus de equipos'),
+    'endpoint_vulnerabilities':(3600,'Vulnerabilidades de los equipos'),
     'qfeeds_lookup':(60,'Consultas de contexto Q-Feeds'),
     'soc_reputation':(3600,'Reputación propia del SOC'),
     'security_score':(3600,'Índice de seguridad'),
@@ -174,6 +175,9 @@ def execute(name):
     if name=='crowdsec_lists':
         from .crowdsec_catalog import refresh as refresh_lists
         return refresh_lists()
+    if name=='endpoint_vulnerabilities':
+        from .endpoint_vulnerabilities import sync as sync_endpoint_vulnerabilities
+        return sync_endpoint_vulnerabilities()
     if name=='endpoint_reconciliation':
         from .endpoints import reconcile as reconcile_endpoints
         return reconcile_endpoints()

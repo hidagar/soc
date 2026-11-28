@@ -359,6 +359,16 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
 - Las rutas y usuarios de las detecciones son datos internos.
 - En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus».
 
+## Vulnerabilidades de los equipos (28/11/2026)
+
+`core/endpoint_vulnerabilities.py`, modelo `EndpointVulnerability` (migración 0093), trabajo `endpoint_vulnerabilities` (cada hora). Wazuh 4.8 o posterior cruza el inventario de software de cada agente con su base de CVE y guarda el estado en `wazuh-states-vulnerabilities-*` (una fila por equipo, programa y CVE). El SOC no instala ni cambia nada en los equipos:
+- **Lectura:** solo de los equipos asignados a un cliente. Se pagina con `search_after` y se comprueba cada respuesta (`indexer_results.complete`), hasta 100 páginas de 1.000 filas por pasada.
+- **Fotografía:** lo que ya no aparece en una lectura **completa** se marca resuelto (programa actualizado o desinstalado). Si la lectura no termina o hay más filas de las previstas, se guarda lo leído pero no se resuelve nada (invariante 5). Si vuelve a aparecer, cuenta como nueva. Un equipo retirado deja de contar.
+- **Permiso:** el usuario de solo lectura del indexador necesita leer ese índice: `sudo deploy/wazuh/permitir_vulnerabilidades.sh --aplicar` crea el rol `soc_vulnerabilities_reader` (solo lectura de `wazuh-states-vulnerabilities-*`) y se lo asigna, sin tocar sus otros permisos. Sin él, «Vulnerabilidades de los equipos sin actualizar» en «Salud del SOC» con el comando. `--ver` muestra el permiso, las filas del índice y si la detección de vulnerabilidades está activa en el gestor.
+- **SOC:** «Cobertura y salud › Vulnerabilidades de equipos»: totales por gravedad, resumen por cliente y «Qué actualizar primero», agrupado por CVE y programa con los equipos, versiones y clientes afectados, y el enlace a NVD.
+- **Cliente** (con «Portal: antivirus de equipos»): en «Equipos», la sección «Actualizaciones pendientes» con las críticas y altas de sus equipos (equipo, programa y versión, CVE con enlace a NVD, gravedad y puntuación) y el número de medias y bajas. En el inicio, «Actualizar N equipos con vulnerabilidades críticas». Proyección explícita: sin el texto del proveedor, identificadores de agente ni datos de otros clientes. Una vulnerabilidad conocida no prueba que se haya explotado (invariante 4).
+- **Conservación:** las corregidas se borran a los 365 días.
+
 ## Reputación propia del SOC
 
 `core/soc_reputation.py` y la página «Detección e investigación → Reputación propia». Requiere el permiso `manage_operations` y **acceso a todos los clientes**, porque resume ataques a varios de ellos. El SOC usa las detecciones de todos sus clientes para formar su propia lista de IPs atacantes. Desde el 28/11/2026 se distribuye en las listas de bloqueo (punto 7).

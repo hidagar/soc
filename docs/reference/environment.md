@@ -12,7 +12,7 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_DNS_CONF_DIR` | [core/dns_resolver.py](../../core/dns_resolver.py) |
 | `SOC_DNS_ZONE_DIR` | [core/dns_resolver.py](../../core/dns_resolver.py) |
 | `SOC_GEOIP_DATABASE` | [core/threat_map.py](../../core/threat_map.py), [core/vpn_security.py](../../core/vpn_security.py) |
-| `SOC_INDEXER_CA` | [core/reporting.py](../../core/reporting.py) |
+| `SOC_INDEXER_CA` | [core/endpoint_vulnerabilities.py](../../core/endpoint_vulnerabilities.py), [core/reporting.py](../../core/reporting.py) |
 | `SOC_INDEXER_READER_FILE` | [core/reporting.py](../../core/reporting.py) |
 | `SOC_NATIVE_ENGINE_GATE` | [core/test_native_pipeline.py](../../core/test_native_pipeline.py) |
 | `SOC_PORTAL_ALLOWED_HOSTS` | [socportal/settings.py](../../socportal/settings.py) |
@@ -60,4 +60,5 @@ Valores, formatos y secretos: [configuración](../configuration.md). Se enumeran
 | `SOC_PORTAL_VAULT_KEYS` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_PUBLIC_ORIGIN` | [socportal/settings.py](../../socportal/settings.py) |
 | `SOC_REPORT_EMAIL_BACKEND` | [socportal/settings.py](../../socportal/settings.py) |
+| `SOC_VULNERABILITY_INDEX` | [core/endpoint_vulnerabilities.py](../../core/endpoint_vulnerabilities.py) |
 | `SOC_WAZUH_PROXY_KEY` | [socportal/settings.py](../../socportal/settings.py) |
