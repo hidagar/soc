@@ -114,6 +114,14 @@ configure_group() {
 Instalar el agente en cada equipo Windows del cliente con el grupo $group, por ejemplo:
   msiexec /i wazuh-agent.msi /q WAZUH_MANAGER="<dirección del SOC alcanzable desde la sede>" WAZUH_AGENT_GROUP="$group"
 (añadir WAZUH_REGISTRATION_PASSWORD si el gestor exige contraseña de alta; no la pegues en el chat).
+
+En cada servidor o equipo Linux, con el repositorio de paquetes de Wazuh ya añadido (misma versión que el gestor):
+  Debian/Ubuntu:  sudo WAZUH_MANAGER="<dirección del SOC>" WAZUH_AGENT_GROUP="$group" apt-get install wazuh-agent
+  RHEL/Rocky/Alma: sudo WAZUH_MANAGER="<dirección del SOC>" WAZUH_AGENT_GROUP="$group" dnf install wazuh-agent
+  y después:      sudo systemctl enable --now wazuh-agent
+Los accesos (SSH, sudo) llegan si existe /var/log/auth.log (Debian/Ubuntu) o /var/log/secure (RHEL). En sistemas
+solo con journald (p. ej. Debian 12 mínimo), instalar rsyslog; no añadir además journald al agente (contaría dos veces).
+
 Después, en el portal: «Cobertura y salud › Antivirus de equipos › Agentes sin asignar» → asignarlos al cliente.
 EOF
 }

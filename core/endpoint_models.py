@@ -36,6 +36,12 @@ class EndpointAgent(models.Model):
     signature_version = models.CharField(max_length=40, blank=True)
     quick_scan_age_days = models.PositiveIntegerField(null=True, blank=True)
     update_failed_at = models.DateTimeField(null=True, blank=True)
+    # Sistema y datos que llegan, según sus eventos (también antes de asignarlo: no son datos del cliente).
+    PLATFORMS = [('', 'Sin determinar'), ('windows', 'Windows'), ('linux', 'Linux'), ('macos', 'macOS')]
+    platform = models.CharField(max_length=10, choices=PLATFORMS, blank=True)
+    auth_seen_at = models.DateTimeField(null=True, blank=True)  # último evento de acceso (correcto o fallido)
+    sca_seen_at = models.DateTimeField(null=True, blank=True)  # última alerta de configuración segura
+    fim_seen_at = models.DateTimeField(null=True, blank=True)  # último cambio de archivos
     objects = ScopedManager()
     customer_lookup = 'client_id'
 

@@ -53,7 +53,8 @@ HEALTH_STALE = timedelta(hours=72)
 SIGNATURE_MAX_DAYS = 3
 UPDATE_FAILED_WINDOW = timedelta(days=2)
 STATES = {'protected': 'Protegido', 'unprotected': 'Sin protección en tiempo real', 'outdated': 'Firmas antiguas',
-          'silent': 'Sin informar', 'unknown': 'Sin datos del antivirus'}
+          'silent': 'Sin informar', 'unknown': 'Sin datos del antivirus', 'other_os': 'Sin Defender (Linux o macOS)'}
+AUTH_MISSING_AFTER = timedelta(hours=24)  # un equipo asignado sin ningún evento de acceso en un día: faltan sus registros
 
 
 def _key(name):
@@ -119,27 +120,74 @@ def observe(source, stamp, now, cache):
     if stamp > endpoint.last_seen_at:
         EndpointAgent._base_manager.filter(pk=endpoint.pk).update(last_seen_at=stamp, name=name, ip=address)
         endpoint.last_seen_at, endpoint.name, endpoint.ip = stamp, name, address
+    from . import endpoint_access, endpoint_hardening, endpoint_integrity
+    event = defender_event(source)
+    syscheck = sca = access = None
+    if event is None:
+        syscheck = endpoint_integrity.fim_event(source)
+        if syscheck is None:
+            sca = endpoint_hardening.sca_event(source)
+            if sca is None:
+                access = endpoint_access.access_event(source)
+    _coverage(endpoint, source, stamp, auth=access is not None, sca=sca is not None, fim=syscheck is not None)
     # Sin asignar o anterior a la asignación: no se atribuye a ningún cliente (invariante 2).
     if endpoint.status != 'assigned' or not endpoint.assigned_at or stamp < endpoint.assigned_at:
         return True
-    event = defender_event(source)
     if event is not None:
         _defender(endpoint, event[0], event[1], stamp, now, source)
-        return True
-    from . import endpoint_hardening, endpoint_integrity
-    syscheck = endpoint_integrity.fim_event(source)
-    if syscheck is not None:
+    elif syscheck is not None:
         endpoint_integrity.record(endpoint, syscheck, stamp, now, source)
-        return True
-    sca = endpoint_hardening.sca_event(source)
-    if sca is not None:
+    elif sca is not None:
         endpoint_hardening.record(endpoint, sca, stamp, now, cache)
-        return True
-    from .endpoint_access import access_event, record
-    access = access_event(source)
-    if access is not None:
-        record(endpoint, access, stamp, now, source, cache)
+    elif access is not None:
+        endpoint_access.record(endpoint, access, stamp, now, source, cache)
     return True
+
+
+LINUX_POLICIES = ('ubuntu', 'debian', 'rhel', 'red_hat', 'centos', 'rocky', 'alma', 'amazon', 'sles', 'suse', 'oracle',
+                  'fedora', 'linux', 'unix')
+SIGNAL_STEP = timedelta(hours=1)  # no se reescribe la fecha de cada tipo de dato más de una vez por hora
+
+
+def platform_of(source):
+    """Sistema del equipo según un evento: 'windows', 'linux', 'macos' o '' si el evento no lo dice."""
+    data = source.get('data') if isinstance(source.get('data'), dict) else {}
+    if isinstance(data.get('win'), dict):
+        return 'windows'
+    sca = data.get('sca') if isinstance(data.get('sca'), dict) else {}
+    policy = str(sca.get('policy_id') or '').lower()
+    if policy:
+        if policy.startswith('cis_win') or 'windows' in policy:
+            return 'windows'
+        if any(word in policy for word in ('apple', 'macos', 'darwin')):
+            return 'macos'
+        if any(word in policy for word in LINUX_POLICIES):
+            return 'linux'
+    syscheck = source.get('syscheck') if isinstance(source.get('syscheck'), dict) else {}
+    path = str(syscheck.get('path') or '')
+    if path.upper().startswith('HKEY_') or re.match(r'^[A-Za-z]:\\', path):
+        return 'windows'
+    location = str(source.get('location') or '')
+    if location == 'journald' or location.startswith(('/var/log/', '/var/ossec/logs/')):
+        return 'linux'
+    return ''
+
+
+def _coverage(endpoint, source, stamp, **signals):
+    """Sistema del equipo y fecha del último dato de cada tipo (accesos, configuración, integridad)."""
+    updates = {}
+    platform = platform_of(source)
+    # Un evento de Windows es concluyente; uno de Linux solo decide si aún no se sabía.
+    if platform and platform != endpoint.platform and (platform == 'windows' or not endpoint.platform):
+        updates['platform'] = platform
+    for name, seen in signals.items():
+        current = getattr(endpoint, f'{name}_seen_at')
+        if seen and (current is None or stamp - current >= SIGNAL_STEP):
+            updates[f'{name}_seen_at'] = stamp
+    if updates:
+        EndpointAgent._base_manager.filter(pk=endpoint.pk).update(**updates)
+        for field, value in updates.items():
+            setattr(endpoint, field, value)
 
 
 def _queue_urgent(endpoint, row, level, now):
@@ -251,6 +299,8 @@ def state(endpoint, now=None):
     if not endpoint.defender_seen_at:
         if now - endpoint.last_seen_at > SILENT_AFTER:
             return 'silent', STATES['silent']
+        if endpoint.platform in ('linux', 'macos'):
+            return 'other_os', f'Sin Defender ({endpoint.get_platform_display()})'
         return 'unknown', STATES['unknown']
     if now - endpoint.last_seen_at > SILENT_AFTER:
         return 'silent', STATES['silent']
@@ -264,6 +314,17 @@ def state(endpoint, now=None):
     return 'protected', STATES['protected']
 
 
+def auth_missing(endpoint, now=None):
+    """Equipo asignado que envía eventos pero ningún acceso (correcto o fallido) en un día: faltan sus registros de
+    acceso (en Linux, /var/log/auth.log o /var/log/secure; en Windows, el canal Security)."""
+    now = now or timezone.now()
+    if endpoint.status != 'assigned' or not endpoint.assigned_at or now - endpoint.assigned_at < AUTH_MISSING_AFTER:
+        return False
+    if now - endpoint.last_seen_at > SILENT_AFTER:
+        return False  # apagado o sin conexión: ya sale como «Sin informar»
+    return not endpoint.auth_seen_at or endpoint.last_seen_at - endpoint.auth_seen_at > AUTH_MISSING_AFTER
+
+
 def client_summary(client, now=None):
     """Para la ficha del cliente: equipos asignados por estado y detecciones por revisar."""
     now = now or timezone.now()
@@ -273,8 +334,9 @@ def client_summary(client, now=None):
         code = state(row, now)[0]
         counts[code] = counts.get(code, 0) + 1
     pending = EndpointDetection.objects.filter(client_scope_id=client.pk, review='pending').count()
+    # Un Linux sin Defender no es un antivirus que revisar: lo vigilan accesos, configuración e integridad.
     return {'total': len(rows), 'protected': counts.get('protected', 0),
-            'attention': len(rows) - counts.get('protected', 0), 'detections': pending}
+            'attention': len(rows) - counts.get('protected', 0) - counts.get('other_os', 0), 'detections': pending}
 
 
 def review_queue(client_id=None):
@@ -310,6 +372,7 @@ def overview(request):
     agents = list(agents)
     for row in agents:
         row.state_code, row.state_label = state(row, now)
+        row.auth_missing = auth_missing(row, now)
     agents.sort(key=lambda r: (r.state_code == 'protected', r.client.name if r.client else '', r.name))
     clients = {c.pk: c for c in Client.objects.all()}
     detections = list(detections[:200])
@@ -402,6 +465,7 @@ PORTAL_STATES = {
     'outdated': ('Antivirus sin actualizar', 'attention'),
     'silent': ('Sin noticias del equipo', 'pending'),
     'unknown': ('Pendiente de datos del antivirus', 'pending'),
+    'other_os': ('Sin antivirus vigilado (Linux o macOS)', 'paused'),
 }
 PORTAL_RESULTS = {'detected': 'Detectada; el SOC la revisa', 'contained': 'Contenida por el antivirus',
                   'allowed': 'Permitida en el equipo', 'failed': 'El antivirus no pudo actuar'}

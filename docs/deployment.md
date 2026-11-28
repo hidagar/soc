@@ -124,6 +124,8 @@ En cada equipo Windows del cliente se instala el agente con `WAZUH_AGENT_GROUP="
 
 Si el gestor exige contraseña de alta, se pasa con `WAZUH_REGISTRATION_PASSWORD`; no se copia en el chat ni en el repositorio.
 
+**Equipos Linux:** con el repositorio de paquetes de Wazuh añadido (misma versión que el gestor), `WAZUH_MANAGER="…" WAZUH_AGENT_GROUP="soc-CODIGO" apt-get install wazuh-agent` (o `dnf install` en RHEL, Rocky o Alma) y `systemctl enable --now wazuh-agent`; `--grupo` muestra los comandos. Sin configuración adicional el agente envía los accesos (SSH, sudo, PAM) de `/var/log/auth.log` o `/var/log/secure`, la configuración segura (CIS de su distribución), la integridad de archivos y el inventario para las vulnerabilidades. En distribuciones solo con journald (Debian 12 mínimo), instalar `rsyslog` para que exista `/var/log/auth.log`; no añadir además journald al agente, porque cada intento contaría dos veces. En el portal, el equipo aparece como «Sin Defender (Linux)» y, si no llega ningún acceso en un día, «Sin registros de acceso».
+
 Después, en el portal, «Antivirus de equipos › Agentes sin asignar»: marcar los equipos y asignarlos al cliente. El grupo de Wazuh no asigna nada por sí solo. `--ver` muestra si la regla y los grupos están aplicados.
 
 ## DNS del SOC por la VPN de sedes
