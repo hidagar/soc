@@ -49,6 +49,7 @@ from . import qfeeds_distribution
 from . import vendor_capabilities
 from . import endpoint_vulnerabilities
 from . import endpoint_access
+from . import endpoint_hardening
 from . import crowdsec_catalog
 from . import invitations
 from . import secure_logs
@@ -93,6 +94,7 @@ urlpatterns = [
     path('operations/equipos/',endpoints.overview,name='endpoints'),
     path('operations/equipos/vulnerabilidades/',endpoint_vulnerabilities.overview,name='endpoint_vulnerabilities'),
     path('operations/equipos/accesos/',endpoint_access.overview,name='endpoint_access'),
+    path('operations/equipos/configuracion/',endpoint_hardening.overview,name='endpoint_hardening'),
     path('operations/policies/',policy_views.overview,name='policies'),
     path('search/',global_search.results,name='search'),
     path('clients/<int:pk>/actividad/',client_timeline.timeline,name='client_timeline'),

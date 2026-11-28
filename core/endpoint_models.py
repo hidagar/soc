@@ -167,3 +167,65 @@ class EndpointAccessEvent(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['agent', 'event_id'], name='unique_endpoint_access_event')]
+
+
+class EndpointPolicy(models.Model):
+    """Política de configuración segura (SCA de Wazuh, p. ej. un benchmark CIS) evaluada en un equipo.
+
+    El resumen de cada análisis (puntuación, superadas, fallidas) llega como alerta `sca` de tipo «summary».
+    Wazuh solo lo envía cuando cambia algo, así que `scanned_at` es el último resumen recibido, no el último análisis.
+    """
+    agent = models.ForeignKey(EndpointAgent, on_delete=models.CASCADE, related_name='policies')
+    client_scope_id = models.PositiveBigIntegerField(db_index=True, editable=False)
+    policy_id = models.CharField(max_length=120)
+    name = models.CharField(max_length=200, blank=True)
+    score = models.PositiveSmallIntegerField(null=True, blank=True)  # la de Wazuh: superadas / (superadas + fallidas)
+    passed = models.PositiveIntegerField(null=True, blank=True)
+    failed = models.PositiveIntegerField(null=True, blank=True)
+    invalid = models.PositiveIntegerField(null=True, blank=True)
+    total = models.PositiveIntegerField(null=True, blank=True)
+    scan_id = models.CharField(max_length=40, blank=True)
+    scanned_at = models.DateTimeField(null=True, blank=True)
+    first_seen_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+    objects = ScopedManager()
+    customer_lookup = 'client_scope_id'
+
+    class Meta:
+        ordering = ['agent', 'policy_id']
+        constraints = [models.UniqueConstraint(fields=['agent', 'policy_id'], name='unique_endpoint_policy')]
+
+
+class EndpointPolicyCheck(models.Model):
+    """Resultado de una comprobación de configuración segura en un equipo, según la última alerta SCA recibida.
+
+    Wazuh envía la alerta de una comprobación en el primer análisis y cuando su resultado cambia; un evento más
+    antiguo que llega tarde no pisa uno posterior. Una comprobación fallida es una recomendación de bastionado, no
+    una prueba de que el equipo haya sido atacado (invariante 4).
+    """
+    RESULTS = [('failed', 'No cumple'), ('passed', 'Cumple'), ('not_applicable', 'No aplica')]
+    agent = models.ForeignKey(EndpointAgent, on_delete=models.CASCADE, related_name='policy_checks')
+    client_scope_id = models.PositiveBigIntegerField(db_index=True, editable=False)
+    policy_id = models.CharField(max_length=120)
+    check_id = models.CharField(max_length=20)
+    title = models.CharField(max_length=300)
+    result = models.CharField(max_length=16, choices=RESULTS, db_index=True)
+    previous_result = models.CharField(max_length=16, blank=True)
+    description = models.TextField(blank=True)
+    rationale = models.TextField(blank=True)
+    remediation = models.TextField(blank=True)  # texto del benchmark: solo para el SOC
+    compliance = models.JSONField(default=dict, blank=True)  # p. ej. {'cis': '1.1.1', 'pci_dss_v3.2.1': '8.2.3'}
+    first_seen_at = models.DateTimeField(default=timezone.now)
+    observed_at = models.DateTimeField()
+    changed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    objects = ScopedManager()
+    customer_lookup = 'client_scope_id'
+
+    class Meta:
+        ordering = ['policy_id', 'check_id']
+        constraints = [models.UniqueConstraint(fields=['agent', 'policy_id', 'check_id'], name='unique_endpoint_policy_check')]
+
+    @property
+    def regressed(self):
+        """Antes cumplía y ahora no."""
+        return self.result == 'failed' and self.previous_result == 'passed'

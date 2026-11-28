@@ -357,7 +357,7 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
   - Un aviso urgente de algo que llega con más de 2 horas queda caducado, sin enviarse.
   - Los agentes de firewalls quedan para la recuperación de los firewalls.
 - Las rutas y usuarios de las detecciones son datos internos.
-- En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus». Sus accesos fallidos (SSH, sudo, PAM) sí cuentan: [accesos fallidos](#accesos-fallidos-a-los-equipos-28112026).
+- En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus». Sus accesos fallidos (SSH, sudo, PAM) y su configuración segura sí cuentan: [accesos fallidos](#accesos-fallidos-a-los-equipos-28112026) y [SCA](#configuración-segura-de-los-equipos-sca-28112026).
 
 ## Vulnerabilidades de los equipos (28/11/2026)
 
@@ -383,6 +383,17 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
 - **Cliente** (con «Portal: antivirus de equipos»): en «Equipos», «Intentos de acceso fallidos» de 30 días: equipo, sede, qué pasó, número de intentos, si vino de Internet (con la IP pública) o de la red interna y si el SOC lo ha revisado. Sin cuentas ni IP internas (invariante 3). El inicio pide confirmar los accesos tras fallos desde Internet sin revisar.
 - **Recuperación:** el trabajo `endpoint_reconciliation` recupera también, con su propio cursor (`endpoint-access-reconciliation`), los fallos, correlaciones, bloqueos y la regla 40112 que no llegaron por `alerts.json`. Con una respuesta incompleta no avanza (invariante 5) y abre `platform:endpoint-access-reconciliation`. No recupera los accesos correctos sueltos (son demasiados) y no mira más de 25 días atrás.
 - **Conservación:** identificadores contados, 30 días; fallos aislados, 7 días; ráfagas revisadas sin incidencia, con el plazo de las evidencias.
+
+## Configuración segura de los equipos (SCA, 28/11/2026)
+
+`core/endpoint_hardening.py`, modelos `EndpointPolicy` y `EndpointPolicyCheck` (migración 0095). El agente de Wazuh evalúa por defecto, cada 12 horas, la guía de bastionado de su sistema (CIS para Windows, Linux y macOS) y el gestor genera alertas del grupo `sca`. El SOC las toma de los mismos eventos de agentes que el antivirus, sin cambiar la configuración de los agentes ni pedir credenciales nuevas:
+- **Qué llega:** la alerta de cada comprobación (`data.sca.type` «check»: título, resultado, motivo, corrección y referencias de cumplimiento como CIS, PCI DSS o NIST) en el **primer análisis y cuando cambia su resultado**, y el resumen del análisis («summary»: puntuación, superadas, fallidas y total). Las «no aplica» son de nivel 0 y no llegan.
+- **Estado:** último resultado por equipo, política y comprobación. Un evento más antiguo que llega tarde no pisa uno posterior y releer no cambia nada. Guarda el resultado anterior y cuándo cambió: «Dejaron de cumplir» marca lo que cumplía y ya no.
+- **Puntuación:** la del último resumen de Wazuh (superadas entre superadas y fallidas); si aún no llegó, la calculada con las comprobaciones recibidas, indicándolo.
+- **Límite:** de un equipo cuyo primer análisis no llegó al SOC solo se conoce lo que cambie después. La recuperación (`endpoint_reconciliation`, flujo `sca`, cursor `endpoint-sca-reconciliation`) mira 30 días atrás en su primera pasada para traer esos primeros análisis. Con una respuesta incompleta no avanza (invariante 5) y abre `platform:endpoint-sca-reconciliation`. Leer el estado completo por la API del gestor (`/sca/{agente}`) necesitaría un usuario de la API de Wazuh: queda propuesto en pendientes.
+- **SOC:** «Cobertura y salud › Configuración de equipos»: equipos evaluados, cumplimiento medio, equipos por debajo del 50 %, lo que dejó de cumplir en 7 días y «Qué corregir primero», agrupado por comprobación con los equipos, el motivo, la corrección y las referencias de cumplimiento.
+- **Cliente** (con «Portal: antivirus de equipos»): en «Equipos», «Configuración segura»: guía, porcentaje que cumple, cuántas por corregir y fecha por equipo, y las 15 recomendaciones que más se repiten (título y equipos). Sin el texto de corrección ni identificadores (invariante 3). El inicio propone «Mejorar la configuración de seguridad» si algún equipo cumple menos del 50 %. No cumplir una recomendación no es un ataque ni una vulnerabilidad explotada (invariante 4).
+- **Conservación:** es un estado, no un evento: se borra con el equipo retirado.
 
 ## Reputación propia del SOC
 

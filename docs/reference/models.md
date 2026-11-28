@@ -260,6 +260,49 @@ Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
 | `alert` | ForeignKey | → EndpointAccessAlert; on_delete=models.CASCADE |
 | `event_id` | CharField | max_length=64 |
 | `observed_at` | DateTimeField | db_index=True |
+## EndpointPolicy
+
+Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
+
+Ámbito declarado: `'client_scope_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `agent` | ForeignKey | → EndpointAgent; on_delete=models.CASCADE |
+| `client_scope_id` | PositiveBigIntegerField | db_index=True |
+| `policy_id` | CharField | max_length=120 |
+| `name` | CharField | max_length=200; blank=True |
+| `score` | PositiveSmallIntegerField | null=True; blank=True |
+| `passed` | PositiveIntegerField | null=True; blank=True |
+| `failed` | PositiveIntegerField | null=True; blank=True |
+| `invalid` | PositiveIntegerField | null=True; blank=True |
+| `total` | PositiveIntegerField | null=True; blank=True |
+| `scan_id` | CharField | max_length=40; blank=True |
+| `scanned_at` | DateTimeField | null=True; blank=True |
+| `first_seen_at` | DateTimeField |  |
+| `updated_at` | DateTimeField |  |
+## EndpointPolicyCheck
+
+Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
+
+Ámbito declarado: `'client_scope_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `agent` | ForeignKey | → EndpointAgent; on_delete=models.CASCADE |
+| `client_scope_id` | PositiveBigIntegerField | db_index=True |
+| `policy_id` | CharField | max_length=120 |
+| `check_id` | CharField | max_length=20 |
+| `title` | CharField | max_length=300 |
+| `result` | CharField | max_length=16; db_index=True |
+| `previous_result` | CharField | max_length=16; blank=True |
+| `description` | TextField | blank=True |
+| `rationale` | TextField | blank=True |
+| `remediation` | TextField | blank=True |
+| `compliance` | JSONField | blank=True |
+| `first_seen_at` | DateTimeField |  |
+| `observed_at` | DateTimeField |  |
+| `changed_at` | DateTimeField | null=True; blank=True; db_index=True |
 ## RunbookStep
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

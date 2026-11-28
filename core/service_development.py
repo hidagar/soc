@@ -210,6 +210,9 @@ def portal_attention(context):
         'Confirmar {n} accesos a equipos tras intentos fallidos',
         'Hubo un acceso correcto desde Internet después de varias contraseñas equivocadas: confirmad que fue el usuario.',
         links['endpoints']+'#accesos','alert')
+    add((endpoints.get('hardening') or {}).get('low_devices',0),'Mejorar la configuración de seguridad de un equipo',
+        'Mejorar la configuración de seguridad de {n} equipos',
+        'Cumplen menos de la mitad de las recomendaciones de su guía de configuración segura.',links['endpoints']+'#configuracion','info')
     add(endpoints.get('critical_vulnerability_devices',0),'Actualizar un equipo con vulnerabilidades críticas',
         'Actualizar {n} equipos con vulnerabilidades críticas',
         'Tienen programas con fallos de seguridad graves conocidos: instalad las actualizaciones.',links['endpoints'],'alert')

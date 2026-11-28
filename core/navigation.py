@@ -68,6 +68,7 @@ def _staff_groups(user, global_access):
             _item("Vulnerabilidades de equipos", "endpoint_vulnerabilities"),
             _item("Antivirus de equipos", "endpoints"),
             _item("Accesos a equipos", "endpoint_access"),
+            _item("Configuración de equipos", "endpoint_hardening"),
             _item("Políticas propuestas", "policies"),
             _item("Control de exposición", "exposure_list", ["exposure_detail", "exposure_interfaces",
                   "exposure_recheck", "unifi_policies"]),

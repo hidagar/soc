@@ -17,7 +17,8 @@
   «permitida» o «no pudo actuar», si tiene los avisos urgentes activos. Lleva equipo, sede, hora, amenaza,
   gravedad y resultado; nunca la ruta del archivo ni el usuario, que son datos internos (invariante 3).
 - Los intentos de acceso de esos mismos eventos (Windows Security, SSH, sudo, PAM) los cuenta
-  `endpoint_access`; la recuperación desde el indexador tiene un flujo para cada uno.
+  `endpoint_access` y la configuración segura (SCA) `endpoint_hardening`; la recuperación desde el indexador
+  tiene un flujo para cada uno.
 """
 import hashlib
 import ipaddress
@@ -124,6 +125,11 @@ def observe(source, stamp, now, cache):
     event = defender_event(source)
     if event is not None:
         _defender(endpoint, event[0], event[1], stamp, now, source)
+        return True
+    from . import endpoint_hardening
+    sca = endpoint_hardening.sca_event(source)
+    if sca is not None:
+        endpoint_hardening.record(endpoint, sca, stamp, now, cache)
         return True
     from .endpoint_access import access_event, record
     access = access_event(source)
@@ -423,9 +429,11 @@ def portal_summary(client, now=None):
     from .endpoint_vulnerabilities import client_summary
     vulnerabilities = client_summary(client)
     from .endpoint_access import client_summary as access_summary
+    from .endpoint_hardening import client_summary as hardening_summary
     return {'total': len(devices), 'protected': protected, 'attention': attention, 'recent_detections': recent,
             'unresolved_malware': unresolved, 'critical_vulnerability_devices': vulnerabilities['critical_devices'],
-            'vulnerabilities': vulnerabilities, 'access_after_failures': access_summary(client)['internet_success']}
+            'vulnerabilities': vulnerabilities, 'access_after_failures': access_summary(client)['internet_success'],
+            'hardening': hardening_summary(client)}
 
 
 def customer_context(client, preview=False, now=None):
@@ -442,10 +450,11 @@ def customer_context(client, preview=False, now=None):
         detections.append({'observed_at': row.observed_at, 'device': name, 'site': site, 'threat': row.threat,
                            'severity': row.severity, 'result': PORTAL_RESULTS[row.action], 'urgent': row.urgent})
     from .endpoint_vulnerabilities import customer_rows
-    from . import endpoint_access
+    from . import endpoint_access, endpoint_hardening
     return {**_portal_base(client, preview, 'endpoints'), 'devices': devices, 'detections': detections,
             'summary': portal_summary(client, now), 'portal_days': PORTAL_DAYS, 'vulnerabilities': customer_rows(client),
-            'access': endpoint_access.customer_rows(client, now), 'access_days': endpoint_access.PORTAL_DAYS}
+            'access': endpoint_access.customer_rows(client, now), 'access_days': endpoint_access.PORTAL_DAYS,
+            'hardening': endpoint_hardening.customer_context(client)}
 
 
 @login_required
@@ -469,6 +478,12 @@ USEFUL_EVENTS = sorted(DETECTED | ACTED | FAILED | SCAN_OFF | UPDATE_FAILED | {H
 
 def _stream(name):
     """(estado, incidencia, filtro, días máximos hacia atrás, título, error) de cada flujo de recuperación."""
+    if name == 'sca':
+        from .endpoint_hardening import recovery_filter
+        return ('endpoint-sca-reconciliation', 'platform:endpoint-sca-reconciliation', [recovery_filter()], 90,
+                'Recuperación de la configuración segura de equipos pendiente',
+                'No terminó la recuperación de la configuración segura (SCA) de los equipos. Revisar el acceso al '
+                'indexador; el cursor se conserva.')
     if name == 'access':
         from .endpoint_access import MAX_AGE, recovery_filter
         return ('endpoint-access-reconciliation', 'platform:endpoint-access-reconciliation', [recovery_filter()],
@@ -486,6 +501,9 @@ def reconcile(now=None, pages=3, page_size=200, initial_days=1, stream='defender
     los intentos de acceso (`stream='access'`) que no llegaron por `alerts.json` (rotación, parada del lector).
     Ventana fija con 10 minutos de solape y cursor propio por flujo.
 
+    `stream='sca'` recupera las alertas de configuración segura; su primera pasada mira 30 días atrás para traer
+    los primeros análisis de los equipos ya asignados.
+
     Invariante 5: con una respuesta incompleta del indexador no se avanza el cursor. Volver a procesar un
     evento ya visto no duplica nada (detecciones por identificador, estado por fecha, avisos por detección,
     intentos por identificador de alerta; un aviso de algo antiguo queda caducado sin enviarse). Los accesos no
@@ -500,6 +518,9 @@ def reconcile(now=None, pages=3, page_size=200, initial_days=1, stream='defender
     from .reporting import _search, indexer_authorization
     now = now or timezone.now()
     state_name, issue, filters, max_days, issue_title, error_text = _stream(stream)
+    if stream == 'sca':
+        from .endpoint_hardening import RECOVERY_INITIAL_DAYS
+        initial_days = max(initial_days, RECOVERY_INITIAL_DAYS)
     state, _ = WorkerState.objects.get_or_create(name=state_name)
     state.last_run_at = now
     state.save(update_fields=['last_run_at'])
