@@ -177,6 +177,10 @@ Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
 | `signature_version` | CharField | max_length=40; blank=True |
 | `quick_scan_age_days` | PositiveIntegerField | null=True; blank=True |
 | `update_failed_at` | DateTimeField | null=True; blank=True |
+| `platform` | CharField | max_length=10; blank=True |
+| `auth_seen_at` | DateTimeField | null=True; blank=True |
+| `sca_seen_at` | DateTimeField | null=True; blank=True |
+| `fim_seen_at` | DateTimeField | null=True; blank=True |
 ## EndpointDetection
 
 Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).

@@ -53,9 +53,10 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_endpoint_access.py](../../core/test_endpoint_access.py) | 24 |
 | [core/test_endpoint_hardening.py](../../core/test_endpoint_hardening.py) | 12 |
 | [core/test_endpoint_integrity.py](../../core/test_endpoint_integrity.py) | 10 |
+| [core/test_endpoint_linux.py](../../core/test_endpoint_linux.py) | 8 |
 | [core/test_endpoint_portal.py](../../core/test_endpoint_portal.py) | 4 |
 | [core/test_endpoint_vulnerabilities.py](../../core/test_endpoint_vulnerabilities.py) | 8 |
-| [core/test_endpoints.py](../../core/test_endpoints.py) | 22 |
+| [core/test_endpoints.py](../../core/test_endpoints.py) | 23 |
 | [core/test_event_contract.py](../../core/test_event_contract.py) | 16 |
 | [core/test_exposure.py](../../core/test_exposure.py) | 13 |
 | [core/test_exposure_context.py](../../core/test_exposure_context.py) | 8 |
@@ -241,3 +242,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0094_accesos_equipos.py](../../core/migrations/0094_accesos_equipos.py)
 - [core/migrations/0095_configuracion_segura_equipos.py](../../core/migrations/0095_configuracion_segura_equipos.py)
 - [core/migrations/0096_integridad_archivos_equipos.py](../../core/migrations/0096_integridad_archivos_equipos.py)
+- [core/migrations/0097_agentes_linux.py](../../core/migrations/0097_agentes_linux.py)

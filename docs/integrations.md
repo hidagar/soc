@@ -357,7 +357,7 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
   - Un aviso urgente de algo que llega con más de 2 horas queda caducado, sin enviarse.
   - Los agentes de firewalls quedan para la recuperación de los firewalls.
 - Las rutas y usuarios de las detecciones son datos internos.
-- En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus». Sus accesos fallidos (SSH, sudo, PAM), su configuración segura y la integridad de sus archivos sí cuentan: [accesos fallidos](#accesos-fallidos-a-los-equipos-28112026) y [SCA](#configuración-segura-de-los-equipos-sca-28112026).
+- En Linux o macOS no hay Defender: esos equipos quedan «Sin Defender (Linux)» o «(macOS)», sin contar como antivirus que revisar ([agentes Linux](#agentes-linux-y-datos-que-llegan-de-cada-equipo-28112026)). Sus accesos fallidos (SSH, sudo, PAM), su configuración segura y la integridad de sus archivos sí cuentan: [accesos fallidos](#accesos-fallidos-a-los-equipos-28112026) y [SCA](#configuración-segura-de-los-equipos-sca-28112026).
 
 ## Vulnerabilidades de los equipos (28/11/2026)
 
@@ -394,6 +394,15 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
 - **SOC:** «Cobertura y salud › Configuración de equipos»: equipos evaluados, cumplimiento medio, equipos por debajo del 50 %, lo que dejó de cumplir en 7 días y «Qué corregir primero», agrupado por comprobación con los equipos, el motivo, la corrección y las referencias de cumplimiento.
 - **Cliente** (con «Portal: antivirus de equipos»): en «Equipos», «Configuración segura»: guía, porcentaje que cumple, cuántas por corregir y fecha por equipo, y las 15 recomendaciones que más se repiten (título y equipos). Sin el texto de corrección ni identificadores (invariante 3). El inicio propone «Mejorar la configuración de seguridad» si algún equipo cumple menos del 50 %. No cumplir una recomendación no es un ataque ni una vulnerabilidad explotada (invariante 4).
 - **Conservación:** es un estado, no un evento: se borra con el equipo retirado.
+
+## Agentes Linux y datos que llegan de cada equipo (28/11/2026)
+
+Migración 0097 (`EndpointAgent.platform`, `auth_seen_at`, `sca_seen_at`, `fim_seen_at`). Lo hace `endpoints.observe` con cada evento de agente, también antes de asignarlo (no son datos del cliente):
+- **Sistema** (`platform_of`): Windows por cualquier evento de Windows (canal, registro o ruta `C:\`) o política CIS de Windows; Linux por la política CIS de su distribución o un registro de `/var/log` o journald; macOS por su política CIS. Un evento de Windows corrige una suposición anterior; uno de Linux solo decide si aún no se sabía. La migración rellena los equipos existentes con Defender, el registro de Windows o su política CIS.
+- **Antivirus:** un equipo Linux o macOS sin eventos de Defender queda «Sin Defender (Linux)» (para el cliente, «Sin antivirus vigilado»), no «Sin datos del antivirus», y no cuenta como antivirus por revisar en la ficha ni en el portal.
+- **Datos que llegan:** fecha del último evento de acceso, de configuración segura y de integridad de archivos de cada equipo (se reescribe como mucho una vez por hora), en la tabla de «Antivirus de equipos» con el sistema. «Sin registros de acceso»: equipo asignado hace más de un día que envía eventos pero ningún acceso en un día; en Linux suele ser que no existe `/var/log/auth.log` (Debian 12 mínimo, solo journald). Remedio en [despliegue](deployment.md#antivirus-de-equipos-agentes-wazuh-con-microsoft-defender): instalar `rsyslog`, sin añadir journald al agente (contaría dos veces).
+- **Instalación:** `configurar_defender.sh --grupo CODIGO` muestra también los comandos de Debian/Ubuntu y RHEL/Rocky/Alma. El mismo grupo sirve para Windows y Linux (cada bloque de `agent.conf` lleva su `os`).
+- **Qué cubre en Linux** sin configuración adicional: accesos (SSH, sudo, PAM), configuración segura (CIS de la distribución), integridad de archivos (más tiempo real con la plantilla del grupo) y vulnerabilidades del inventario de paquetes.
 
 ## Integridad de archivos de los equipos (28/11/2026)
 

@@ -215,6 +215,12 @@ class DefenderScriptTests(SimpleTestCase):
         self.assertTrue(any('System32\\Tasks' in (d.text or '') for d in root.iter('directories')))
         self.assertIn('vigila en tiempo real', self.run_script('--ver').stdout)
 
+    def test_group_output_explains_how_to_install_linux_agents(self):
+        result = self.run_script('--grupo', 'talleres')
+        self.assertIn('WAZUH_AGENT_GROUP="soc-talleres" apt-get install wazuh-agent', result.stdout)
+        self.assertIn('dnf install wazuh-agent', result.stdout)
+        self.assertIn('/var/log/secure', result.stdout)
+
     def test_rules_are_installed_only_if_wazuh_accepts_them(self):
         (self.dir / 'fail').touch()
         result = self.run_script('--reglas')
