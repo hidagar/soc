@@ -151,7 +151,7 @@ sudo cscli bouncers add soc-portal                  # muestra la clave UNA vez
 
 Guardar la clave como `SOC_PORTAL_CROWDSEC_LAPI_KEY=` en `/etc/soc-portal/portal.env` (nunca en el repositorio ni en el chat) y reiniciar `soc-portal`. Comprobar con `sudo cscli decisions list --origin CAPI | head` que llega la lista comunitaria (puede tardar hasta dos horas tras el primer arranque) y, en la consola, suscribir el motor a las listas gratuitas deseadas.
 
-- **Lista completa o «Lite»:** CrowdSec entrega la lista comunitaria completa solo a motores que comparten señales de sus propias detecciones; si no comparten, reciben la versión reducida. Compartir señales envía a CrowdSec las IPs que el motor detecta atacando a la VM (con escenario y hora), no los eventos de los clientes. Es una decisión del responsable del SOC; documentarla.
+- **Lista completa o «Lite»:** CrowdSec entrega la lista comunitaria completa solo a motores que comparten señales de sus propias detecciones; si no comparten, reciben la versión reducida. Compartir señales envía a CrowdSec las IPs que el motor detecta atacando a la VM (con escenario y hora), no los eventos de los clientes. **Decisión del 28/11/2026: el motor del SOC no comparte señales.** Se aplica con `sudo deploy/configurar_crowdsec_privado.sh --aplicar`: escribe `api.server.online_client.sharing: false` en `/etc/crowdsec/config.yaml.local` (archivo de ajustes locales de CrowdSec, sin tocar `config.yaml`), comprueba la configuración con `crowdsec -t`, desactiva las opciones de la consola (`cscli console disable --all`: decisiones manuales, escenarios propios o modificados y contexto) y reinicia el motor. La lista comunitaria se sigue recibiendo en su versión reducida, y las listas suscritas en la consola. `--ver` muestra el estado.
 - **Este motor no bloquea nada:** sin bouncer de firewall instalado, sus decisiones solo se consultan. Bloquear es la fase 7A/C2.
 - Puerto: la API local escucha en `127.0.0.1:8080` por defecto. Si choca con otro servicio, cambiar `api.server.listen_uri` en `/etc/crowdsec/config.yaml` y ajustar `SOC_PORTAL_CROWDSEC_LAPI_URL`.
 
@@ -359,9 +359,9 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
 - Las rutas y usuarios de las detecciones son datos internos.
 - En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus».
 
-## Reputación propia del SOC (observación)
+## Reputación propia del SOC
 
-`core/soc_reputation.py` y la página «Detección e investigación → Reputación propia». Requiere el permiso `manage_operations` y **acceso a todos los clientes**, porque resume ataques a varios de ellos. El SOC usa las detecciones de todos sus clientes para formar su propia lista de IPs atacantes. Esta fase es solo de **observación**: no bloquea ni distribuye nada.
+`core/soc_reputation.py` y la página «Detección e investigación → Reputación propia». Requiere el permiso `manage_operations` y **acceso a todos los clientes**, porque resume ataques a varios de ellos. El SOC usa las detecciones de todos sus clientes para formar su propia lista de IPs atacantes. Desde el 28/11/2026 se distribuye en las listas de bloqueo (punto 7).
 
 1. **Cálculo:** el trabajo `soc_reputation` se ejecuta cada hora.
    - Agrupa las detecciones de 30 días por IP de origen y cliente. Usa el propietario histórico igual al cliente actual del equipo y excluye las de política de aplicaciones.
@@ -381,7 +381,8 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
    - Solo cuentan las detecciones que recibe el SOC, no todo el tráfico.
    - Atacar a varios clientes no acredita un compromiso (invariante 4).
    - Las IPs son datos personales: uso interno para proteger a los clientes, sin compartirlas fuera del SOC.
-   - Distribuirla a los firewalls (opción por cliente en su lista de bloqueo) es una fase posterior, cuando la medida preventiva lo justifique.
+7. **En las listas de bloqueo** (28/11/2026, decisión del usuario): opción por cliente «IPs con reputación propia del SOC», activada por defecto y en las listas existentes (migración 0092). Entran las IPs de nivel «Confirmada» o «Propia» aunque aún no hayan atacado a ese cliente, con el motivo «Reputación del SOC: ataca a N clientes» y la fuente `soc`. Solo con un cálculo de menos de 2 horas: si el trabajo deja de funcionar, no entra nada. Las excepciones, las IPs protegidas, el máximo de entradas y el freno de emergencia se aplican igual. «En observación» no entra nunca.
+8. **Al cliente** (portal, «Detecciones»): junto a cada IP de origen, como mucho estas etiquetas, con datos vigentes (`customer_portal.reputation_labels`, proyección explícita, invariante 3): «Maliciosa según CrowdSec», «En listas de bloqueo de CrowdSec», «Sospechosa según CrowdSec», «En listas de amenazas de Q-Feeds» (solo si coincide en sus propias detecciones), «Ataca también a otras empresas del servicio» (reputación propia bloqueable) y «Escaneo masivo de Internet» (ruido de fondo). Nunca escenarios, comportamientos, listas concretas, cuántos ni qué otros clientes. Una IP que la CTI marca como posible falso positivo no lleva etiquetas de CrowdSec. Son contexto: no prueban un ataque dirigido ni un compromiso.
 
 ## Propagación a los firewalls (30/11/2026)
 

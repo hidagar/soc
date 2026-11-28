@@ -425,6 +425,7 @@ Fuente: [core/improvement_models.py](../../core/improvement_models.py).
 | `include_cti` | BooleanField |  |
 | `include_soc_detections` | BooleanField |  |
 | `include_repeat_attackers` | BooleanField |  |
+| `include_soc_reputation` | BooleanField |  |
 | `outbound_enabled` | BooleanField |  |
 | `include_c2_detections` | BooleanField |  |
 | `include_qfeeds` | BooleanField |  |

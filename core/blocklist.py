@@ -309,6 +309,18 @@ def soc_detections(now):
     return items
 
 
+REPUTATION_FRESH = timedelta(hours=2)  # el trabajo es horario: un cálculo más viejo no es motivo para bloquear
+
+
+def soc_reputation_sources(now):
+    """{IP: (nivel, clientes atacados)} con reputación propia bloqueable («Confirmada» o «Propia») y recalculada hace
+    menos de 2 horas. Si el trabajo «Reputación propia del SOC» deja de funcionar, no entra nada (estado seguro)."""
+    from .models import SocReputation
+    from .soc_reputation import BLOCKABLE
+    rows = SocReputation.objects.filter(level__in=BLOCKABLE, updated_at__gte=now - REPUTATION_FRESH)
+    return {ip: (level, clients) for ip, level, clients in rows.values_list('ip', 'level', 'clients')}
+
+
 def qualifying(now, any_qfeeds=False):
     """IPs con motivo vigente para bloquear y su motivo. La reputación sola no basta: ver `build`.
 
@@ -386,7 +398,7 @@ def repeat_attackers(now, client_ids):
     return result
 
 
-def build(feed, candidates, stats, protected, now, soc=None, repeat=None):
+def build(feed, candidates, stats, protected, now, soc=None, repeat=None, reputation=None):
     """Entradas de un cliente: primero los bloqueos manuales vigentes, después lo detectado por el
     propio SOC y lo que atacó a algún cliente (le atacaron a él, a más clientes, más veces), hasta el máximo."""
     allow = parse_allowlist(feed.allowlist)
@@ -446,6 +458,28 @@ def build(feed, candidates, stats, protected, now, soc=None, repeat=None):
             item = stats.get(ip, {'count': events, 'clients': {feed.client_id: (events, allowed)}})
             entries.append({'ip': ip, 'reasons': [reason], 'repeat': True, 'sources': ['soc'], 'clients': len(item['clients']),
                             'events': item['count'], 'here': events, 'here_allowed': allowed})
+    if feed.include_soc_reputation:
+        listed = {e['ip']: e for e in entries}
+        for ip, (level, clients) in sorted((reputation or {}).items()):
+            reason = (f'Reputación del SOC: ataca a {clients} clientes'
+                      + (' (confirmada por CrowdSec o Q-Feeds)' if level == 'confirmed' else ''))
+            if ip in listed:
+                listed[ip]['reasons'] = listed[ip]['reasons'] + [reason]
+                listed[ip]['sources'] = sorted(set(listed[ip]['sources']) | {'soc'})
+                listed[ip].pop('qfeeds_only', None)  # también lo justifica el propio SOC
+                continue
+            try:
+                address = ipaddress.ip_address(ip)
+            except ValueError:
+                continue
+            if (ip in seen or inside(ip) or not address.is_global or ip in protected
+                    or any(address.version == n.version and address in n for n in allow)):
+                continue
+            item = stats.get(ip, {'count': 0, 'clients': {}})
+            here = item['clients'].get(feed.client_id, (0, 0))
+            entries.append({'ip': ip, 'reasons': [reason], 'reputation': True, 'sources': ['soc'],
+                            'clients': max(clients, len(item['clients'])), 'events': item['count'],
+                            'here': here[0], 'here_allowed': here[1]})
     entries.sort(key=lambda e: (-e['here'], -e['clients'], -e['events'], e['ip']))
     # Los manuales no cuentan para el máximo: son decisiones explícitas y con caducidad.
     return manual + (detected + entries)[:feed.max_entries]
@@ -468,14 +502,15 @@ def refresh_feeds(now=None):
     soc = soc_detections(now) if any(f.include_soc_detections for f in feeds) else {}
     c2 = c2_destinations(now) if any(f.outbound_enabled for f in feeds) else {}
     qfeeds = qfeeds_destinations() if any(f.outbound_enabled and f.include_qfeeds_c2 for f in feeds) else {}
-    stats = activity(set(candidates) | {ip for ip in soc if '/' not in ip}, now)
+    reputation = soc_reputation_sources(now) if any(f.include_soc_reputation for f in feeds) else {}
+    stats = activity(set(candidates) | {ip for ip in soc if '/' not in ip} | set(reputation), now)
     protected = protected_addresses()
     repeat = repeat_attackers(now, [f.client_id for f in feeds if f.include_repeat_attackers])
     from .qfeeds_distribution import refresh_counts
     counts = refresh_counts(feeds)
     for feed in feeds:
         try:
-            entries = build(feed, candidates, stats, protected, now, soc, repeat.get(feed.client_id))
+            entries = build(feed, candidates, stats, protected, now, soc, repeat.get(feed.client_id), reputation)
             outbound = build_outbound(feed, c2, protected, now, qfeeds) if feed.outbound_enabled else []
         except ValueError:
             continue  # Excepciones no válidas: se conserva la última lista buena y se avisa en su página.
@@ -1042,6 +1077,7 @@ def detail(request, client_pk):
                 feed.include_cti = request.POST.get('include_cti') == 'on'
                 feed.include_soc_detections = request.POST.get('include_soc_detections') == 'on'
                 feed.include_repeat_attackers = request.POST.get('include_repeat_attackers') == 'on'
+                feed.include_soc_reputation = request.POST.get('include_soc_reputation') == 'on'
                 feed.outbound_enabled = request.POST.get('outbound_enabled') == 'on'
                 feed.include_c2_detections = request.POST.get('include_c2_detections') == 'on'
                 feed.include_qfeeds = request.POST.get('include_qfeeds') == 'on'
@@ -1056,7 +1092,7 @@ def detail(request, client_pk):
                 feed.dns_resolver = request.POST.get('dns_resolver') == 'on'
                 feed.enabled = request.POST.get('enabled') == 'on'
                 feed.save(update_fields=['allowlist', 'max_entries', 'include_lists', 'include_cti', 'include_soc_detections',
-                                         'include_repeat_attackers',
+                                         'include_repeat_attackers', 'include_soc_reputation',
                                          'outbound_enabled', 'include_c2_detections', 'include_qfeeds', 'include_qfeeds_c2',
                                          'qfeeds_preventive', 'preventive_max', 'qfeeds_dns', 'dns_allowlist', 'dns_resolver',
                                          'enabled', 'updated_at'])

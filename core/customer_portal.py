@@ -102,6 +102,49 @@ def detection_row(row):
             'port': row['destination_port'], 'country': geo.get('country', '') if inbound and geo.get('status') == 'located' else ''}
 
 
+# Reputación de los orígenes que ve el cliente (proyección explícita, invariante 3): solo estas etiquetas, nunca
+# escenarios, comportamientos, listas concretas, otros clientes ni cifras de otros clientes.
+REPUTATION = {
+    'crowdsec': ('Maliciosa según CrowdSec', 'warn'),
+    'listed': ('En listas de bloqueo de CrowdSec', 'warn'),
+    'suspicious': ('Sospechosa según CrowdSec', 'info'),
+    'qfeeds': ('En listas de amenazas de Q-Feeds', 'warn'),
+    'soc': ('Ataca también a otras empresas del servicio', 'warn'),
+    'noise': ('Escaneo masivo de Internet', 'muted'),
+}
+
+
+def reputation_labels(client, ips, now=None):
+    """{IP: [(etiqueta, tono)]} con datos vigentes del SOC. Una IP marcada como posible falso positivo por la CTI no
+    lleva etiquetas de CrowdSec. Estar en una lista es contexto: no prueba un ataque dirigido ni un compromiso."""
+    from .models import IpReputation, SocReputation, ThreatIntelMatch
+    from .reputation import TTL
+    from .soc_reputation import BLOCKABLE
+    now = now or timezone.now()
+    ips = sorted({ip for ip in ips if _public(ip)})
+    found = {ip: [] for ip in ips}
+    if not ips:
+        return {}
+    for row in IpReputation.objects.filter(ip__in=ips):
+        if row.cti_found and row.false_positives:
+            continue
+        cti = bool(row.cti_found and row.cti_checked_at and now - row.cti_checked_at <= TTL)
+        if cti and row.reputation == 'malicious':
+            found[row.ip].append('crowdsec')
+        elif row.listed and row.lists_checked_at and now - row.lists_checked_at <= timedelta(hours=24):
+            found[row.ip].append('listed')
+        elif cti and row.reputation == 'suspicious':
+            found[row.ip].append('suspicious')
+        if cti and row.background_noise == 'high':
+            found[row.ip].append('noise')
+    for ip in ThreatIntelMatch.objects.filter(client=client, role='source', ip__in=ips).values_list('ip', flat=True):
+        found[ip].append('qfeeds')
+    for ip in SocReputation.objects.filter(ip__in=ips, level__in=BLOCKABLE,
+                                           updated_at__gte=now - timedelta(hours=2)).values_list('ip', flat=True):
+        found[ip].append('soc')
+    return {ip: [REPUTATION[code] for code in codes] for ip, codes in found.items() if codes}
+
+
 def firewall_rows(client, now=None):
     """Estado de cada firewall activo del cliente, sin textos internos del SOC."""
     now = now or timezone.now()
@@ -233,6 +276,10 @@ def detections_context(request, client, preview=False):
     listed = qs.filter(action=action) if action != 'all' else qs
     page = Paginator(listed.values(*FIELDS).order_by('-observed_at', 'uid'), PAGE).get_page(request.GET.get('page'))
     page.object_list = [detection_row(row) for row in page.object_list]
+    labels = reputation_labels(client, [d['source'] for d in page.object_list] + [ip for ip, _ in summary['origins']])
+    for row in page.object_list:
+        row['reputation'] = labels.get(row['source'], [])
+    summary['origins'] = [(ip, count, labels.get(ip, [])) for ip, count in summary['origins']]
     params = request.GET.copy()
     params.pop('page', None)
     return {'client': client, 'days': days, 'action': action, 'actions': ACTIONS, 'firewall': firewall, 'firewalls': names,

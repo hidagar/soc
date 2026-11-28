@@ -10,8 +10,10 @@ y cliente, con el propietario histórico de la evidencia igual al cliente actual
 Frenos: solo IPs públicas que no sean de clientes ni del SOC ni excepciones (`protected_addresses`); un
 cliente solo cuenta si hay tráfico no UDP (el origen UDP se puede falsificar); un mínimo de detecciones.
 
-Esta fase no distribuye nada. Mide si la lista habría protegido: cuando una IP alcanza un nivel
-bloqueable se anotan la fecha y los clientes atacados, y después los clientes nuevos a los que ataca.
+Desde el 28/11/2026 las IPs con nivel bloqueable entran en las listas de bloqueo de los clientes
+(opción «reputación propia del SOC», activada por defecto; core.blocklist). Se sigue midiendo si la lista
+habría protegido: cuando una IP alcanza un nivel bloqueable se anotan la fecha y los clientes atacados, y
+después los clientes nuevos a los que ataca.
 Atacar a varios clientes no acredita un compromiso (invariante 4). Las IPs son datos personales: uso
 interno del SOC para proteger a sus clientes, sin compartirlas fuera.
 """

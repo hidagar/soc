@@ -85,11 +85,11 @@ class CustomerPortalTests(TestCase):
                      'Malware o control remoto', 'Escaneo o reconocimiento', 'Bloqueada', 'Permitida'):
             self.assertContains(page, text)
         self.assertEqual(page.context['summary']['totals']['total'], 2)
-        self.assertEqual(page.context['summary']['origins'], [('45.155.205.233', 1)])
+        self.assertEqual(page.context['summary']['origins'], [('45.155.205.233', 1, [])])
         self.assert_no_internal(page)
         row = page.context['page'].object_list[0]
         self.assertEqual(set(row), {'observed_at', 'firewall', 'site', 'signature', 'category', 'family', 'action',
-                                    'action_label', 'source', 'destination', 'port', 'country'})
+                                    'action_label', 'source', 'destination', 'port', 'country', 'reputation'})
 
     def test_filters_are_validated_and_cannot_reach_other_companies(self):
         url = reverse('customer_detections')

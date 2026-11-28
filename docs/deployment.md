@@ -131,6 +131,10 @@ Para bloquear dominios en sedes cuyo firewall no admite listas DNS (Grandstream 
 
 Necesita salida DNS (53/UDP y TCP) desde la VM hacia Internet: Unbound resuelve por sí mismo. Las reglas nft de la VPN (`soc-vpn`) solo abren el puerto 53 a las sedes de clientes con «DNS del SOC» activado; sin ninguno, no cambian. `--ver` muestra el estado. Después, en el portal, se activa «DNS del SOC» en la lista de bloqueo del cliente y se configura su firewall con la guía.
 
+## CrowdSec sin compartir señales
+
+`sudo deploy/configurar_crowdsec_privado.sh --aplicar` deja el motor CrowdSec del SOC sin enviar señales ni datos a CrowdSec. Escribe `sharing: false` en `/etc/crowdsec/config.yaml.local` y desactiva las opciones de la consola; si `crowdsec -t` no lo acepta, retira el ajuste. Si `config.yaml.local` ya existe con otros ajustes, se detiene e indica qué añadir a mano. La lista comunitaria pasa a la versión reducida. `--ver` muestra el estado. [Integraciones](integrations.md#instalar-el-motor-local-modo-gratuito).
+
 ## Reversión
 
 Detener escritores/timers y servicios nuevos antes de restaurar código/unidades y base compatible. Retirar archivos nuevos ausentes en versión anterior; no dejar migraciones importándose contra un esquema restaurado. Recargar systemd, regenerar estáticos y arrancar componentes previstos.

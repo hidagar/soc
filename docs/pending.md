@@ -17,6 +17,7 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 | Contratar el plan de pago de Q-Feeds para el SOC (plan A) | Q-Feeds, 20/11 | Q-Feeds confirmó el 20/11 que el uso central cabe en el plan normal. Antes de elegir entre Plus y Premium: mirar «Evolución» unos días y probar Premium 7 días (cambiando `SOC_PORTAL_QFEEDS_KEY`). Tras contratar, añadir a `SOC_PORTAL_QFEEDS_FEEDS` las listas nuevas que muestre «Listas que ofrece tu licencia». |
 | Activar Q-Feeds en la lista de bloqueo de los clientes | Q-Feeds, 20/11 | Las listas que ya existían la tienen desmarcada. Empezar por un cliente piloto (Pollença): marcar «IPs en listas de Q-Feeds», revisar «Q-Feeds en esta lista» y extender al resto desde «Q-Feeds en los clientes» (activación masiva con vista previa). La lista de salida con Q-Feeds es opcional. |
 | Aprobar las actualizaciones de plantilla 1.1 | Propagación, 30/11 | En «Listas de bloqueo › Propagación a los firewalls», cada regla activa anterior tiene preparada su «Actualización a 1.1» (tabla cada ~15 minutos): revisarla, crear el borrador, activarla con MFA y confirmar que el firewall sigue descargando. |
+| Dejar el motor CrowdSec sin compartir señales: `sudo deploy/configurar_crowdsec_privado.sh --aplicar` | CrowdSec, 28/11 | Decisión del usuario. La lista comunitaria pasa a la versión reducida; comprobar después que sigue llegando (`sudo cscli decisions list --origin CAPI \| head`). [Despliegue](deployment.md#crowdsec-sin-compartir-señales). |
 | Limitar la clave de Q-Feeds a la IP pública del SOC | Q-Feeds, 30/11 | En el portal de Q-Feeds, restringir la clave a la IP de salida de la VM. Si se limitan también los programas, incluir `ib-red-SOC/1`. «Inteligencia Q-Feeds» muestra si ya está limitada. |
 | Confirmar con Q-Feeds que el acuerdo cubre la lista completa y los dominios | Q-Feeds para los clientes, 23/11 | La lista preventiva reparte todas las IPs de Q-Feeds (no solo las vistas en detecciones) y la de DNS, sus dominios. Conservar la confirmación junto al contrato antes de activarlas en clientes. |
 | Lista preventiva de Q-Feeds en el piloto | Q-Feeds para los clientes, 23/11 | Activarla en un cliente, preparar la regla de entrada con el control de cambios y comprobar «IPs cargadas» tras la primera medición. Si el firewall carga menos de lo publicado, subir «Máximo de entradas de tablas» en OPNsense o bajar el máximo de la lista. Revisar excepciones con el cliente (proveedores, nube). |
@@ -91,8 +92,7 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 - Hecho el 29/11: DNS del SOC por la VPN de sedes para el GCC (y cualquier sede con la VPN).
 - Hecho el 28/11: preventiva de Q-Feeds de salida en UniFi.
 - Q-Feeds: TAXII 2.1 (hashes) si se contrata Enterprise.
-- Reputación propia: distribuirla como opción de la lista de bloqueo cuando la medida lo justifique.
-- CrowdSec: decidir si el motor comparte señales; decidir qué reputación se publica al cliente.
+- Hecho el 28/11: reputación propia del SOC en las listas de bloqueo (activada) y reputación de los orígenes en el portal del cliente; decidido que el motor CrowdSec no comparte señales (script).
 
 ### Base, despliegue y continuidad (bloques 4 y 8)
 - Ensayo con una copia de la base real en staging y restauración completa de la copia cifrada con PostgreSQL.

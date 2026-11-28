@@ -97,6 +97,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_report_freshness.py](../../core/test_report_freshness.py) | 4 |
 | [core/test_report_sharing.py](../../core/test_report_sharing.py) | 8 |
 | [core/test_report_versions.py](../../core/test_report_versions.py) | 8 |
+| [core/test_reputacion_listas.py](../../core/test_reputacion_listas.py) | 6 |
 | [core/test_reputation.py](../../core/test_reputation.py) | 39 |
 | [core/test_request_attachments.py](../../core/test_request_attachments.py) | 8 |
 | [core/test_request_sla.py](../../core/test_request_sla.py) | 6 |
@@ -231,3 +232,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0089_descargas_listas.py](../../core/migrations/0089_descargas_listas.py)
 - [core/migrations/0090_dns_del_soc.py](../../core/migrations/0090_dns_del_soc.py)
 - [core/migrations/0091_unifi_preventiva_salida.py](../../core/migrations/0091_unifi_preventiva_salida.py)
+- [core/migrations/0092_reputacion_en_listas.py](../../core/migrations/0092_reputacion_en_listas.py)
