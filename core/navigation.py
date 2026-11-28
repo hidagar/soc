@@ -67,6 +67,7 @@ def _staff_groups(user, global_access):
             _item("Vulnerabilidades", "vulnerabilities"),
             _item("Vulnerabilidades de equipos", "endpoint_vulnerabilities"),
             _item("Antivirus de equipos", "endpoints"),
+            _item("Accesos a equipos", "endpoint_access"),
             _item("Políticas propuestas", "policies"),
             _item("Control de exposición", "exposure_list", ["exposure_detail", "exposure_interfaces",
                   "exposure_recheck", "unifi_policies"]),
@@ -114,12 +115,15 @@ def badges():
     policies = PolicyProposal.objects.filter(status__in=("proposed", "approved", "not_effective"))
     from .threat_intel import review_queue
     from .endpoints import badge as endpoint_badge
+    from .endpoint_access import badge as access_badge
     destinations = review_queue()
     return {
         # Destinos salientes de las listas de Q-Feeds por revisar; urgente si alguno tuvo tráfico permitido.
         "crowdsec_overview": (len(destinations), any(m.allowed for m in destinations)),
         # Detecciones del antivirus de los equipos por revisar; urgente si alguna se permitió o no se pudo contener.
         "endpoints": endpoint_badge(),
+        # Accesos correctos tras fallos y cuentas bloqueadas por revisar; urgente si hay un acceso tras fallos.
+        "endpoint_access": access_badge(),
         "requests": (requests.count(), requests.filter(urgent=True).exists()),
         "vulnerabilities": (exposures.values("device").distinct().count(), exposures.filter(record__kev_added__isnull=False).exists()),
         "policies": (policies.count(), policies.filter(status="approved").exists()),

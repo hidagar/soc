@@ -87,6 +87,9 @@ Además borra los registros operativos que crecían sin límite. Los plazos son 
 | Propuestas de política «Ya no aplica» | sin cambios en 180 días | Ya no se muestran a nadie. |
 | Consultas de contexto de Q-Feeds (`ThreatIntelLookup`) | más de 90 días, salvo las que están en cola | Son una caché; se pueden repetir. |
 | Vulnerabilidades de equipos corregidas (`EndpointVulnerability`) | 365 días desde que dejaron de aparecer | Las abiertas se conservan siempre. |
+| Identificadores de intentos de acceso ya contados (`EndpointAccessEvent`) | más de 30 días | Evitan contar dos veces un intento al releer; la recuperación de accesos no mira más de 25 días atrás. |
+| Fallos de acceso aislados (`EndpointAccessAlert` «Fallos aislados») | sin intentos en 7 días | No se muestran; solo sirven para formar una ráfaga. |
+| Ráfagas de accesos fallidos revisadas sin incidencia | con el plazo de las evidencias | Las pendientes y las que tienen incidencia se conservan. |
 
 ## Versión instalada
 

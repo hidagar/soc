@@ -206,6 +206,10 @@ def portal_attention(context):
     endpoints=context.get('endpoint_status') or {}
     add(endpoints.get('unresolved_malware',0),'Revisar un equipo con malware sin eliminar','Revisar {n} equipos con malware sin eliminar',
         'El antivirus no pudo eliminarlo o se permitió: seguid los pasos del aviso urgente.',links['endpoints'],'alert')
+    add(endpoints.get('access_after_failures',0),'Confirmar un acceso a un equipo tras intentos fallidos',
+        'Confirmar {n} accesos a equipos tras intentos fallidos',
+        'Hubo un acceso correcto desde Internet después de varias contraseñas equivocadas: confirmad que fue el usuario.',
+        links['endpoints']+'#accesos','alert')
     add(endpoints.get('critical_vulnerability_devices',0),'Actualizar un equipo con vulnerabilidades críticas',
         'Actualizar {n} equipos con vulnerabilidades críticas',
         'Tienen programas con fallos de seguridad graves conocidos: instalad las actualizaciones.',links['endpoints'],'alert')

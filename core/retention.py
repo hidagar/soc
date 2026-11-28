@@ -17,7 +17,9 @@ Plazos de los registros operativos (constantes; cambiarlos aquí y en docs/opera
 - consultas de contexto de Q-Feeds: 90 días (son una caché);
 - vulnerabilidades de equipos ya corregidas: 365 días desde que dejaron de aparecer;
 - antivirus de equipos: detecciones revisadas sin incidencia, con el plazo de las evidencias; agentes sin
-  asignar sin eventos en 90 días; equipos retirados (con sus detecciones), 400 días.
+  asignar sin eventos en 90 días; equipos retirados (con sus detecciones), 400 días;
+- accesos fallidos de equipos: identificadores de intentos ya contados, 30 días; fallos aislados (no se
+  muestran), 7 días; ráfagas revisadas sin incidencia, con el plazo de las evidencias.
 """
 import time
 from datetime import timedelta
@@ -39,6 +41,8 @@ CONTEXT_LOOKUP_DAYS = 90
 STALE_PENDING_AGENT_DAYS = 90
 RETIRED_AGENT_DAYS = 400
 RESOLVED_VULNERABILITY_DAYS = 365  # vulnerabilidades de equipos ya corregidas
+ACCESS_EVENT_DAYS = 30  # identificadores de intentos ya contados (la recuperación mira 25 días)
+ISOLATED_ACCESS_DAYS = 7  # fallos aislados: no se muestran, solo sirven para formar una ráfaga
 CHAT_FINAL = ('accepted', 'delivered', 'suppressed', 'failed', 'uncertain', 'expired')
 
 
@@ -65,8 +69,8 @@ def prune(now=None, budget=BUDGET):
     cutoff = now - timedelta(days=days)
     deadline = time.monotonic() + budget
     result = {'checked_at': now.isoformat(), 'evidence_days': days, 'pending': False}
-    from .models import (ChatNotice, ConnectivityEvent, CustomerRequest, EndpointAgent, EndpointDetection,
-                         EndpointVulnerability, PolicyProposal, ThreatIntelLookup)
+    from .models import (ChatNotice, ConnectivityEvent, CustomerRequest, EndpointAccessAlert, EndpointAccessEvent,
+                         EndpointAgent, EndpointDetection, EndpointVulnerability, PolicyProposal, ThreatIntelLookup)
     for name, queryset in (
             ('auth_attempts', AuthAttempt._base_manager.filter(
                 occurred_at__lt=now - timedelta(days=AUTH_ATTEMPT_DAYS)).order_by('occurred_at')),
@@ -82,6 +86,12 @@ def prune(now=None, budget=BUDGET):
                 status='obsolete', updated_at__lt=now - timedelta(days=OBSOLETE_PROPOSAL_DAYS)).order_by('updated_at')),
             ('endpoint_detections', EndpointDetection._base_manager.filter(
                 review='reviewed', incident__isnull=True, observed_at__lt=cutoff).order_by('observed_at')),
+            ('endpoint_access_events', EndpointAccessEvent._base_manager.filter(
+                observed_at__lt=now - timedelta(days=ACCESS_EVENT_DAYS)).order_by('observed_at')),
+            ('isolated_access', EndpointAccessAlert._base_manager.filter(
+                kind='isolated', last_at__lt=now - timedelta(days=ISOLATED_ACCESS_DAYS)).order_by('last_at')),
+            ('endpoint_access', EndpointAccessAlert._base_manager.filter(
+                review='reviewed', incident__isnull=True, last_at__lt=cutoff).order_by('last_at')),
             ('pending_agents', EndpointAgent._base_manager.filter(
                 status='pending', last_seen_at__lt=now - timedelta(days=STALE_PENDING_AGENT_DAYS)).order_by('last_seen_at')),
             ('retired_agents', EndpointAgent._base_manager.filter(

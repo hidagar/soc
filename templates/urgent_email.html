@@ -8,7 +8,7 @@
 {% if alert.external_ip %}<tr><td style="padding:8px;border-bottom:1px solid #d8e3e8">IP de origen</td><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ alert.external_ip }}</td></tr>{% endif %}
 {% if alert.action %}<tr><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ action_title }}</td><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ action_label }}</td></tr>{% endif %}
 {% if alert.signature %}<tr><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ signature_title }}</td><td style="padding:8px;border-bottom:1px solid #d8e3e8">{{ alert.signature }}</td></tr>{% endif %}</table>
-<p>Nivel Wazuh: {{ alert.rule_level }} · Prioridad SOC: {{ alert.interpretation.priority_label|default:"por revisar" }}{% if alert.interpretation.vendor_severity %} · Severidad del fabricante: {{ alert.interpretation.vendor_severity }}{% endif %}</p>
+<p>{% if alert.rule_level %}Nivel Wazuh: {{ alert.rule_level }} · {% endif %}Prioridad SOC: {{ alert.interpretation.priority_label|default:"por revisar" }}{% if alert.interpretation.vendor_severity %} · Severidad del fabricante: {{ alert.interpretation.vendor_severity }}{% endif %}</p>
 <h2 style="font-size:18px;margin-top:23px">Qué hacer ahora</h2><ol>{% for action in actions %}<li style="padding-bottom:8px">{{ action }}</li>{% endfor %}</ol>
 <p style="font-size:12px;color:#526579;border-top:1px solid #d8e3e8;padding-top:14px">Aviso generado con eventos recibidos por Wazuh desde una fuente verificada de {{ client.name }}. Una detección no demuestra por sí sola que el equipo haya sido comprometido. Si ya estáis gestionando este evento, no hace falta duplicar la incidencia.</p>
 </body></html>

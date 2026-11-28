@@ -223,6 +223,43 @@ Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
 | `first_seen_at` | DateTimeField |  |
 | `last_seen_at` | DateTimeField |  |
 | `resolved_at` | DateTimeField | null=True; blank=True; db_index=True |
+## EndpointAccessAlert
+
+Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
+
+Ámbito declarado: `'client_scope_id'`. Ver manager/middleware para aplicación.
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `agent` | ForeignKey | → EndpointAgent; on_delete=models.CASCADE |
+| `client_scope_id` | PositiveBigIntegerField | db_index=True |
+| `source_ip` | GenericIPAddressField | null=True; blank=True |
+| `source_public` | BooleanField |  |
+| `group_user` | CharField | max_length=120; blank=True |
+| `users` | JSONField | blank=True |
+| `first_at` | DateTimeField | db_index=True |
+| `last_at` | DateTimeField | db_index=True |
+| `failures` | PositiveIntegerField |  |
+| `correlated` | BooleanField |  |
+| `locked_out_at` | DateTimeField | null=True; blank=True |
+| `succeeded_at` | DateTimeField | null=True; blank=True |
+| `success_user` | CharField | max_length=120; blank=True |
+| `kind` | CharField | max_length=10; db_index=True |
+| `updated_at` | DateTimeField |  |
+| `review` | CharField | max_length=10; db_index=True |
+| `reviewed_by` | ForeignKey | → settings.AUTH_USER_MODEL; on_delete=models.SET_NULL; null=True; blank=True |
+| `reviewed_at` | DateTimeField | null=True; blank=True |
+| `incident` | ForeignKey | → 'core.Incident'; on_delete=models.SET_NULL; null=True; blank=True |
+## EndpointAccessEvent
+
+Fuente: [core/endpoint_models.py](../../core/endpoint_models.py).
+
+| Campo | Tipo | Relación / atributos declarados |
+|---|---|---|
+| `agent` | ForeignKey | → EndpointAgent; on_delete=models.CASCADE |
+| `alert` | ForeignKey | → EndpointAccessAlert; on_delete=models.CASCADE |
+| `event_id` | CharField | max_length=64 |
+| `observed_at` | DateTimeField | db_index=True |
 ## RunbookStep
 
 Fuente: [core/improvement_models.py](../../core/improvement_models.py).

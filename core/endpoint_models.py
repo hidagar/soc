@@ -112,3 +112,58 @@ class EndpointVulnerability(models.Model):
     class Meta:
         ordering = ['-score', 'cve']
         constraints = [models.UniqueConstraint(fields=['agent', 'cve', 'package'], name='unique_endpoint_vulnerability')]
+
+
+class EndpointAccessAlert(models.Model):
+    """Intentos de acceso fallidos a un equipo (Windows, SSH, sudo, PAM), agrupados por ráfaga.
+
+    Una ráfaga reúne los fallos del mismo equipo y el mismo origen (o del mismo usuario si el evento no trae
+    origen) separados menos de una hora. `kind` solo empeora: fallos aislados → repetidos (5 o más, o la
+    correlación de Wazuh) → cuenta bloqueada → acceso correcto tras los fallos. Un acceso correcto tras fallos no
+    prueba que alguien adivinara la contraseña (puede ser el usuario que se equivocó) ni un fallo prueba un
+    ataque (invariante 4). Usuario e IP interna son datos internos: el cliente no los ve (invariante 3).
+    """
+    KINDS = [('isolated', 'Fallos aislados'), ('repeated', 'Fallos repetidos'), ('lockout', 'Cuenta bloqueada'),
+             ('success', 'Acceso correcto tras los fallos')]
+    REVIEW = [('pending', 'Por revisar'), ('reviewed', 'Revisado'), ('incident', 'Incidencia abierta')]
+    agent = models.ForeignKey(EndpointAgent, on_delete=models.CASCADE, related_name='access_alerts')
+    client_scope_id = models.PositiveBigIntegerField(db_index=True, editable=False)  # cliente al observarlo
+    source_ip = models.GenericIPAddressField(null=True, blank=True)  # origen del intento (dato interno si es privado)
+    source_public = models.BooleanField(default=False)  # origen en Internet
+    group_user = models.CharField(max_length=120, blank=True)  # solo sin origen: agrupa por usuario
+    users = models.JSONField(default=list, blank=True)  # cuentas probadas (máximo 20; dato interno)
+    first_at = models.DateTimeField(db_index=True)
+    last_at = models.DateTimeField(db_index=True)
+    failures = models.PositiveIntegerField(default=0)  # intentos fallidos distintos (por identificador de alerta)
+    correlated = models.BooleanField(default=False)  # Wazuh también lo correlacionó (grupo authentication_failures)
+    locked_out_at = models.DateTimeField(null=True, blank=True)
+    succeeded_at = models.DateTimeField(null=True, blank=True)
+    success_user = models.CharField(max_length=120, blank=True)  # dato interno
+    kind = models.CharField(max_length=10, choices=KINDS, default='isolated', db_index=True)
+    updated_at = models.DateTimeField(default=timezone.now)
+    review = models.CharField(max_length=10, choices=REVIEW, default='pending', db_index=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    incident = models.ForeignKey('core.Incident', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    objects = ScopedManager()
+    customer_lookup = 'client_scope_id'
+
+    class Meta:
+        ordering = ['-last_at', '-pk']
+        indexes = [models.Index(fields=['agent', 'last_at'], name='endpoint_access_agent_last')]
+
+    @property
+    def urgent(self):
+        """Aviso urgente al cliente: acceso correcto tras los fallos desde Internet."""
+        return self.kind == 'success' and self.source_public
+
+
+class EndpointAccessEvent(models.Model):
+    """Identificador de cada alerta de Wazuh ya contada en una ráfaga: repetir la lectura no infla los intentos."""
+    agent = models.ForeignKey(EndpointAgent, on_delete=models.CASCADE, related_name='+')
+    alert = models.ForeignKey(EndpointAccessAlert, on_delete=models.CASCADE, related_name='events')
+    event_id = models.CharField(max_length=64)
+    observed_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['agent', 'event_id'], name='unique_endpoint_access_event')]

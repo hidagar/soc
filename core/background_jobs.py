@@ -31,7 +31,7 @@ JOBS={
     'blocklist_efficacy':(3600,'Eficacia de las reglas de bloqueo'),
     'threat_intel':(900,'Inteligencia Q-Feeds'),
     'attachment_scan':(60,'Antivirus de adjuntos'),
-    'endpoint_reconciliation':(300,'Recuperación del antivirus de equipos'),
+    'endpoint_reconciliation':(300,'Recuperación del antivirus y los accesos de equipos'),
     'endpoint_vulnerabilities':(3600,'Vulnerabilidades de los equipos'),
     'qfeeds_lookup':(60,'Consultas de contexto Q-Feeds'),
     'soc_reputation':(3600,'Reputación propia del SOC'),
@@ -180,7 +180,7 @@ def execute(name):
         return sync_endpoint_vulnerabilities()
     if name=='endpoint_reconciliation':
         from .endpoints import reconcile as reconcile_endpoints
-        return reconcile_endpoints()
+        return reconcile_endpoints() + reconcile_endpoints(stream='access')
     if name=='attachment_scan':
         from .antivirus import scan_pending
         return scan_pending()

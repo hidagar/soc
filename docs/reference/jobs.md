@@ -46,7 +46,7 @@ Estos comandos pueden escribir, configurar equipos, enviar correo o cambiar el s
 | `blocklist_efficacy` | 3600 | Eficacia de las reglas de bloqueo |
 | `threat_intel` | 900 | Inteligencia Q-Feeds |
 | `attachment_scan` | 60 | Antivirus de adjuntos |
-| `endpoint_reconciliation` | 300 | Recuperación del antivirus de equipos |
+| `endpoint_reconciliation` | 300 | Recuperación del antivirus y los accesos de equipos |
 | `endpoint_vulnerabilities` | 3600 | Vulnerabilidades de los equipos |
 | `qfeeds_lookup` | 60 | Consultas de contexto Q-Feeds |
 | `soc_reputation` | 3600 | Reputación propia del SOC |

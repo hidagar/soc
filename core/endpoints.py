@@ -16,6 +16,8 @@
 - Aviso urgente al cliente (correo, Teams o Telegram, como los de los firewalls) cuando una detección queda
   «permitida» o «no pudo actuar», si tiene los avisos urgentes activos. Lleva equipo, sede, hora, amenaza,
   gravedad y resultado; nunca la ruta del archivo ni el usuario, que son datos internos (invariante 3).
+- Los intentos de acceso de esos mismos eventos (Windows Security, SSH, sudo, PAM) los cuenta
+  `endpoint_access`; la recuperación desde el indexador tiene un flujo para cada uno.
 """
 import hashlib
 import ipaddress
@@ -115,12 +117,18 @@ def observe(source, stamp, now, cache):
         cache[agent_id] = endpoint
     if stamp > endpoint.last_seen_at:
         EndpointAgent._base_manager.filter(pk=endpoint.pk).update(last_seen_at=stamp, name=name, ip=address)
-        endpoint.last_seen_at = stamp
-    event = defender_event(source)
+        endpoint.last_seen_at, endpoint.name, endpoint.ip = stamp, name, address
     # Sin asignar o anterior a la asignación: no se atribuye a ningún cliente (invariante 2).
-    if event is None or endpoint.status != 'assigned' or not endpoint.assigned_at or stamp < endpoint.assigned_at:
+    if endpoint.status != 'assigned' or not endpoint.assigned_at or stamp < endpoint.assigned_at:
         return True
-    _defender(endpoint, event[0], event[1], stamp, now, source)
+    event = defender_event(source)
+    if event is not None:
+        _defender(endpoint, event[0], event[1], stamp, now, source)
+        return True
+    from .endpoint_access import access_event, record
+    access = access_event(source)
+    if access is not None:
+        record(endpoint, access, stamp, now, source, cache)
     return True
 
 
@@ -414,9 +422,10 @@ def portal_summary(client, now=None):
                                                   action__in=('allowed', 'failed')).count()
     from .endpoint_vulnerabilities import client_summary
     vulnerabilities = client_summary(client)
+    from .endpoint_access import client_summary as access_summary
     return {'total': len(devices), 'protected': protected, 'attention': attention, 'recent_detections': recent,
             'unresolved_malware': unresolved, 'critical_vulnerability_devices': vulnerabilities['critical_devices'],
-            'vulnerabilities': vulnerabilities}
+            'vulnerabilities': vulnerabilities, 'access_after_failures': access_summary(client)['internet_success']}
 
 
 def customer_context(client, preview=False, now=None):
@@ -433,8 +442,10 @@ def customer_context(client, preview=False, now=None):
         detections.append({'observed_at': row.observed_at, 'device': name, 'site': site, 'threat': row.threat,
                            'severity': row.severity, 'result': PORTAL_RESULTS[row.action], 'urgent': row.urgent})
     from .endpoint_vulnerabilities import customer_rows
+    from . import endpoint_access
     return {**_portal_base(client, preview, 'endpoints'), 'devices': devices, 'detections': detections,
-            'summary': portal_summary(client, now), 'portal_days': PORTAL_DAYS, 'vulnerabilities': customer_rows(client)}
+            'summary': portal_summary(client, now), 'portal_days': PORTAL_DAYS, 'vulnerabilities': customer_rows(client),
+            'access': endpoint_access.customer_rows(client, now), 'access_days': endpoint_access.PORTAL_DAYS}
 
 
 @login_required
@@ -456,13 +467,29 @@ RECONCILE_ISSUE = 'platform:endpoint-reconciliation'
 USEFUL_EVENTS = sorted(DETECTED | ACTED | FAILED | SCAN_OFF | UPDATE_FAILED | {HEALTH, RTP_ON, RTP_OFF})
 
 
-def reconcile(now=None, pages=3, page_size=200, initial_days=1):
-    """Trabajo `endpoint_reconciliation`: recupera del indexador los eventos de Defender que no llegaron por
-    `alerts.json` (rotación, parada del lector). Ventana fija con 10 minutos de solape y cursor propio.
+def _stream(name):
+    """(estado, incidencia, filtro, días máximos hacia atrás, título, error) de cada flujo de recuperación."""
+    if name == 'access':
+        from .endpoint_access import MAX_AGE, recovery_filter
+        return ('endpoint-access-reconciliation', 'platform:endpoint-access-reconciliation', [recovery_filter()],
+                MAX_AGE.days, 'Recuperación de los accesos fallidos de equipos pendiente',
+                'No terminó la recuperación de los accesos fallidos de los equipos. Revisar el acceso al indexador; '
+                'el cursor se conserva.')
+    return (RECONCILE_STATE, RECONCILE_ISSUE, [{'term': {'data.win.system.channel': CHANNEL}},
+                                               {'terms': {'data.win.system.eventID': USEFUL_EVENTS}}],
+            90, 'Recuperación del antivirus de equipos pendiente',
+            'No terminó la recuperación de los eventos del antivirus. Revisar el acceso al indexador; el cursor se conserva.')
+
+
+def reconcile(now=None, pages=3, page_size=200, initial_days=1, stream='defender'):
+    """Trabajo `endpoint_reconciliation`: recupera del indexador los eventos de Defender (`stream='defender'`) y
+    los intentos de acceso (`stream='access'`) que no llegaron por `alerts.json` (rotación, parada del lector).
+    Ventana fija con 10 minutos de solape y cursor propio por flujo.
 
     Invariante 5: con una respuesta incompleta del indexador no se avanza el cursor. Volver a procesar un
-    evento ya visto no duplica nada (detecciones por identificador, estado por fecha, avisos por detección;
-    un aviso de algo antiguo queda caducado sin enviarse).
+    evento ya visto no duplica nada (detecciones por identificador, estado por fecha, avisos por detección,
+    intentos por identificador de alerta; un aviso de algo antiguo queda caducado sin enviarse). Los accesos no
+    miran más de 25 días atrás: los identificadores contados se guardan 30.
     """
     import json
     from django.db.models import F
@@ -472,14 +499,15 @@ def reconcile(now=None, pages=3, page_size=200, initial_days=1):
     from .operations import set_issue
     from .reporting import _search, indexer_authorization
     now = now or timezone.now()
-    state, _ = WorkerState.objects.get_or_create(name=RECONCILE_STATE)
+    state_name, issue, filters, max_days, issue_title, error_text = _stream(stream)
+    state, _ = WorkerState.objects.get_or_create(name=state_name)
     state.last_run_at = now
     state.save(update_fields=['last_run_at'])
     details = dict(state.details)
     if not details.get('end'):
         previous = parse_datetime(details.get('completed_until', ''))
         start = (previous - timedelta(minutes=10)) if previous else now - timedelta(days=initial_days)
-        start = max(start, now - timedelta(days=90))
+        start = max(start, now - timedelta(days=max_days))
         details = {'start': start.isoformat(), 'end': (now - timedelta(minutes=1)).isoformat()}
     firewall_agents = set(Device.objects.filter(log_method='wazuh_agent').exclude(wazuh_identifier='')
                           .values_list('wazuh_identifier', flat=True))
@@ -489,9 +517,7 @@ def reconcile(now=None, pages=3, page_size=200, initial_days=1):
         for _ in range(pages):
             body = {'size': page_size, 'track_total_hits': False,
                     'query': {'bool': {'filter': [
-                        {'term': {'data.win.system.channel': CHANNEL}},
-                        {'terms': {'data.win.system.eventID': USEFUL_EVENTS}},
-                        {'range': {'timestamp': {'gte': details['start'], 'lt': details['end']}}}],
+                        *filters, {'range': {'timestamp': {'gte': details['start'], 'lt': details['end']}}}],
                         'must_not': [{'term': {'agent.id': '000'}}]}},
                     'sort': [{'timestamp': 'asc'}, {'id': {'order': 'asc', 'unmapped_type': 'keyword'}}, {'_index': 'asc'}],
                     '_source': ['id', 'timestamp', 'agent', 'rule', 'data']}
@@ -525,9 +551,9 @@ def reconcile(now=None, pages=3, page_size=200, initial_days=1):
                 state.save()
             if 'completed_until' in details:
                 break
-        OperationalIssue.objects.filter(key=RECONCILE_ISSUE, active=True).update(active=False, resolved_at=now)
+        OperationalIssue.objects.filter(key=issue, active=True).update(active=False, resolved_at=now)
     except Exception:
-        state.error = 'No terminó la recuperación de los eventos del antivirus. Revisar el acceso al indexador; el cursor se conserva.'
+        state.error = error_text
         state.save(update_fields=['error'])
-        set_issue(RECONCILE_ISSUE, 'Recuperación del antivirus de equipos pendiente', details=state.error, now=now)
+        set_issue(issue, issue_title, details=state.error, now=now)
     return recovered

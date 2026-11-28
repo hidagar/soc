@@ -357,7 +357,7 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
   - Un aviso urgente de algo que llega con más de 2 horas queda caducado, sin enviarse.
   - Los agentes de firewalls quedan para la recuperación de los firewalls.
 - Las rutas y usuarios de las detecciones son datos internos.
-- En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus».
+- En Linux o macOS, el agente informa pero no hay Defender: esos equipos quedan «Sin datos del antivirus». Sus accesos fallidos (SSH, sudo, PAM) sí cuentan: [accesos fallidos](#accesos-fallidos-a-los-equipos-28112026).
 
 ## Vulnerabilidades de los equipos (28/11/2026)
 
@@ -368,6 +368,21 @@ Nunca se publican el identificador del agente, la IP, la ruta, el proceso ni el 
 - **SOC:** «Cobertura y salud › Vulnerabilidades de equipos»: totales por gravedad, resumen por cliente y «Qué actualizar primero», agrupado por CVE y programa con los equipos, versiones y clientes afectados, y el enlace a NVD.
 - **Cliente** (con «Portal: antivirus de equipos»): en «Equipos», la sección «Actualizaciones pendientes» con las críticas y altas de sus equipos (equipo, programa y versión, CVE con enlace a NVD, gravedad y puntuación) y el número de medias y bajas. En el inicio, «Actualizar N equipos con vulnerabilidades críticas». Proyección explícita: sin el texto del proveedor, identificadores de agente ni datos de otros clientes. Una vulnerabilidad conocida no prueba que se haya explotado (invariante 4).
 - **Conservación:** las corregidas se borran a los 365 días.
+
+## Accesos fallidos a los equipos (28/11/2026)
+
+`core/endpoint_access.py`, modelos `EndpointAccessAlert` y `EndpointAccessEvent` (migración 0094). Usa los mismos eventos de los agentes de PC y servidores que el antivirus (`endpoints.observe`), sin cambiar la configuración de los agentes: Windows envía su canal Security por defecto y Linux su registro de autenticación.
+- **Qué cuenta**, solo de equipos asignados y desde su asignación (invariante 2):
+  - Windows: 4625 (inicio de sesión fallido, también escritorio remoto) y 4771 (preautenticación Kerberos fallida, en los controladores de dominio); 4740 (cuenta bloqueada); 4624 (inicio de sesión correcto).
+  - Cualquier sistema, por los grupos de las reglas de Wazuh: `authentication_failed`, `authentication_failures` (Wazuh ya correlacionó varios fallos), `authentication_success` y la regla 40112 («varios fallos seguidos de un acceso correcto»). Así entran SSH, sudo, PAM y lo que Wazuh decodifique, sin depender del fabricante.
+  - Se ignoran las cuentas de equipo (`…$`) y del sistema sin origen.
+- **Ráfaga:** mismo equipo y mismo origen (o la misma cuenta si el evento no trae origen, como sudo), con menos de una hora entre intentos. Guarda las cuentas probadas (hasta 20) y si el origen es de Internet. Cada alerta de Wazuh se cuenta una vez por su identificador (`EndpointAccessEvent`): releer `alerts.json` o recuperar del indexador no infla los intentos. Más de 5.000 intentos en una ráfaga se muestran como «5000+».
+- **Gravedad**, que solo empeora: fallos aislados (menos de 5 y sin correlación de Wazuh; no se muestran) → fallos repetidos → cuenta bloqueada (el 4740 se une a la ráfaga que probó esa cuenta) → acceso correcto tras los fallos (desde el mismo origen, o de la misma cuenta sin origen, en los 30 minutos siguientes al último fallo, o la regla 40112). Un acceso correcto tras fallos puede ser el propio usuario y un fallo no prueba un ataque (invariante 4).
+- **SOC:** «Cobertura y salud › Accesos a equipos»: ráfagas con equipo, origen, cuentas, intentos, bloqueo y acceso; «Revisado» (vuelve a la cola si empeora), «Abrir incidencia» y «Marcar revisados los fallos repetidos» en bloque (ruido habitual de un acceso remoto expuesto). La bandeja de trabajo y el contador del menú muestran los accesos tras fallos y las cuentas bloqueadas.
+- **Aviso urgente** (correo, Teams o Telegram, si el cliente tiene los avisos activos): solo el acceso correcto tras los fallos **desde una IP de Internet**, uno por ráfaga. Lleva equipo, sede, hora, número de intentos y la IP pública; explica que puede ser el usuario y qué hacer. Nunca la cuenta ni la IP interna. Desde la red interna va solo a la cola del SOC.
+- **Cliente** (con «Portal: antivirus de equipos»): en «Equipos», «Intentos de acceso fallidos» de 30 días: equipo, sede, qué pasó, número de intentos, si vino de Internet (con la IP pública) o de la red interna y si el SOC lo ha revisado. Sin cuentas ni IP internas (invariante 3). El inicio pide confirmar los accesos tras fallos desde Internet sin revisar.
+- **Recuperación:** el trabajo `endpoint_reconciliation` recupera también, con su propio cursor (`endpoint-access-reconciliation`), los fallos, correlaciones, bloqueos y la regla 40112 que no llegaron por `alerts.json`. Con una respuesta incompleta no avanza (invariante 5) y abre `platform:endpoint-access-reconciliation`. No recupera los accesos correctos sueltos (son demasiados) y no mira más de 25 días atrás.
+- **Conservación:** identificadores contados, 30 días; fallos aislados, 7 días; ráfagas revisadas sin incidencia, con el plazo de las evidencias.
 
 ## Reputación propia del SOC
 

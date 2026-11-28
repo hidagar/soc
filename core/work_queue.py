@@ -76,6 +76,7 @@ def work_queue(request):
         'customer_requests': _requests(selected),
         'threat_destinations': _threat_destinations(request, selected),
         'endpoint_detections': _endpoint_detections(request, selected),
+        'endpoint_access': _endpoint_access(request, selected),
     })
 
 
@@ -84,6 +85,14 @@ def _endpoint_detections(request, selected):
     if not request.user.has_perm('core.manage_operations'):
         return []
     from .endpoints import review_queue
+    return review_queue(int(selected) if selected.isdigit() else None)[:20]
+
+
+def _endpoint_access(request, selected):
+    """Accesos correctos tras fallos y cuentas bloqueadas en equipos por revisar (solo con permiso de operaciones)."""
+    if not request.user.has_perm('core.manage_operations'):
+        return []
+    from .endpoint_access import review_queue
     return review_queue(int(selected) if selected.isdigit() else None)[:20]
 
 

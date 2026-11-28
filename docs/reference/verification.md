@@ -50,6 +50,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_dns_resolver.py](../../core/test_dns_resolver.py) | 10 |
 | [core/test_durable_operations.py](../../core/test_durable_operations.py) | 22 |
 | [core/test_email_auth.py](../../core/test_email_auth.py) | 6 |
+| [core/test_endpoint_access.py](../../core/test_endpoint_access.py) | 25 |
 | [core/test_endpoint_portal.py](../../core/test_endpoint_portal.py) | 4 |
 | [core/test_endpoint_vulnerabilities.py](../../core/test_endpoint_vulnerabilities.py) | 8 |
 | [core/test_endpoints.py](../../core/test_endpoints.py) | 21 |
@@ -235,3 +236,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0091_unifi_preventiva_salida.py](../../core/migrations/0091_unifi_preventiva_salida.py)
 - [core/migrations/0092_reputacion_en_listas.py](../../core/migrations/0092_reputacion_en_listas.py)
 - [core/migrations/0093_vulnerabilidades_equipos.py](../../core/migrations/0093_vulnerabilidades_equipos.py)
+- [core/migrations/0094_accesos_equipos.py](../../core/migrations/0094_accesos_equipos.py)

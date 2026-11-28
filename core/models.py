@@ -127,6 +127,7 @@ class UrgentAlert(models.Model):
         SECURITY_CRITICAL = "security_critical", "Seguridad crítica"
         AVAILABILITY = "availability", "Caída de Internet"
         ENDPOINT_MALWARE = "endpoint_malware", "Malware en un equipo"
+        ENDPOINT_ACCESS = "endpoint_access", "Acceso a un equipo tras intentos fallidos"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pendiente"
@@ -479,7 +480,8 @@ from .connectivity_models import ConnectivityEvent
 from .chat_models import ChatChannel, ChatNotice
 from .vulnerability_models import DeviceExposure, VulnerabilityAdvisory, VulnerabilityRecord
 from .request_models import CustomerRequest, CustomerRequestAttachment, CustomerRequestEntry
-from .endpoint_models import EndpointAgent, EndpointDetection, EndpointVulnerability
+from .endpoint_models import (EndpointAccessAlert, EndpointAccessEvent, EndpointAgent, EndpointDetection,
+                              EndpointVulnerability)
 from .policy_models import PolicyProposal
 from .vpn_security import VpnAccessEvent
 from .access_models import UserInvitation,SecureLogChannel,SecureLogReceipt,SecureLogMessage

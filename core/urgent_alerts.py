@@ -259,6 +259,20 @@ def content(alert):
         return {"alert": alert, "client": client, "headline": headline, "meaning": meaning, "actions": actions,
                 "action_label": "permitida" if allowed else "no pudo actuar", "action_title": "Resultado del antivirus",
                 "signature_title": "Amenaza"}
+    elif alert.kind == UrgentAlert.Kind.ENDPOINT_ACCESS:
+        meaning = ("El equipo registró varios intentos de acceso fallidos desde una dirección de Internet y después un "
+                   "acceso correcto desde esa misma dirección. Puede ser el propio usuario, que se equivocó de contraseña, "
+                   "o alguien que la ha adivinado. Esto no confirma que el equipo esté comprometido.")
+        actions = [
+            "Confirmar con el usuario del equipo si fue él quien se conectó a esa hora y desde dónde.",
+            "Si nadie lo reconoce: cambiar la contraseña de la cuenta, cerrar sus sesiones abiertas y avisar al SOC; "
+            "el equipo SOC tiene la cuenta y el detalle.",
+            "Revisar si el acceso remoto a este equipo (escritorio remoto, SSH) debe estar abierto a Internet; "
+            "lo recomendable es usarlo solo a través de la VPN.",
+        ]
+        return {"alert": alert, "client": client, "headline": "Acceso a un equipo tras varios intentos fallidos desde Internet",
+                "meaning": meaning, "actions": actions, "action_label": "acceso correcto",
+                "action_title": "Resultado", "signature_title": "Qué se registró"}
     else:
         headline = "Evento de seguridad prioritario"
         meaning = "La política del SOC considera prioritario revisar este evento. El nivel Wazuh, la acción del motor y el impacto deben comprobarse en la evidencia."
