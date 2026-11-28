@@ -116,3 +116,33 @@ class UnifiDomainTests(UnifiTestCase):
         self.assertEqual(for_device(self.device, 'dns')[0], 'partial')
         page = self.client.get(reverse('blocklist_qfeeds'))
         self.assertContains(page, 'UniFi sin activar')
+
+
+class UnifiPreventiveOutboundTests(UnifiTestCase):
+    def setUp(self):
+        super().setUp()
+        BlocklistFeed.objects.filter(pk=self.feed.pk).update(qfeeds_preventive=True)
+        patcher = mock.patch.object(qfeeds_distribution, 'servable_preventive', return_value=['45.155.205.10', '185.220.101.0/28'])
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_outbound_preventive_list_blocks_internal_to_external_with_its_own_list(self):
+        url = self.login()
+        self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'qout'})
+        binding = UnifiBlocklistBinding.objects.get(direction='qout')
+        [policy] = self.console.policy_posts
+        self.assertEqual((policy['enabled'], policy['name']), (False, 'SOC Bloqueo preventivo salida Q-Feeds Internal→External'))
+        self.assertEqual((policy['source']['zoneId'], policy['destination']['zoneId']), (ZONES['Internal'], ZONES['External']))
+        self.assertEqual(policy['destination']['trafficFilter']['ipAddressFilter']['trafficMatchingListId'], binding.list_id)
+        self.assertNotIn('trafficFilter', policy['source'])
+        self.assertEqual(unifi_blocklist.desired(binding), ['185.220.101.0/28', '45.155.205.10'])
+        self.client.post(url, {'action': 'unifi_policy_enable', 'binding': binding.pk})
+        ChangePlan.objects.all().delete()
+        self.assertIn('UDM-BCM', client_protection(self.company)['preventive']['firewalls'])
+
+    def test_needs_the_preventive_option(self):
+        BlocklistFeed.objects.filter(pk=self.feed.pk).update(qfeeds_preventive=False)
+        url = self.login()
+        response = self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': 'qout'})
+        self.assertContains(response, 'Activa primero la lista preventiva')
+        self.assertFalse(UnifiBlocklistBinding.objects.exists())

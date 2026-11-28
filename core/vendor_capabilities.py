@@ -44,7 +44,7 @@ MATRIX = {
         'logs': ('auto', 'Activity Logging gestionado y verificado por la API de Site Manager.'),
         'blocklist': ('auto', 'El SOC escribe la lista IPv4 y crea sus políticas desactivadas (máximo 4.000 IPv4).'),
         'blocklist_out': ('auto', 'Igual que la de entrada, con política de salida.'),
-        'preventive': ('partial', 'Lista y políticas propias, solo de entrada y con las 4.000 primeras IPv4.'),
+        'preventive': ('partial', 'Listas y políticas propias de entrada y de salida, con las 4.000 primeras IPv4.'),
         'dns': ('partial', 'Política de bloqueo por dominios del SOC (UniFi Network 10.1 o posterior, también 11), creada desactivada, '
                            'con los 1.000 dominios más recientes. Bloquea la conexión, no la consulta DNS, y no se mide.'),
         'measure': ('partial', 'Sin contadores por política: indicio a partir de las detecciones de IPs de la lista.'),

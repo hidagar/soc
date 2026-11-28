@@ -182,9 +182,13 @@ def candidates(device):
     return result
 
 
+# Preventiva de Q-Feeds: entrada ('qfeeds') y salida ('qout'), con la misma lista del SOC en dos listas de UniFi.
+PREVENTIVE = ('qfeeds', 'qout')
 NAMES = {'in': 'SOC Bloqueo entrada', 'out': 'SOC Bloqueo salida C2', 'qfeeds': 'SOC Bloqueo preventivo Q-Feeds',
+         'qout': 'SOC Bloqueo preventivo salida Q-Feeds',
          DNS: 'SOC Bloqueo dominios Q-Feeds'}
-LABELS = {'in': 'entrada', 'out': 'salida C2', 'qfeeds': 'preventivo Q-Feeds', DNS: 'dominios Q-Feeds'}
+LABELS = {'in': 'entrada', 'out': 'salida C2', 'qfeeds': 'preventivo Q-Feeds', 'qout': 'preventivo salida Q-Feeds',
+          DNS: 'dominios Q-Feeds'}
 
 
 def create_list(device, direction):
@@ -211,7 +215,8 @@ def create_list(device, direction):
 
 # Zonas del sistema de UniFi por dirección: (origen, destino). La lista va en el lado externo.
 FLOWS = {'in': (('External', 'Internal'), ('External', 'Gateway')), 'out': (('Internal', 'External'),),
-         'qfeeds': (('External', 'Internal'), ('External', 'Gateway')), DNS: (('Internal', 'External'),)}
+         'qfeeds': (('External', 'Internal'), ('External', 'Gateway')), 'qout': (('Internal', 'External'),),
+         DNS: (('Internal', 'External'),)}
 
 
 def _data(result):
@@ -463,7 +468,8 @@ def desired(binding, now=None):
         domains = servable_dns(feed)[:DNS_MAX_ITEMS] if feed and binding.enabled and binding.device.active else []
         return sorted(domains) or [DNS_PLACEHOLDER]
     if feed and binding.enabled and binding.device.active:
-        served = servable_preventive(feed) if binding.direction == 'qfeeds' else servable(feed, now, outbound=binding.direction == 'out')
+        served = (servable_preventive(feed) if binding.direction in PREVENTIVE
+                  else servable(feed, now, outbound=binding.direction == 'out'))
         for value in served:
             if ipaddress.ip_network(value, strict=False).version == 4:
                 values.append(value)

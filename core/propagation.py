@@ -119,7 +119,7 @@ def consumers(feed, now):
                      'exact': bool(own), 'margin': margin, 'plan': plan})
     for binding in UnifiBlocklistBinding._base_manager.filter(device__site__client=feed.client, device__active=True,
                                                               enabled=True).select_related('device'):
-        kind = {'in': 'in', 'out': 'out', 'qfeeds': 'preventive', 'dns': 'dns'}[binding.direction]
+        kind = {'in': 'in', 'out': 'out', 'qfeeds': 'preventive', 'qout': 'preventive', 'dns': 'dns'}[binding.direction]
         rows.append({'device': binding.device, 'kind': kind, 'how': 'Escritura (UniFi)',
                      'received_at': None if binding.error else binding.synced_at, 'exact': True, 'margin': MARGIN,
                      'error': binding.error})

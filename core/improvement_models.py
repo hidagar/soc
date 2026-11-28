@@ -248,7 +248,7 @@ class UnifiBlocklistBinding(models.Model):
     que la usa; el SOC solo sustituye las direcciones. `item_format` se aprende de la propia lista.
     """
     device=models.ForeignKey('core.Device',on_delete=models.CASCADE,related_name='unifi_blocklists')
-    direction=models.CharField(max_length=8,default='in',choices=[('in','Entrada'),('out','Salida (C2)'),('qfeeds','Preventiva Q-Feeds'),('dns','Dominios Q-Feeds')])
+    direction=models.CharField(max_length=8,default='in',choices=[('in','Entrada'),('out','Salida (C2)'),('qfeeds','Preventiva Q-Feeds'),('qout','Preventiva Q-Feeds de salida'),('dns','Dominios Q-Feeds')])
     site_id=models.CharField(max_length=36)
     list_id=models.CharField(max_length=36)
     list_name=models.CharField(max_length=240)

@@ -120,7 +120,7 @@ Los nombres ayudan a navegar; un método presente no significa que se haya ejecu
 | [core/test_threat_map.py](../../core/test_threat_map.py) | 11 |
 | [core/test_unifi_api_schema.py](../../core/test_unifi_api_schema.py) | 4 |
 | [core/test_unifi_blocklist.py](../../core/test_unifi_blocklist.py) | 22 |
-| [core/test_unifi_dominios.py](../../core/test_unifi_dominios.py) | 6 |
+| [core/test_unifi_dominios.py](../../core/test_unifi_dominios.py) | 8 |
 | [core/test_unifi_policy_details.py](../../core/test_unifi_policy_details.py) | 12 |
 | [core/test_unifi_zone_scope.py](../../core/test_unifi_zone_scope.py) | 18 |
 | [core/test_ux.py](../../core/test_ux.py) | 4 |
@@ -230,3 +230,4 @@ No editar migraciones aplicadas; ver dependencias/operaciones reales.
 - [core/migrations/0088_unifi_dominios.py](../../core/migrations/0088_unifi_dominios.py)
 - [core/migrations/0089_descargas_listas.py](../../core/migrations/0089_descargas_listas.py)
 - [core/migrations/0090_dns_del_soc.py](../../core/migrations/0090_dns_del_soc.py)
+- [core/migrations/0091_unifi_preventiva_salida.py](../../core/migrations/0091_unifi_preventiva_salida.py)

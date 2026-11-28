@@ -90,7 +90,7 @@ class UnifiRequestsMatchTheOfficialSchema(UnifiTestCase):
 
     def exercise(self):
         url = self.login()
-        for direction in ('in', 'out', 'qfeeds', 'dns'):
+        for direction in ('in', 'out', 'qfeeds', 'qout', 'dns'):
             self.client.post(url, {'action': 'unifi_create', 'device': self.device.pk, 'direction': direction})
         for binding in UnifiBlocklistBinding.objects.all():
             self.client.post(url, {'action': 'unifi_policy_enable', 'binding': binding.pk})
@@ -100,7 +100,7 @@ class UnifiRequestsMatchTheOfficialSchema(UnifiTestCase):
         self.exercise()
         kinds = {(kind, method) for kind, method, _, _ in self.sent}
         self.assertEqual(kinds, {('list', 'POST'), ('list', 'PUT'), ('policy', 'POST'), ('policy', 'PUT')})
-        self.assertEqual(UnifiBlocklistBinding.objects.count(), 4)
+        self.assertEqual(UnifiBlocklistBinding.objects.count(), 5)
         for version in VERSIONS:
             defs = schemas(version)
             for kind, method, path, body in self.sent:

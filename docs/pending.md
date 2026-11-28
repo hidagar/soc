@@ -89,7 +89,8 @@ Lista única de lo que falta, actualizada el **20/11/2026**. Reúne los «Pendie
 - Hillstone automático (libretas, políticas, contadores, lista antibotnet) cuando se tenga su guía REST.
 - Hecho el 28/11: Grandstream GCC revisado (sin listas por URL ni escritura por API).
 - Hecho el 29/11: DNS del SOC por la VPN de sedes para el GCC (y cualquier sede con la VPN).
-- Q-Feeds: preventiva de salida en UniFi (hoy solo entrada); TAXII 2.1 (hashes) si se contrata Enterprise.
+- Hecho el 28/11: preventiva de Q-Feeds de salida en UniFi.
+- Q-Feeds: TAXII 2.1 (hashes) si se contrata Enterprise.
 - Reputación propia: distribuirla como opción de la lista de bloqueo cuando la medida lo justifique.
 - CrowdSec: decidir si el motor comparte señales; decidir qué reputación se publica al cliente.
 

@@ -272,7 +272,7 @@ No se usan, a propósito:
 - las IPs y redes de las listas vigentes de Q-Feeds **aunque aún no hayan atacado a ningún cliente**: primero las que ya atacaron a alguno y después las más recientes;
 - nunca IPs de clientes o del SOC, las excepciones de **cualquier** cliente, los destinos revisados «Sin riesgo» ni redes más amplias que /24 (IPv4) o /48 (IPv6);
 - URL `/feeds/bloqueo/<cliente>/<token>/qfeeds/`. En OPNsense por API, «Preparar bloqueo preventivo» crea con el control de cambios una tabla por URL propia (`SOC_QFEEDS_<plan>`) y una regla de entrada desactivada; hay otra plantilla para la salida. Activarla sigue el control de cambios (MFA, punto de restauración, confirmación);
-- en UniFi, «Lista preventiva Q-Feeds» en «Bloqueo en UniFi»: lista y políticas propias (External→Internal y External→Gateway), con las 4.000 primeras IPv4;
+- en UniFi, «Lista preventiva Q-Feeds» en «Bloqueo en UniFi»: lista y políticas propias (External→Internal y External→Gateway), con las 4.000 primeras IPv4. Desde el 28/11/2026 también «Lista preventiva Q-Feeds de salida»: otra lista con el mismo contenido y su política Internal→External, desactivada como las demás;
 - si la lista supera el máximo de entradas de tablas de OPNsense (Firewall › Ajustes › Avanzado), el firewall no la carga entera: la página avisa cuando «IPs cargadas» queda por debajo del 90 % de lo publicado.
 
 **Dominios para el DNS** («Publicar los dominios de Q-Feeds para el DNS», desmarcada por defecto):
@@ -402,7 +402,7 @@ Criterio acordado con el usuario el 27/11/2026: cada función del SOC es común 
 |---|---|---|---|---|
 | Registros y detecciones | Automático | Automático | Guiado | Guiado |
 | Lista de bloqueo de entrada y salida | Automático (guiado sin API) | Automático | Guiado: filtrado perimetral (entrada) y lista dinámica externa (salida) | No disponible |
-| Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada, 4.000 IPv4 | Guiado | No disponible |
+| Lista preventiva de Q-Feeds | Automático (guiado sin API) | Parcial: entrada y salida, 4.000 IPv4 | Guiado | No disponible |
 | Bloqueo de dominios | Automático (25.7 y API; guiado si no) | Parcial: política por dominios, 1.000, sin medición | Por comprobar | Guiado: DNS del SOC por la VPN de sedes |
 | Medición de lo bloqueado | Automático (DNS: consultas, 25.7) | Parcial: indicio por detecciones | Por comprobar | No disponible |
 | Cambios de política | Automático | Guiado | Guiado | Guiado |

@@ -772,14 +772,14 @@ def unifi_action(request, client, feed, action):
         return redirect('blocklist_detail', client_pk=client.pk)
     device = get_object_or_404(_unifi_devices(client), pk=_posted_pk(request, 'device'))
     direction = request.POST.get('direction', 'in')
-    if direction not in ('in', 'out', 'qfeeds', 'dns'):
+    if direction not in ('in', 'out', 'qfeeds', 'qout', 'dns'):
         raise Http404
     if direction == 'dns':
         return unifi_create_domains(request, client, feed, device) if action == 'unifi_create' else _unifi_dns_only(request)
     if direction == 'out' and action == 'unifi_create' and not feed.outbound_enabled:
         request.unifi_error = 'Activa primero la lista de salida (C2) de este cliente.'
         return None
-    if direction == 'qfeeds' and action != 'unifi_lists' and not feed.qfeeds_preventive:
+    if direction in ('qfeeds', 'qout') and action != 'unifi_lists' and not feed.qfeeds_preventive:
         request.unifi_error = 'Activa primero la lista preventiva de Q-Feeds de este cliente.'
         return None
     try:

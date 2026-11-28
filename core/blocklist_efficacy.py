@@ -238,7 +238,7 @@ def client_protection(client, first_day=None, last_day=None, now=None):
     feed = BlocklistFeed._base_manager.filter(client=client, enabled=True, stopped=False).first()
     if not feed:
         return None
-    keys = {'in': 'inbound', 'out': 'outbound', 'preventive': 'preventive', 'qfeeds': 'preventive'}
+    keys = {'in': 'inbound', 'out': 'outbound', 'preventive': 'preventive', 'qfeeds': 'preventive', 'qout': 'preventive'}
     available = {'inbound': True, 'outbound': feed.outbound_enabled, 'preventive': feed.qfeeds_preventive}
 
     def item_for(key):
